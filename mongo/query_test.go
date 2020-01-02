@@ -3,16 +3,34 @@ package mongo
 import (
 	"context"
 	"errors"
-	"os"
 	"testing"
 	"time"
 
 	mgo "github.com/globalsign/mgo"
 	"github.com/globalsign/mgo/bson"
 
-	"github.com/ONSdigital/go-ns/log"
+	"github.com/ONSdigital/log.go/log"
 	. "github.com/smartystreets/goconvey/convey"
 )
+
+const (
+	returnContextKey = "want_return"
+	early            = "early"
+)
+
+type ungraceful struct{}
+
+func (t ungraceful) shutdown(ctx context.Context, session *mgo.Session, closedChannel chan bool) {
+	time.Sleep(timeLeft + (100 * time.Millisecond))
+	if ctx.Value(returnContextKey) == early || ctx.Err() != nil {
+		return
+	}
+
+	session.Close()
+
+	closedChannel <- true
+	return
+}
 
 var (
 	hasSessionSleep bool
@@ -21,11 +39,6 @@ var (
 	Collection = "test"
 	Database   = "test"
 	URI        = "localhost:27017"
-)
-
-const (
-	returnContextKey = "want_return"
-	early            = "early"
 )
 
 // Mongo represents a simplistic MongoDB configuration.
@@ -54,105 +67,6 @@ type testNamespacedModel struct {
 	Nixed   Times  `bson:"nixed,omitempty"`
 }
 
-type ungraceful struct{}
-
-func (t ungraceful) shutdown(ctx context.Context, session *mgo.Session, closedChannel chan bool) {
-	time.Sleep(timeLeft + (100 * time.Millisecond))
-	if ctx.Value(returnContextKey) == early || ctx.Err() != nil {
-		return
-	}
-
-	session.Close()
-
-	closedChannel <- true
-	return
-}
-
-func TestSuccessfulCloseMongoSession(t *testing.T) {
-	_, err := setupSession()
-	if err != nil {
-		log.Info("mongo instance not available, skip close tests", log.Data{"error": err})
-		return
-	}
-
-	if err = cleanupTestData(session.Copy()); err != nil {
-		log.ErrorC("Failed to delete test data", err, nil)
-	}
-
-	Convey("Safely close mongo session", t, func() {
-		if !hasSessionSleep {
-			Convey("with no context deadline", func() {
-				ctx, cancel := context.WithCancel(context.Background())
-				defer cancel()
-				err := Close(ctx, session.Copy())
-
-				So(err, ShouldBeNil)
-			})
-		}
-
-		Convey("within context timeout (deadline)", func() {
-			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-			defer cancel()
-			err := Close(ctx, session.Copy())
-
-			So(err, ShouldBeNil)
-		})
-
-		Convey("within context deadline", func() {
-			time := time.Now().Local().Add(time.Second * time.Duration(2))
-			ctx, cancel := context.WithDeadline(context.Background(), time)
-			defer cancel()
-			err := Close(ctx, session.Copy())
-
-			So(err, ShouldBeNil)
-		})
-	})
-
-	if err = setUpTestData(session.Copy()); err != nil {
-		log.ErrorC("Failed to insert test data, skipping tests", err, nil)
-		os.Exit(1)
-	}
-
-	Convey("Timed out from safely closing mongo session", t, func() {
-		Convey("with no context deadline", func() {
-			start = ungraceful{}
-			copiedSession := session.Copy()
-			go func() {
-				_ = slowQueryMongo(copiedSession)
-			}()
-			// Sleep for half a second for mongo query to begin
-			time.Sleep(500 * time.Millisecond)
-
-			ctx := context.WithValue(context.Background(), returnContextKey, early)
-			err := Close(ctx, copiedSession)
-
-			So(err, ShouldNotBeNil)
-			So(err, ShouldResemble, errors.New("closing mongo timed out"))
-			time.Sleep(500 * time.Millisecond)
-		})
-
-		Convey("with context deadline", func() {
-			copiedSession := session.Copy()
-			go func() {
-				_ = slowQueryMongo(copiedSession)
-			}()
-			// Sleep for half a second for mongo query to begin
-			time.Sleep(500 * time.Millisecond)
-
-			ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
-			defer cancel()
-			err := Close(ctx, copiedSession)
-
-			So(err, ShouldNotBeNil)
-			So(err, ShouldResemble, context.DeadlineExceeded)
-		})
-	})
-
-	if err = cleanupTestData(session.Copy()); err != nil {
-		log.ErrorC("Failed to delete test data", err, nil)
-	}
-}
-
 func TestSuccessfulMongoDates(t *testing.T) {
 
 	Convey("ensure adds all requested time fields", t, func() {
@@ -178,7 +92,7 @@ func TestSuccessfulMongoDates(t *testing.T) {
 			So(queryWithTimestamps, ShouldResemble, bson.M{
 				"currant.unique_timestamp": anotherTimestamp,
 				"nixed.unique_timestamp":   timestamp,
-				"foo": bson.M{"key": 12345},
+				"foo":                      bson.M{"key": 12345},
 			})
 
 		})
@@ -221,12 +135,12 @@ func TestSuccessfulMongoDates(t *testing.T) {
 func TestSuccessfulMongoDatesViaMongo(t *testing.T) {
 	session = nil
 	if _, err := setupSession(); err != nil {
-		log.Info("mongo instance not available, skip timestamp tests", log.Data{"error": err})
+		log.Event(nil, "mongo instance not available, skip timestamp tests", log.Error(err))
 		return
 	}
 
 	if err := setUpTestData(session.Copy()); err != nil {
-		log.ErrorC("Failed to insert test data, skipping tests", err, nil)
+		log.Event(nil, "failed to insert test data, skipping tests", log.Error(err))
 		t.FailNow()
 	}
 
@@ -316,7 +230,7 @@ func TestSuccessfulMongoDatesViaMongo(t *testing.T) {
 	})
 
 	if err := cleanupTestData(session.Copy()); err != nil {
-		log.ErrorC("Failed to delete test data", err, nil)
+		log.Event(nil, "failed to delete test data", log.Error(err))
 	}
 }
 
@@ -397,7 +311,7 @@ func setupSession() (*Mongo, error) {
 	}
 
 	if session != nil {
-		return nil, errors.New("Failed to initialise mongo")
+		return nil, errors.New("failed to initialise mongo")
 	}
 
 	var err error

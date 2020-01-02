@@ -1,11 +1,9 @@
 package mongo
 
 import (
-	"context"
 	"errors"
 	"time"
 
-	mgo "github.com/globalsign/mgo"
 	"github.com/globalsign/mgo/bson"
 )
 
@@ -15,56 +13,11 @@ const (
 	UniqueTimestampKey = "unique_timestamp"
 )
 
-// keep tags in sync with above const
+// Timestamps represent an object containing time stamps
+// keep these in sync with above const
 type Timestamps struct {
 	LastUpdated     time.Time            `bson:"last_updated,omitempty"     json:"last_updated,omitempty"`
 	UniqueTimestamp *bson.MongoTimestamp `bson:"unique_timestamp,omitempty" json:"-"`
-}
-
-// Shutdown represents an interface to the shutdown method
-type Shutdown interface {
-	shutdown(ctx context.Context, session *mgo.Session, closedChannel chan bool)
-}
-
-type graceful struct{}
-
-func (t graceful) shutdown(ctx context.Context, session *mgo.Session, closedChannel chan bool) {
-	session.Close()
-
-	closedChannel <- true
-	return
-}
-
-var (
-	start    Shutdown = graceful{}
-	timeLeft          = 1000 * time.Millisecond
-)
-
-// Close represents mongo session closing within the context deadline
-func Close(ctx context.Context, session *mgo.Session) error {
-	closedChannel := make(chan bool)
-	defer close(closedChannel)
-
-	if deadline, ok := ctx.Deadline(); ok {
-		// Add some time to timeLeft so case where ctx.Done in select
-		// statement below gets called before time.After(timeLeft) gets called.
-		// This is so the context error is returned over hardcoded error.
-		timeLeft = deadline.Sub(time.Now()) + (10 * time.Millisecond)
-	}
-
-	go func() {
-		start.shutdown(ctx, session, closedChannel)
-		return
-	}()
-
-	select {
-	case <-time.After(timeLeft):
-		return errors.New("closing mongo timed out")
-	case <-closedChannel:
-		return nil
-	case <-ctx.Done():
-		return ctx.Err()
-	}
 }
 
 // withCurrentDate creates or adds $currentDate to updateDoc - populates that with key:val
