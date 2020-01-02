@@ -29,6 +29,7 @@ import mongoHealth "github.com/ONSdigital/dp-mongo/health"
     mongoHealth := mongoHealth.CheckClient{
         client: mongoClient,
     }
+...
 ```
 
 Call mongo health checker with `mongoHealth.Checker(context.Background())` and this will return a check object like so:
