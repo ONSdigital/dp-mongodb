@@ -28,6 +28,7 @@ import mongoHealth "github.com/ONSdigital/dp-mongo/health"
 
     mongoHealth := mongoHealth.CheckClient{
         client: mongoClient,
+        healthcheck: mongoHealth.Healthcheck,
     }
 ...
 ```
