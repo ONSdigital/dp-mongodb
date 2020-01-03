@@ -11,6 +11,8 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 )
 
+var errUnableToConnect = errors.New("unable to connect to mongo datastore")
+
 func TestHealth_GetCheck(t *testing.T) {
 	defaultTime := time.Now().UTC()
 	ctx := context.Background()
@@ -80,7 +82,7 @@ func TestClient_GetOutput(t *testing.T) {
 		So(check.LastChecked, ShouldHappenAfter, defaultTime)
 		So(check.LastFailure, ShouldHappenAfter, defaultTime)
 		So(check.LastSuccess, ShouldEqual, unixTime)
-		So(err, ShouldBeNil)
+		So(err, ShouldResemble, errUnableToConnect)
 	})
 }
 
@@ -90,6 +92,6 @@ var (
 	}
 
 	healthFailure = func(context.Context) (string, error) {
-		return "Failure", errors.New("unable to connect to mongo datastore")
+		return "Failure", errUnableToConnect
 	}
 )

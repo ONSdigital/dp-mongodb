@@ -33,7 +33,7 @@ func (c *CheckMongoClient) Checker(ctx *context.Context) (*healthcheck.Check, er
 
 	check := getCheck(ctx, c.client.serviceName, state)
 
-	return check, nil
+	return check, err
 }
 
 func getCheck(ctx *context.Context, name, state string) (check *healthcheck.Check) {
