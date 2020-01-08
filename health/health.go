@@ -23,9 +23,9 @@ type CheckMongoClient struct {
 }
 
 // Checker calls an api health endpoint and returns a check object to the caller
-func (c *CheckMongoClient) Checker(ctx *context.Context) (*healthcheck.Check, error) {
+func (c *CheckMongoClient) Checker(ctx context.Context) (*healthcheck.Check, error) {
 	state := healthcheck.StatusOK
-	_, err := c.healthcheck(*ctx)
+	_, err := c.healthcheck(ctx)
 	if err != nil {
 		state = healthcheck.StatusCritical
 	}
@@ -35,7 +35,7 @@ func (c *CheckMongoClient) Checker(ctx *context.Context) (*healthcheck.Check, er
 	return check, err
 }
 
-func getCheck(ctx *context.Context, name, state string) (check *healthcheck.Check) {
+func getCheck(ctx context.Context, name, state string) (check *healthcheck.Check) {
 
 	currentTime := time.Now().UTC()
 

@@ -18,7 +18,7 @@ func TestHealth_GetCheck(t *testing.T) {
 	ctx := context.Background()
 
 	Convey("Given an ok state return OK health check object", t, func() {
-		check := getCheck(&ctx, "mongo", healthcheck.StatusOK)
+		check := getCheck(ctx, "mongo", healthcheck.StatusOK)
 
 		So(check.Name, ShouldEqual, "mongo")
 		So(check.StatusCode, ShouldEqual, 0)
@@ -30,7 +30,7 @@ func TestHealth_GetCheck(t *testing.T) {
 	})
 
 	Convey("Given a critical state return CRITICAL health check object", t, func() {
-		check := getCheck(&ctx, "mongo", healthcheck.StatusCritical)
+		check := getCheck(ctx, "mongo", healthcheck.StatusCritical)
 
 		So(check.Name, ShouldEqual, "mongo")
 		So(check.StatusCode, ShouldEqual, 0)
@@ -55,7 +55,7 @@ func TestClient_GetOutput(t *testing.T) {
 			healthcheck: healthSuccess,
 		}
 
-		check, err := c.Checker(&ctx)
+		check, err := c.Checker(ctx)
 		So(check.Name, ShouldEqual, apiName)
 		So(check.StatusCode, ShouldEqual, 0)
 		So(check.Status, ShouldEqual, health.StatusOK)
@@ -74,7 +74,7 @@ func TestClient_GetOutput(t *testing.T) {
 			healthcheck: healthFailure,
 		}
 
-		check, err := c.Checker(&ctx)
+		check, err := c.Checker(ctx)
 		So(check.Name, ShouldEqual, apiName)
 		So(check.StatusCode, ShouldEqual, 0)
 		So(check.Status, ShouldEqual, health.StatusCritical)

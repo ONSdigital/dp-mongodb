@@ -22,13 +22,13 @@ func NewClient(db *mgo.Session) *Client {
 }
 
 // Healthcheck calls service to check its health status
-func (m *Client) Healthcheck(ctx *context.Context) (res string, err error) {
+func (m *Client) Healthcheck(ctx context.Context) (res string, err error) {
 	s := m.mongo.Copy()
 	defer s.Close()
 	res = m.serviceName
 	err = s.Ping()
 	if err != nil {
-		log.Event(*ctx, "Ping mongo", log.Error(err))
+		log.Event(ctx, "Ping mongo", log.Error(err))
 	}
 
 	return
