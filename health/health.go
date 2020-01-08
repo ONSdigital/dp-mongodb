@@ -9,12 +9,11 @@ import (
 
 var (
 	statusDescription = map[string]string{
-		healthcheck.StatusOK:       "Everything is ok",
-		healthcheck.StatusWarning:  "Things are degraded, but at least partially functioning",
-		healthcheck.StatusCritical: "The checked functionality is unavailable or non-functioning",
+		healthcheck.StatusOK:       "mongodb is OK",
+		healthcheck.StatusCritical: "connection to mongodb failed",
 	}
 
-	unixTime = time.Unix(1494505756, 0)
+	unixTime = time.Unix(0, 0)
 )
 
 // CheckMongoClient is an implementation of the mongo client with a healthcheck

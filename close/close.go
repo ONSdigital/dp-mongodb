@@ -1,4 +1,4 @@
-package mongo
+package close
 
 import (
 	"context"
@@ -8,8 +8,8 @@ import (
 	mgo "github.com/globalsign/mgo"
 )
 
-// Shutdown represents an interface to the shutdown method
-type Shutdown interface {
+// Graceful represents an interface to the shutdown method
+type Graceful interface {
 	shutdown(ctx context.Context, session *mgo.Session, closedChannel chan bool)
 }
 
@@ -23,7 +23,7 @@ func (t graceful) shutdown(ctx context.Context, session *mgo.Session, closedChan
 }
 
 var (
-	start    Shutdown = graceful{}
+	start    Graceful = graceful{}
 	timeLeft          = 1000 * time.Millisecond
 )
 
