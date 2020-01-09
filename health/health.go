@@ -13,10 +13,12 @@ var (
 	unixTime = time.Unix(0, 0)
 )
 
+type Healthcheck = func(context.Context) (string, error)
+
 // CheckMongoClient is an implementation of the mongo client with a healthcheck
 type CheckMongoClient struct {
 	client      Client
-	healthcheck func(context.Context) (string, error)
+	healthcheck Healthcheck
 }
 
 // Checker calls an api health endpoint and returns a check object to the caller
