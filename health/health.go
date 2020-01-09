@@ -8,10 +8,7 @@ import (
 )
 
 var (
-	statusDescription = map[string]string{
-		healthcheck.StatusOK:       "mongodb is OK",
-		healthcheck.StatusCritical: "connection to mongodb failed",
-	}
+	healthyMessage = "mongodb is OK"
 
 	unixTime = time.Unix(0, 0)
 )
@@ -25,17 +22,19 @@ type CheckMongoClient struct {
 // Checker calls an api health endpoint and returns a check object to the caller
 func (c *CheckMongoClient) Checker(ctx context.Context) (*healthcheck.Check, error) {
 	state := healthcheck.StatusOK
+	message := healthyMessage
 	_, err := c.healthcheck(ctx)
 	if err != nil {
+		message = err.Error()
 		state = healthcheck.StatusCritical
 	}
 
-	check := getCheck(ctx, c.client.serviceName, state)
+	check := getCheck(ctx, c.client.serviceName, state, message)
 
 	return check, err
 }
 
-func getCheck(ctx context.Context, name, state string) (check *healthcheck.Check) {
+func getCheck(ctx context.Context, name, state, message string) (check *healthcheck.Check) {
 
 	currentTime := time.Now().UTC()
 
@@ -45,7 +44,7 @@ func getCheck(ctx context.Context, name, state string) (check *healthcheck.Check
 		LastSuccess: unixTime,
 		LastFailure: unixTime,
 		Status:      state,
-		Message:     statusDescription[state],
+		Message:     message,
 	}
 
 	if state == healthcheck.StatusOK {

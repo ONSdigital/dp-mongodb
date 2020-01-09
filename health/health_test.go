@@ -18,24 +18,24 @@ func TestHealth_GetCheck(t *testing.T) {
 	ctx := context.Background()
 
 	Convey("Given an ok state return OK health check object", t, func() {
-		check := getCheck(ctx, "mongo", healthcheck.StatusOK)
+		check := getCheck(ctx, "mongo", healthcheck.StatusOK, healthyMessage)
 
 		So(check.Name, ShouldEqual, "mongo")
 		So(check.StatusCode, ShouldEqual, 0)
 		So(check.Status, ShouldEqual, health.StatusOK)
-		So(check.Message, ShouldEqual, statusDescription[health.StatusOK])
+		So(check.Message, ShouldEqual, healthyMessage)
 		So(check.LastChecked, ShouldHappenAfter, defaultTime)
 		So(check.LastSuccess, ShouldHappenAfter, defaultTime)
 		So(check.LastFailure, ShouldEqual, unixTime)
 	})
 
 	Convey("Given a critical state return CRITICAL health check object", t, func() {
-		check := getCheck(ctx, "mongo", healthcheck.StatusCritical)
+		check := getCheck(ctx, "mongo", healthcheck.StatusCritical, errUnableToConnect.Error())
 
 		So(check.Name, ShouldEqual, "mongo")
 		So(check.StatusCode, ShouldEqual, 0)
 		So(check.Status, ShouldEqual, health.StatusCritical)
-		So(check.Message, ShouldEqual, statusDescription[health.StatusCritical])
+		So(check.Message, ShouldEqual, "unable to connect to mongo datastore")
 		So(check.LastChecked, ShouldHappenAfter, defaultTime)
 		So(check.LastSuccess, ShouldEqual, unixTime)
 		So(check.LastFailure, ShouldHappenAfter, defaultTime)
@@ -59,7 +59,7 @@ func TestClient_GetOutput(t *testing.T) {
 		So(check.Name, ShouldEqual, apiName)
 		So(check.StatusCode, ShouldEqual, 0)
 		So(check.Status, ShouldEqual, health.StatusOK)
-		So(check.Message, ShouldEqual, statusDescription[health.StatusOK])
+		So(check.Message, ShouldEqual, healthyMessage)
 		So(check.LastChecked, ShouldHappenAfter, defaultTime)
 		So(check.LastFailure, ShouldEqual, unixTime)
 		So(check.LastSuccess, ShouldHappenAfter, defaultTime)
@@ -78,7 +78,7 @@ func TestClient_GetOutput(t *testing.T) {
 		So(check.Name, ShouldEqual, apiName)
 		So(check.StatusCode, ShouldEqual, 0)
 		So(check.Status, ShouldEqual, health.StatusCritical)
-		So(check.Message, ShouldEqual, statusDescription[health.StatusCritical])
+		So(check.Message, ShouldEqual, errUnableToConnect.Error())
 		So(check.LastChecked, ShouldHappenAfter, defaultTime)
 		So(check.LastFailure, ShouldHappenAfter, defaultTime)
 		So(check.LastSuccess, ShouldEqual, unixTime)
