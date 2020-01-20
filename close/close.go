@@ -32,11 +32,13 @@ func Close(ctx context.Context, session *mgo.Session) error {
 	closedChannel := make(chan bool)
 	defer close(closedChannel)
 
+	// Make a copy of timeLeft so that we don't modify the global var
+	closeTimeLeft := timeLeft
 	if deadline, ok := ctx.Deadline(); ok {
 		// Add some time to timeLeft so case where ctx.Done in select
 		// statement below gets called before time.After(timeLeft) gets called.
 		// This is so the context error is returned over hardcoded error.
-		timeLeft = deadline.Sub(time.Now()) + (10 * time.Millisecond)
+		closeTimeLeft = deadline.Sub(time.Now()) + (10 * time.Millisecond)
 	}
 
 	go func() {
@@ -45,7 +47,7 @@ func Close(ctx context.Context, session *mgo.Session) error {
 	}()
 
 	select {
-	case <-time.After(timeLeft):
+	case <-time.After(closeTimeLeft):
 		return errors.New("closing mongo timed out")
 	case <-closedChannel:
 		return nil
