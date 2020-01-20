@@ -6,83 +6,84 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ONSdigital/dp-healthcheck/healthcheck"
 	health "github.com/ONSdigital/dp-healthcheck/healthcheck"
 	. "github.com/smartystreets/goconvey/convey"
 )
 
 var errUnableToConnect = errors.New("unable to connect to mongo datastore")
 
-func TestHealth_GetCheck(t *testing.T) {
-	defaultTime := time.Now().UTC()
-	ctx := context.Background()
-
-	Convey("Given an ok state return OK health check object", t, func() {
-		check := getCheck(ctx, "mongo", healthcheck.StatusOK, healthyMessage)
-
-		So(check.Name, ShouldEqual, "mongo")
-		So(check.StatusCode, ShouldEqual, 0)
-		So(check.Status, ShouldEqual, health.StatusOK)
-		So(check.Message, ShouldEqual, healthyMessage)
-		So(check.LastChecked, ShouldHappenAfter, defaultTime)
-		So(check.LastSuccess, ShouldHappenAfter, defaultTime)
-		So(check.LastFailure, ShouldEqual, unixTime)
-	})
-
-	Convey("Given a critical state return CRITICAL health check object", t, func() {
-		check := getCheck(ctx, "mongo", healthcheck.StatusCritical, errUnableToConnect.Error())
-
-		So(check.Name, ShouldEqual, "mongo")
-		So(check.StatusCode, ShouldEqual, 0)
-		So(check.Status, ShouldEqual, health.StatusCritical)
-		So(check.Message, ShouldEqual, "unable to connect to mongo datastore")
-		So(check.LastChecked, ShouldHappenAfter, defaultTime)
-		So(check.LastSuccess, ShouldEqual, unixTime)
-		So(check.LastFailure, ShouldHappenAfter, defaultTime)
-	})
-}
-
 func TestClient_GetOutput(t *testing.T) {
 	defaultTime := time.Now().UTC()
 	ctx := context.Background()
 	apiName := "test-service"
 
-	Convey("When health endpoint returns status OK", t, func() {
+	Convey("Given that health endpoint returns 'Success'", t, func() {
 		c := &CheckMongoClient{
 			client: Client{
 				serviceName: apiName,
+				Check:       &health.Check{Name: apiName},
 			},
 			healthcheck: healthSuccess,
 		}
 
-		check, err := c.Checker(ctx)
-		So(check.Name, ShouldEqual, apiName)
-		So(check.StatusCode, ShouldEqual, 0)
-		So(check.Status, ShouldEqual, health.StatusOK)
-		So(check.Message, ShouldEqual, healthyMessage)
-		So(check.LastChecked, ShouldHappenAfter, defaultTime)
-		So(check.LastFailure, ShouldEqual, unixTime)
-		So(check.LastSuccess, ShouldHappenAfter, defaultTime)
-		So(err, ShouldBeNil)
+		Convey("Checker returns a status OK Check structure", func() {
+			check, err := c.Checker(ctx)
+			So(check, ShouldResemble, c.client.Check)
+			So(check.Name, ShouldEqual, apiName)
+			So(check.StatusCode, ShouldEqual, 0)
+			So(check.Status, ShouldEqual, health.StatusOK)
+			So(check.Message, ShouldEqual, healthyMessage)
+			So(*check.LastChecked, ShouldHappenAfter, defaultTime)
+			So(check.LastFailure, ShouldBeNil)
+			So(*check.LastSuccess, ShouldHappenAfter, defaultTime)
+			So(err, ShouldBeNil)
+		})
 	})
 
-	Convey("When health endpoint returns status Critical", t, func() {
+	Convey("Given that health endpoint returns 'Failure'", t, func() {
 		c := &CheckMongoClient{
 			client: Client{
 				serviceName: apiName,
+				Check:       &health.Check{Name: apiName},
 			},
 			healthcheck: healthFailure,
 		}
 
-		check, err := c.Checker(ctx)
-		So(check.Name, ShouldEqual, apiName)
-		So(check.StatusCode, ShouldEqual, 0)
-		So(check.Status, ShouldEqual, health.StatusCritical)
-		So(check.Message, ShouldEqual, errUnableToConnect.Error())
-		So(check.LastChecked, ShouldHappenAfter, defaultTime)
-		So(check.LastFailure, ShouldHappenAfter, defaultTime)
-		So(check.LastSuccess, ShouldEqual, unixTime)
-		So(err, ShouldResemble, errUnableToConnect)
+		Convey("Checker returns a status CRITICAL Check structure", func() {
+			check, err := c.Checker(ctx)
+			So(check, ShouldResemble, c.client.Check)
+			So(check.Name, ShouldEqual, apiName)
+			So(check.StatusCode, ShouldEqual, 0)
+			So(check.Status, ShouldEqual, health.StatusCritical)
+			So(check.Message, ShouldEqual, errUnableToConnect.Error())
+			So(*check.LastChecked, ShouldHappenAfter, defaultTime)
+			So(*check.LastFailure, ShouldHappenAfter, defaultTime)
+			So(check.LastSuccess, ShouldBeNil)
+			So(err, ShouldResemble, errUnableToConnect)
+		})
+	})
+}
+
+func TestCheckerHistory(t *testing.T) {
+
+	ctx := context.Background()
+	apiName := "test-service"
+
+	Convey("Given that we have a mongo client with previous successful checks", t, func() {
+		lastCheckTime := time.Now().UTC().Add(1 * time.Minute)
+		previousCheck := createSuccessfulCheck(lastCheckTime, "healthy", apiName)
+		c := &CheckMongoClient{
+			client: Client{
+				serviceName: apiName,
+				Check:       &previousCheck,
+			},
+			healthcheck: healthFailure,
+		}
+
+		Convey("A new healthcheck keeps the non-overwritten values", func() {
+			check, _ := c.Checker(ctx)
+			So(check.LastSuccess, ShouldResemble, &lastCheckTime)
+		})
 	})
 }
 
@@ -95,3 +96,14 @@ var (
 		return "Failure", errUnableToConnect
 	}
 )
+
+// create a successful check without lastFailed value
+func createSuccessfulCheck(t time.Time, msg string, serviceName string) health.Check {
+	return health.Check{
+		Name:        serviceName,
+		LastSuccess: &t,
+		LastChecked: &t,
+		Status:      health.StatusOK,
+		Message:     msg,
+	}
+}

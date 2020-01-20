@@ -9,10 +9,9 @@ import (
 
 var (
 	healthyMessage = "mongodb is OK"
-
-	unixTime = time.Unix(0, 0)
 )
 
+// Healthcheck health check function
 type Healthcheck = func(context.Context) (string, error)
 
 // CheckMongoClient is an implementation of the mongo client with a healthcheck
@@ -23,37 +22,17 @@ type CheckMongoClient struct {
 
 // Checker calls an api health endpoint and returns a check object to the caller
 func (c *CheckMongoClient) Checker(ctx context.Context) (*healthcheck.Check, error) {
-	state := healthcheck.StatusOK
-	message := healthyMessage
 	_, err := c.healthcheck(ctx)
-	if err != nil {
-		message = err.Error()
-		state = healthcheck.StatusCritical
-	}
-
-	check := getCheck(ctx, c.client.serviceName, state, message)
-
-	return check, err
-}
-
-func getCheck(ctx context.Context, name, state, message string) (check *healthcheck.Check) {
-
 	currentTime := time.Now().UTC()
-
-	check = &healthcheck.Check{
-		Name:        name,
-		LastChecked: currentTime,
-		LastSuccess: unixTime,
-		LastFailure: unixTime,
-		Status:      state,
-		Message:     message,
+	c.client.Check.LastChecked = &currentTime
+	if err != nil {
+		c.client.Check.LastFailure = &currentTime
+		c.client.Check.Status = healthcheck.StatusCritical
+		c.client.Check.Message = err.Error()
+		return c.client.Check, err
 	}
-
-	if state == healthcheck.StatusOK {
-		check.LastSuccess = currentTime
-	} else {
-		check.LastFailure = currentTime
-	}
-
-	return
+	c.client.Check.LastSuccess = &currentTime
+	c.client.Check.Status = healthcheck.StatusOK
+	c.client.Check.Message = healthyMessage
+	return c.client.Check, nil
 }
