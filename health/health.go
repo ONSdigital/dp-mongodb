@@ -2,19 +2,25 @@ package health
 
 import (
 	"context"
-	"time"
 
 	"github.com/ONSdigital/dp-healthcheck/healthcheck"
-	health "github.com/ONSdigital/dp-healthcheck/healthcheck"
 	"github.com/ONSdigital/log.go/log"
 	mgo "github.com/globalsign/mgo"
 )
+
+//go:generate moq -out ./mock/check_state.go -pkg mock . CheckState
+
+// CheckState interface corresponds to the healthcheck CheckState structure
+type CheckState interface {
+	Update(status, message string, statusCode int) error
+}
 
 // ServiceName mongodb
 const ServiceName = "mongodb"
 
 var (
-	healthyMessage = "mongodb is OK"
+	// HealthyMessage is the message that will be used in healthcheck when mongo is Healthy
+	HealthyMessage = "mongodb is OK"
 )
 
 // Healthcheck health check function
@@ -22,28 +28,21 @@ type Healthcheck = func(context.Context) (string, error)
 
 // CheckMongoClient is an implementation of the mongo client with a healthcheck
 type CheckMongoClient struct {
-	client      Client
-	healthcheck Healthcheck
+	Client      Client
+	Healthcheck Healthcheck
 }
 
 // Client provides a healthcheck.Client implementation for health checking the service
 type Client struct {
 	mongo       *mgo.Session
 	serviceName string
-	Check       *health.Check
 }
 
 // NewClient returns a new health check client using the given service
 func NewClient(db *mgo.Session) *Client {
-
-	// Initial Check struct
-	check := &health.Check{Name: ServiceName}
-
-	// Create Client
 	return &Client{
 		mongo:       db,
 		serviceName: ServiceName,
-		Check:       check,
 	}
 }
 
@@ -60,19 +59,13 @@ func (m *Client) Healthcheck(ctx context.Context) (res string, err error) {
 	return
 }
 
-// Checker calls an api health endpoint and returns a check object to the caller
-func (c *CheckMongoClient) Checker(ctx context.Context) (*healthcheck.Check, error) {
-	_, err := c.healthcheck(ctx)
-	currentTime := time.Now().UTC()
-	c.client.Check.LastChecked = &currentTime
+// Checker calls an api health endpoint and  updates the provided CheckState accordingly
+func (c *CheckMongoClient) Checker(ctx context.Context, state CheckState) error {
+	_, err := c.Healthcheck(ctx)
 	if err != nil {
-		c.client.Check.LastFailure = &currentTime
-		c.client.Check.Status = healthcheck.StatusCritical
-		c.client.Check.Message = err.Error()
-		return c.client.Check, err
+		state.Update(healthcheck.StatusCritical, err.Error(), 0)
+		return nil
 	}
-	c.client.Check.LastSuccess = &currentTime
-	c.client.Check.Status = healthcheck.StatusOK
-	c.client.Check.Message = healthyMessage
-	return c.client.Check, nil
+	state.Update(healthcheck.StatusOK, HealthyMessage, 0)
+	return nil
 }

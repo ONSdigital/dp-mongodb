@@ -1,88 +1,69 @@
-package health
+package health_test
 
 import (
 	"context"
 	"errors"
 	"testing"
-	"time"
 
-	health "github.com/ONSdigital/dp-healthcheck/healthcheck"
+	"github.com/ONSdigital/dp-healthcheck/healthcheck"
+	"github.com/ONSdigital/dp-mongodb/health"
+	"github.com/ONSdigital/dp-mongodb/health/mock"
 	. "github.com/smartystreets/goconvey/convey"
 )
 
 var errUnableToConnect = errors.New("unable to connect to mongo datastore")
 
 func TestClient_GetOutput(t *testing.T) {
-	defaultTime := time.Now().UTC()
+
 	ctx := context.Background()
-	apiName := "test-service"
 
 	Convey("Given that health endpoint returns 'Success'", t, func() {
-		c := &CheckMongoClient{
-			client: Client{
-				serviceName: apiName,
-				Check:       &health.Check{Name: apiName},
-			},
-			healthcheck: healthSuccess,
+
+		// MongoClient with success healthcheck
+		c := &health.CheckMongoClient{
+			Client:      *health.NewClient(nil),
+			Healthcheck: healthSuccess,
 		}
 
-		Convey("Checker returns a status OK Check structure", func() {
-			check, err := c.Checker(ctx)
-			So(check, ShouldResemble, c.client.Check)
-			So(check.Name, ShouldEqual, apiName)
-			So(check.StatusCode, ShouldEqual, 0)
-			So(check.Status, ShouldEqual, health.StatusOK)
-			So(check.Message, ShouldEqual, healthyMessage)
-			So(*check.LastChecked, ShouldHappenAfter, defaultTime)
-			So(check.LastFailure, ShouldBeNil)
-			So(*check.LastSuccess, ShouldHappenAfter, defaultTime)
-			So(err, ShouldBeNil)
+		// mock CheckState for test validation
+		mockCheckState := mock.CheckStateMock{
+			UpdateFunc: func(status, message string, statusCode int) error {
+				return nil
+			},
+		}
+
+		Convey("Checker updates the CheckState to an OK status", func() {
+			c.Checker(ctx, &mockCheckState)
+			updateCalls := mockCheckState.UpdateCalls()
+			So(len(updateCalls), ShouldEqual, 1)
+			So(updateCalls[0].Status, ShouldEqual, healthcheck.StatusOK)
+			So(updateCalls[0].Message, ShouldEqual, health.HealthyMessage)
+			So(updateCalls[0].StatusCode, ShouldEqual, 0)
 		})
 	})
 
 	Convey("Given that health endpoint returns 'Failure'", t, func() {
-		c := &CheckMongoClient{
-			client: Client{
-				serviceName: apiName,
-				Check:       &health.Check{Name: apiName},
-			},
-			healthcheck: healthFailure,
+
+		// MongoClient with failure healthcheck
+		c := &health.CheckMongoClient{
+			Client:      *health.NewClient(nil),
+			Healthcheck: healthFailure,
 		}
 
-		Convey("Checker returns a status CRITICAL Check structure", func() {
-			check, err := c.Checker(ctx)
-			So(check, ShouldResemble, c.client.Check)
-			So(check.Name, ShouldEqual, apiName)
-			So(check.StatusCode, ShouldEqual, 0)
-			So(check.Status, ShouldEqual, health.StatusCritical)
-			So(check.Message, ShouldEqual, errUnableToConnect.Error())
-			So(*check.LastChecked, ShouldHappenAfter, defaultTime)
-			So(*check.LastFailure, ShouldHappenAfter, defaultTime)
-			So(check.LastSuccess, ShouldBeNil)
-			So(err, ShouldResemble, errUnableToConnect)
-		})
-	})
-}
-
-func TestCheckerHistory(t *testing.T) {
-
-	ctx := context.Background()
-	apiName := "test-service"
-
-	Convey("Given that we have a mongo client with previous successful checks", t, func() {
-		lastCheckTime := time.Now().UTC().Add(1 * time.Minute)
-		previousCheck := createSuccessfulCheck(lastCheckTime, "healthy", apiName)
-		c := &CheckMongoClient{
-			client: Client{
-				serviceName: apiName,
-				Check:       &previousCheck,
+		// mock CheckState for test validation
+		mockCheckState := mock.CheckStateMock{
+			UpdateFunc: func(status, message string, statusCode int) error {
+				return nil
 			},
-			healthcheck: healthFailure,
 		}
 
-		Convey("A new healthcheck keeps the non-overwritten values", func() {
-			check, _ := c.Checker(ctx)
-			So(check.LastSuccess, ShouldResemble, &lastCheckTime)
+		Convey("Checker updates the CheckState to a CRITICAL status", func() {
+			c.Checker(ctx, &mockCheckState)
+			updateCalls := mockCheckState.UpdateCalls()
+			So(len(updateCalls), ShouldEqual, 1)
+			So(updateCalls[0].Status, ShouldEqual, healthcheck.StatusCritical)
+			So(updateCalls[0].Message, ShouldEqual, errUnableToConnect.Error())
+			So(updateCalls[0].StatusCode, ShouldEqual, 0)
 		})
 	})
 }
@@ -96,14 +77,3 @@ var (
 		return "Failure", errUnableToConnect
 	}
 )
-
-// create a successful check without lastFailed value
-func createSuccessfulCheck(t time.Time, msg string, serviceName string) health.Check {
-	return health.Check{
-		Name:        serviceName,
-		LastSuccess: &t,
-		LastChecked: &t,
-		Status:      health.StatusOK,
-		Message:     msg,
-	}
-}
