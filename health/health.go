@@ -8,13 +8,6 @@ import (
 	mgo "github.com/globalsign/mgo"
 )
 
-//go:generate moq -out ./mock/check_state.go -pkg mock . CheckState
-
-// CheckState interface corresponds to the healthcheck CheckState structure
-type CheckState interface {
-	Update(status, message string, statusCode int) error
-}
-
 // ServiceName mongodb
 const ServiceName = "mongodb"
 
@@ -60,7 +53,7 @@ func (m *Client) Healthcheck(ctx context.Context) (res string, err error) {
 }
 
 // Checker calls an api health endpoint and  updates the provided CheckState accordingly
-func (c *CheckMongoClient) Checker(ctx context.Context, state CheckState) error {
+func (c *CheckMongoClient) Checker(ctx context.Context, state *healthcheck.CheckState) error {
 	_, err := c.Healthcheck(ctx)
 	if err != nil {
 		state.Update(healthcheck.StatusCritical, err.Error(), 0)

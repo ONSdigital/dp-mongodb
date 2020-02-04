@@ -7,7 +7,6 @@ import (
 
 	"github.com/ONSdigital/dp-healthcheck/healthcheck"
 	"github.com/ONSdigital/dp-mongodb/health"
-	"github.com/ONSdigital/dp-mongodb/health/mock"
 	. "github.com/smartystreets/goconvey/convey"
 )
 
@@ -25,20 +24,14 @@ func TestClient_GetOutput(t *testing.T) {
 			Healthcheck: healthSuccess,
 		}
 
-		// mock CheckState for test validation
-		mockCheckState := mock.CheckStateMock{
-			UpdateFunc: func(status, message string, statusCode int) error {
-				return nil
-			},
-		}
+		// CheckState for test validation
+		checkState := healthcheck.NewCheckState(health.ServiceName)
 
 		Convey("Checker updates the CheckState to an OK status", func() {
-			c.Checker(ctx, &mockCheckState)
-			updateCalls := mockCheckState.UpdateCalls()
-			So(len(updateCalls), ShouldEqual, 1)
-			So(updateCalls[0].Status, ShouldEqual, healthcheck.StatusOK)
-			So(updateCalls[0].Message, ShouldEqual, health.HealthyMessage)
-			So(updateCalls[0].StatusCode, ShouldEqual, 0)
+			c.Checker(ctx, checkState)
+			So(checkState.Status(), ShouldEqual, healthcheck.StatusOK)
+			So(checkState.Message(), ShouldEqual, health.HealthyMessage)
+			So(checkState.StatusCode(), ShouldEqual, 0)
 		})
 	})
 
@@ -50,20 +43,14 @@ func TestClient_GetOutput(t *testing.T) {
 			Healthcheck: healthFailure,
 		}
 
-		// mock CheckState for test validation
-		mockCheckState := mock.CheckStateMock{
-			UpdateFunc: func(status, message string, statusCode int) error {
-				return nil
-			},
-		}
+		// CheckState for test validation
+		checkState := healthcheck.NewCheckState(health.ServiceName)
 
 		Convey("Checker updates the CheckState to a CRITICAL status", func() {
-			c.Checker(ctx, &mockCheckState)
-			updateCalls := mockCheckState.UpdateCalls()
-			So(len(updateCalls), ShouldEqual, 1)
-			So(updateCalls[0].Status, ShouldEqual, healthcheck.StatusCritical)
-			So(updateCalls[0].Message, ShouldEqual, errUnableToConnect.Error())
-			So(updateCalls[0].StatusCode, ShouldEqual, 0)
+			c.Checker(ctx, checkState)
+			So(checkState.Status(), ShouldEqual, healthcheck.StatusCritical)
+			So(checkState.Message(), ShouldEqual, errUnableToConnect.Error())
+			So(checkState.StatusCode(), ShouldEqual, 0)
 		})
 	})
 }
