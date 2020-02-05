@@ -1,4 +1,4 @@
-package close
+package mongo
 
 import (
 	"context"
