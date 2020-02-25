@@ -135,12 +135,12 @@ func TestSuccessfulMongoDates(t *testing.T) {
 func TestSuccessfulMongoDatesViaMongo(t *testing.T) {
 	session = nil
 	if _, err := setupSession(); err != nil {
-		log.Event(nil, "mongo instance not available, skip timestamp tests", log.Error(err))
+		log.Event(nil, "mongo instance not available, skip timestamp tests", log.INFO, log.Error(err))
 		return
 	}
 
 	if err := setUpTestData(session.Copy()); err != nil {
-		log.Event(nil, "failed to insert test data, skipping tests", log.Error(err))
+		log.Event(nil, "failed to insert test data, skipping tests", log.ERROR, log.Error(err))
 		t.FailNow()
 	}
 
@@ -230,7 +230,7 @@ func TestSuccessfulMongoDatesViaMongo(t *testing.T) {
 	})
 
 	if err := cleanupTestData(session.Copy()); err != nil {
-		log.Event(nil, "failed to delete test data", log.Error(err))
+		log.Event(nil, "failed to delete test data", log.ERROR, log.Error(err))
 	}
 }
 

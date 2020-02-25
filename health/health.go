@@ -46,7 +46,7 @@ func (m *Client) Healthcheck(ctx context.Context) (res string, err error) {
 	res = m.serviceName
 	err = s.Ping()
 	if err != nil {
-		log.Event(ctx, "Ping mongo", log.Error(err))
+		log.Event(ctx, "Ping mongo", log.ERROR, log.Error(err))
 	}
 
 	return
