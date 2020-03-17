@@ -18,6 +18,12 @@ type graceful struct{}
 func (t graceful) shutdown(ctx context.Context, session *mgo.Session, closedChannel chan bool) {
 	session.Close()
 
+	defer func() {
+		if x := recover(); x != nil {
+			// do nothing ... just handle timing corner case and avoid "panic: send on closed channel"
+		}
+	}()
+
 	closedChannel <- true
 	return
 }
