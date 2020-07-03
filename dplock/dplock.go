@@ -16,13 +16,20 @@ import (
 const TTL = 30
 
 // PurgerPeriod is the time period between expired lock purges
-var PurgerPeriod = 10 * time.Second
+const PurgerPeriod = 5 * time.Minute
 
 // AcquirePeriod is the time period between acquire lock retries
-var AcquirePeriod = 100 * time.Millisecond
+var AcquirePeriod = 250 * time.Millisecond
+
+// AcquireMaxRetries is the maximum number of locking retries by the Acquire lock, discounting the first attempt
+var AcquireMaxRetries = 10
 
 // ErrMongoDbClosing is an error returned because MongoDB is being closed
 var ErrMongoDbClosing = errors.New("mongo db is being closed")
+
+// ErrAcquireMaxRetries is an error returned when acquire fails
+// after retrying to lock a resource 'AcquireMaxRetries' times
+var ErrAcquireMaxRetries = errors.New("cannot acquire lock, maximum number of retries has been reached")
 
 //go:generate moq -out mock/client.go -pkg mock . Client
 //go:generate moq -out mock/purger.go -pkg mock . Purger
@@ -94,10 +101,11 @@ func (l *Lock) startPurgerLoop(ctx context.Context) {
 
 // Lock acquires an exclusive mongoDB lock with the provided id, with the default TTL value.
 // If the resource is already locked, an error will be returned.
-func (l *Lock) Lock(id string) error {
-	return l.Client.XLock(
-		fmt.Sprintf("%s-%s", l.Resource, id),
-		fmt.Sprintf("%s-%s-%d", l.Resource, id, GenerateTimeID()),
+func (l *Lock) Lock(resourceID string) (lockID string, err error) {
+	lockID = fmt.Sprintf("%s-%s-%d", l.Resource, resourceID, GenerateTimeID())
+	return lockID, l.Client.XLock(
+		fmt.Sprintf("%s-%s", l.Resource, resourceID),
+		lockID,
 		lock.LockDetails{TTL: TTL},
 	)
 }
@@ -105,24 +113,30 @@ func (l *Lock) Lock(id string) error {
 // Acquire tries to lock the provided id.
 // If the resource is already locked, this function will block until the existing lock is released,
 // at which point we acquire the lock and return.
-func (l *Lock) Acquire(ctx context.Context, id string) error {
+func (l *Lock) Acquire(ctx context.Context, id string) (lockID string, err error) {
+	retries := 0
 	for {
-		if err := l.Lock(id); err != lock.ErrAlreadyLocked {
-			return err
+		lockID, err = l.Lock(id)
+		if err != lock.ErrAlreadyLocked {
+			return lockID, err
 		}
+		if retries >= AcquireMaxRetries {
+			return "", ErrAcquireMaxRetries
+		}
+		retries++
 		select {
 		case <-time.After(AcquirePeriod):
 			continue
 		case <-l.CloserChannel:
 			log.Event(ctx, "stop acquiring lock. Mongo db is being closed", log.INFO)
-			return ErrMongoDbClosing
+			return "", ErrMongoDbClosing
 		}
 	}
 }
 
 // Unlock releases an exclusive mongoDB lock for the provided id (if it exists)
-func (l *Lock) Unlock(id string) error {
-	_, err := l.Client.Unlock(fmt.Sprintf("%s-%s", l.Resource, id))
+func (l *Lock) Unlock(lockID string) error {
+	_, err := l.Client.Unlock(lockID)
 	return err
 }
 

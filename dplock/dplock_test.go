@@ -34,8 +34,9 @@ func TestLock(t *testing.T) {
 		}
 
 		Convey("Calling Lock performs a lock using the underlying client with the expected resource, id and TTL", func() {
-			err := l.Lock("myID")
+			lockID, err := l.Lock("myID")
 			So(err, ShouldBeNil)
+			So(lockID, ShouldEqual, "image-myID-123456789")
 			So(len(clientMock.XLockCalls()), ShouldEqual, 1)
 			So(clientMock.XLockCalls()[0].ResourceName, ShouldEqual, "image-myID")
 			So(clientMock.XLockCalls()[0].LockID, ShouldEqual, "image-myID-123456789")
@@ -55,7 +56,7 @@ func TestLock(t *testing.T) {
 		}
 
 		Convey("Calling Lock fails with the same error", func() {
-			err := l.Lock("myID")
+			_, err := l.Lock("myID")
 			So(err, ShouldResemble, lock.ErrAlreadyLocked)
 		})
 	})
@@ -68,6 +69,7 @@ func TestAcquire(t *testing.T) {
 		return 123456789
 	}
 	dplock.AcquirePeriod = 1 * time.Nanosecond
+	dplock.AcquireMaxRetries = 5
 
 	Convey("Given a lock with a client that can successfully lock", t, func() {
 		clientMock := &mock.ClientMock{
@@ -81,8 +83,9 @@ func TestAcquire(t *testing.T) {
 		}
 
 		Convey("Calling Acquire performs a lock using the underlying client with the expected resource, id and TTL", func() {
-			err := l.Acquire(ctx, "myID")
+			lockID, err := l.Acquire(ctx, "myID")
 			So(err, ShouldBeNil)
+			So(lockID, ShouldEqual, "image-myID-123456789")
 			So(len(clientMock.XLockCalls()), ShouldEqual, 1)
 			So(clientMock.XLockCalls()[0].ResourceName, ShouldEqual, "image-myID")
 			So(clientMock.XLockCalls()[0].LockID, ShouldEqual, "image-myID-123456789")
@@ -107,7 +110,7 @@ func TestAcquire(t *testing.T) {
 		}
 
 		Convey("Calling Acquire manages to acquire the lock using the underlying client in the second iteration", func() {
-			err := l.Acquire(ctx, "myID")
+			_, err := l.Acquire(ctx, "myID")
 			So(err, ShouldBeNil)
 			So(len(clientMock.XLockCalls()), ShouldEqual, 2)
 		})
@@ -126,7 +129,7 @@ func TestAcquire(t *testing.T) {
 		}
 
 		Convey("Calling Acquire, fails to acquire locking with the same error, without retrying", func() {
-			err := l.Acquire(ctx, "myID")
+			_, err := l.Acquire(ctx, "myID")
 			So(err, ShouldResemble, errLock)
 			So(len(clientMock.XLockCalls()), ShouldEqual, 1)
 		})
@@ -144,13 +147,21 @@ func TestAcquire(t *testing.T) {
 			CloserChannel: make(chan struct{}),
 		}
 
+		Convey("Then after retrying 'AcquireMaxRetries' times, acquire fails with the expected error", func() {
+			_, err := l.Acquire(ctx, "myID")
+			So(err, ShouldResemble, dplock.ErrAcquireMaxRetries)
+			So(len(clientMock.XLockCalls()), ShouldEqual, 6)
+		})
+
 		Convey("Then closing the closer channel whilst acquire is trying to acquire the lock, results in the operation being aborted", func() {
+			// High period value to prevent race conditions between channel and 'timeout'
+			dplock.AcquirePeriod = 30 * time.Second
 			var err error
 			wg := &sync.WaitGroup{}
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				err = l.Acquire(ctx, "myID")
+				_, err = l.Acquire(ctx, "myID")
 			}()
 			close(l.CloserChannel)
 			wg.Wait()
@@ -171,11 +182,11 @@ func TestUnlock(t *testing.T) {
 			Client:   clientMock,
 		}
 
-		Convey("Calling Unlock performs an unlock using the underlying client with the expected id", func() {
-			err := l.Unlock("myID")
+		Convey("Calling Unlock performs an unlock using the underlying client with the provided lock id", func() {
+			err := l.Unlock("lockID")
 			So(err, ShouldBeNil)
 			So(len(clientMock.UnlockCalls()), ShouldEqual, 1)
-			So(clientMock.UnlockCalls()[0].LockID, ShouldEqual, "image-myID")
+			So(clientMock.UnlockCalls()[0].LockID, ShouldEqual, "lockID")
 		})
 	})
 
@@ -200,7 +211,6 @@ func TestUnlock(t *testing.T) {
 
 func TestLifecycleAndPurger(t *testing.T) {
 	Convey("Given a lock initialised with Client and Purger mocks", t, func() {
-		dplock.PurgerPeriod = 10 * time.Millisecond
 		clientMock := &mock.ClientMock{}
 		purgerMock := &mock.PurgerMock{
 			PurgeFunc: func() ([]lock.LockStatus, error) {
@@ -209,13 +219,6 @@ func TestLifecycleAndPurger(t *testing.T) {
 		}
 		l := dplock.Lock{Resource: "image"}
 		l.Init(ctx, clientMock, purgerMock)
-
-		Convey("Then purger is executed straight away, after the period expired, and closing the closer channel results in the purger go-routine being ended", func() {
-			time.Sleep(12 * time.Millisecond)
-			close(l.CloserChannel)
-			l.WaitGroup.Wait()
-			So(len(purgerMock.PurgeCalls()), ShouldEqual, 2)
-		})
 
 		Convey("Then executing Close result in the closer channel being closed, and the purger go-routine ends", func() {
 			l.Close(ctx)
