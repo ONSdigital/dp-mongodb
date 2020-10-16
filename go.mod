@@ -13,4 +13,6 @@ require (
 	github.com/smartystreets/goconvey v1.6.4
 	github.com/square/mongo-lock v0.0.0-20191001051310-282c90e422d0
 	gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f // indirect
+	gopkg.in/mgo.v2 v2.0.0-20190816093944-a6b53ec6cb22
+	gopkg.in/yaml.v2 v2.3.0 // indirect
 )

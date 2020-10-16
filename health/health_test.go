@@ -16,11 +16,14 @@ func TestClient_GetOutput(t *testing.T) {
 
 	ctx := context.Background()
 
+	dc1 := make(map[health.Database][]health.Collection)
+	dc1["databaseOne"] = []health.Collection{"collectionOne"}
+
 	Convey("Given that health endpoint returns 'Success'", t, func() {
 
 		// MongoClient with success healthcheck
 		c := &health.CheckMongoClient{
-			Client:      *health.NewClient(nil),
+			Client:      *health.NewClient(nil, dc1),
 			Healthcheck: healthSuccess,
 		}
 
@@ -39,7 +42,7 @@ func TestClient_GetOutput(t *testing.T) {
 
 		// MongoClient with failure healthcheck
 		c := &health.CheckMongoClient{
-			Client:      *health.NewClient(nil),
+			Client:      *health.NewClient(nil, dc1),
 			Healthcheck: healthFailure,
 		}
 
