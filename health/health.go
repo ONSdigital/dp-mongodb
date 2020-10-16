@@ -1,5 +1,7 @@
 package health
 
+//go:generate moq -out mock/health.go . Sessioner
+
 import (
 	"context"
 
@@ -32,8 +34,8 @@ type (
 	Collection string
 )
 
-//go:generate moq -out health_moq_test.go . sessioner
-type sessioner interface {
+//Sessioner is an interface that define the functions from mgo
+type Sessioner interface {
 	DB(name string) *mgo.Database
 	Copy() *mgo.Session
 	Close() *mgo.Session
@@ -42,13 +44,13 @@ type sessioner interface {
 
 // Client provides a healthcheck.Client implementation for health checking the service
 type Client struct {
-	mongo              sessioner
+	mongo              Sessioner
 	serviceName        string
 	databaseCollection map[Database][]Collection
 }
 
 // NewClient returns a new health check client using the given service
-func NewClient(db sessioner, clientDatabaseCollection map[Database][]Collection) *Client {
+func NewClient(db Sessioner, clientDatabaseCollection map[Database][]Collection) *Client {
 	return &Client{
 		mongo:              db,
 		serviceName:        ServiceName,

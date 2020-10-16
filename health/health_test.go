@@ -56,6 +56,22 @@ func TestClient_GetOutput(t *testing.T) {
 			So(checkState.StatusCode(), ShouldEqual, 0)
 		})
 	})
+
+	Convey("Given that checkCollections can't connect to MongoDB return an error", t, func() {
+
+		// MongoClient with failure healthcheck
+		c := &health.CheckMongoClient{
+			Client:      *health.NewClient(nil, dc1),
+			Healthcheck: health.Healthcheck(),
+		}
+
+		// CheckState for test validation
+		checkState := healthcheck.NewCheckState(health.ServiceName)
+
+		Convey("checkCollections returns an error", func() {
+
+		})
+	})
 }
 
 var (

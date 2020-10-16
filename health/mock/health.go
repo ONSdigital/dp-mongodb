@@ -4,20 +4,20 @@
 package health
 
 import (
-	"gopkg.in/mgo.v2"
+	"github.com/globalsign/mgo"
 	"sync"
 )
 
-// Ensure, that sessionerMock does implement sessioner.
+// Ensure, that SessionerMock does implement Sessioner.
 // If this is not the case, regenerate this file with moq.
-var _ sessioner = &sessionerMock{}
+var _ Sessioner = &SessionerMock{}
 
-// sessionerMock is a mock implementation of sessioner.
+// SessionerMock is a mock implementation of Sessioner.
 //
-//     func TestSomethingThatUsessessioner(t *testing.T) {
+//     func TestSomethingThatUsesSessioner(t *testing.T) {
 //
-//         // make and configure a mocked sessioner
-//         mockedsessioner := &sessionerMock{
+//         // make and configure a mocked Sessioner
+//         mockedSessioner := &SessionerMock{
 //             CloseFunc: func() *mgo.Session {
 // 	               panic("mock out the Close method")
 //             },
@@ -32,11 +32,11 @@ var _ sessioner = &sessionerMock{}
 //             },
 //         }
 //
-//         // use mockedsessioner in code that requires sessioner
+//         // use mockedSessioner in code that requires Sessioner
 //         // and then make assertions.
 //
 //     }
-type sessionerMock struct {
+type SessionerMock struct {
 	// CloseFunc mocks the Close method.
 	CloseFunc func() *mgo.Session
 
@@ -73,9 +73,9 @@ type sessionerMock struct {
 }
 
 // Close calls CloseFunc.
-func (mock *sessionerMock) Close() *mgo.Session {
+func (mock *SessionerMock) Close() *mgo.Session {
 	if mock.CloseFunc == nil {
-		panic("sessionerMock.CloseFunc: method is nil but sessioner.Close was just called")
+		panic("SessionerMock.CloseFunc: method is nil but Sessioner.Close was just called")
 	}
 	callInfo := struct {
 	}{}
@@ -87,8 +87,8 @@ func (mock *sessionerMock) Close() *mgo.Session {
 
 // CloseCalls gets all the calls that were made to Close.
 // Check the length with:
-//     len(mockedsessioner.CloseCalls())
-func (mock *sessionerMock) CloseCalls() []struct {
+//     len(mockedSessioner.CloseCalls())
+func (mock *SessionerMock) CloseCalls() []struct {
 } {
 	var calls []struct {
 	}
@@ -99,9 +99,9 @@ func (mock *sessionerMock) CloseCalls() []struct {
 }
 
 // Copy calls CopyFunc.
-func (mock *sessionerMock) Copy() *mgo.Session {
+func (mock *SessionerMock) Copy() *mgo.Session {
 	if mock.CopyFunc == nil {
-		panic("sessionerMock.CopyFunc: method is nil but sessioner.Copy was just called")
+		panic("SessionerMock.CopyFunc: method is nil but Sessioner.Copy was just called")
 	}
 	callInfo := struct {
 	}{}
@@ -113,8 +113,8 @@ func (mock *sessionerMock) Copy() *mgo.Session {
 
 // CopyCalls gets all the calls that were made to Copy.
 // Check the length with:
-//     len(mockedsessioner.CopyCalls())
-func (mock *sessionerMock) CopyCalls() []struct {
+//     len(mockedSessioner.CopyCalls())
+func (mock *SessionerMock) CopyCalls() []struct {
 } {
 	var calls []struct {
 	}
@@ -125,9 +125,9 @@ func (mock *sessionerMock) CopyCalls() []struct {
 }
 
 // DB calls DBFunc.
-func (mock *sessionerMock) DB(name string) *mgo.Database {
+func (mock *SessionerMock) DB(name string) *mgo.Database {
 	if mock.DBFunc == nil {
-		panic("sessionerMock.DBFunc: method is nil but sessioner.DB was just called")
+		panic("SessionerMock.DBFunc: method is nil but Sessioner.DB was just called")
 	}
 	callInfo := struct {
 		Name string
@@ -142,8 +142,8 @@ func (mock *sessionerMock) DB(name string) *mgo.Database {
 
 // DBCalls gets all the calls that were made to DB.
 // Check the length with:
-//     len(mockedsessioner.DBCalls())
-func (mock *sessionerMock) DBCalls() []struct {
+//     len(mockedSessioner.DBCalls())
+func (mock *SessionerMock) DBCalls() []struct {
 	Name string
 } {
 	var calls []struct {
@@ -156,9 +156,9 @@ func (mock *sessionerMock) DBCalls() []struct {
 }
 
 // Ping calls PingFunc.
-func (mock *sessionerMock) Ping() *mgo.Session {
+func (mock *SessionerMock) Ping() *mgo.Session {
 	if mock.PingFunc == nil {
-		panic("sessionerMock.PingFunc: method is nil but sessioner.Ping was just called")
+		panic("SessionerMock.PingFunc: method is nil but Sessioner.Ping was just called")
 	}
 	callInfo := struct {
 	}{}
@@ -170,8 +170,8 @@ func (mock *sessionerMock) Ping() *mgo.Session {
 
 // PingCalls gets all the calls that were made to Ping.
 // Check the length with:
-//     len(mockedsessioner.PingCalls())
-func (mock *sessionerMock) PingCalls() []struct {
+//     len(mockedSessioner.PingCalls())
+func (mock *SessionerMock) PingCalls() []struct {
 } {
 	var calls []struct {
 	}
