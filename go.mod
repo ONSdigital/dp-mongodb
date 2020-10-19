@@ -8,7 +8,6 @@ require (
 	github.com/ONSdigital/log.go v1.0.1
 	github.com/globalsign/mgo v0.0.0-20181015135952-eeefdecb41b8
 	github.com/go-test/deep v1.0.6 // indirect
-	github.com/matryer/moq v0.1.3 // indirect
 	github.com/mongo-go/testdb v0.0.0-20190724200850-a72a12eee610 // indirect
 	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect
 	github.com/smartystreets/goconvey v1.6.4

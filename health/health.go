@@ -1,13 +1,12 @@
 package health
 
-//go:generate moq -out mock/health.go . Sessioner
+//go:generate moq -out mock/health.go -pkg mock . Sessioner Databaser
 
 import (
 	"context"
 
 	"github.com/ONSdigital/dp-healthcheck/healthcheck"
 	"github.com/ONSdigital/log.go/log"
-	mgo "github.com/globalsign/mgo"
 )
 
 // ServiceName mongodb
@@ -34,12 +33,17 @@ type (
 	Collection string
 )
 
+//Databaser is an interface that define the functions from mgo.db
+type Databaser interface {
+	CollectionNames() ([]string, error)
+}
+
 //Sessioner is an interface that define the functions from mgo
 type Sessioner interface {
-	DB(name string) *mgo.Database
-	Copy() *mgo.Session
-	Close() *mgo.Session
-	Ping() *mgo.Session
+	DB(name string) Databaser
+	Copy() Sessioner
+	Close()
+	Ping() error
 }
 
 // Client provides a healthcheck.Client implementation for health checking the service
@@ -50,7 +54,12 @@ type Client struct {
 }
 
 // NewClient returns a new health check client using the given service
-func NewClient(db Sessioner, clientDatabaseCollection map[Database][]Collection) *Client {
+func NewClient(db Sessioner) *Client {
+	return NewClientWithCollections(db, nil)
+}
+
+// NewClientWithCollections returns a new health check client containing the collections using the given service
+func NewClientWithCollections(db Sessioner, clientDatabaseCollection map[Database][]Collection) *Client {
 	return &Client{
 		mongo:              db,
 		serviceName:        ServiceName,
@@ -58,12 +67,12 @@ func NewClient(db Sessioner, clientDatabaseCollection map[Database][]Collection)
 	}
 }
 
-func (m *Client) checkCollections(ctx context.Context) (err error) {
+func checkCollections(ctx context.Context, dbSession Sessioner, databaseCollectionMap map[Database][]Collection) (err error) {
 
-	for database, collections := range m.databaseCollection {
+	for database, collections := range databaseCollectionMap {
 
 		logData := log.Data{"Database": string(database)}
-		collectionsInDb, err := m.mongo.DB(string(database)).CollectionNames()
+		collectionsInDb, err := dbSession.DB(string(database)).CollectionNames()
 		if err != nil {
 			log.Event(ctx, "Failed to connect to mongoDB to get the collections", log.ERROR, logData, log.Error(err))
 		}
@@ -93,9 +102,11 @@ func (m *Client) Healthcheck(ctx context.Context) (res string, err error) {
 		log.Event(ctx, "Ping mongo", log.ERROR, log.Error(err))
 	}
 
-	m.checkCollections(ctx)
-	if err != nil {
-		log.Event(ctx, "Error checking collections in mongo", log.ERROR, log.Error(err))
+	if m.databaseCollection != nil {
+		err = checkCollections(ctx, s, m.databaseCollection)
+		if err != nil {
+			log.Event(ctx, "Error checking collections in mongo", log.ERROR, log.Error(err))
+		}
 	}
 
 	return
