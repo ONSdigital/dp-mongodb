@@ -12,8 +12,9 @@ import (
 )
 
 var (
-	errUnableToConnect = errors.New("unable to connect with MongoDB")
-	errUnableToPingDB  = errors.New("unable to ping DB")
+	errUnableToConnect          = errors.New("unable to connect with MongoDB")
+	errUnableToPingDB           = errors.New("unable to ping DB")
+	errorCollectionDoesNotExist = errors.New("collection not found in database")
 )
 
 func TestClient_GetOutput(t *testing.T) {
@@ -213,7 +214,7 @@ func TestClient_Healthcheck(t *testing.T) {
 		Convey("Healthcheck returns the serviceName and an error, and the database is called once", func() {
 			res, err := c.Healthcheck(ctx)
 			So(err, ShouldNotBeNil)
-			So(err, ShouldEqual, health.ErrorCollectionDoesNotExist)
+			So(err, ShouldResemble, errorCollectionDoesNotExist)
 			So(res, ShouldEqual, "mongodb")
 			So(copied.DBCalls(), ShouldHaveLength, 1)
 		})
