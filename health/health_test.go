@@ -11,7 +11,10 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 )
 
-var errUnableToConnect = errors.New("unable to connect to mongo datastore")
+var (
+	errUnableToConnect = errors.New("unable to connect with MongoDB")
+	errUnableToPingDB  = errors.New("unable to ping DB")
+)
 
 func TestClient_GetOutput(t *testing.T) {
 
@@ -56,13 +59,7 @@ func TestClient_GetOutput(t *testing.T) {
 	})
 }
 
-func TestClient_Healthcheck(t *testing.T) {
-
-	ctx := context.Background()
-
-	dc1 := make(map[health.Database][]health.Collection)
-	dc1["databaseOne"] = []health.Collection{"collectionOne"}
-
+func createSessionMocks() (*mock.SessionerMock, *mock.SessionerMock, *mock.DatabaserMock) {
 	mockedDatabaser := &mock.DatabaserMock{
 		CollectionNamesFunc: func() ([]string, error) {
 			return []string{"collectionOne"}, nil
@@ -85,29 +82,187 @@ func TestClient_Healthcheck(t *testing.T) {
 		},
 	}
 
+	return mainSessioner, copiedSessioner, mockedDatabaser
+}
+
+func createSessionMocksMultipleCollections() (*mock.SessionerMock, *mock.SessionerMock, *mock.DatabaserMock) {
+	mockedDatabaser := &mock.DatabaserMock{
+		CollectionNamesFunc: func() ([]string, error) {
+			return []string{"collectionOne", "collectionTwo", "collectionThree", "collectionFour"}, nil
+		},
+	}
+
+	copiedSessioner := &mock.SessionerMock{
+		CloseFunc: func() {},
+		PingFunc: func() error {
+			return nil
+		},
+		DBFunc: func(string) health.Databaser {
+			return mockedDatabaser
+		},
+	}
+
+	mainSessioner := &mock.SessionerMock{
+		CopyFunc: func() health.Sessioner {
+			return copiedSessioner
+		},
+	}
+
+	return mainSessioner, copiedSessioner, mockedDatabaser
+}
+
+func createSessionMocksCollectionNamesError() (*mock.SessionerMock, *mock.SessionerMock, *mock.DatabaserMock) {
+	mockedDatabaser := &mock.DatabaserMock{
+		CollectionNamesFunc: func() ([]string, error) {
+			return nil, errUnableToConnect
+		},
+	}
+
+	copiedSessioner := &mock.SessionerMock{
+		CloseFunc: func() {},
+		PingFunc: func() error {
+			return nil
+		},
+		DBFunc: func(string) health.Databaser {
+			return mockedDatabaser
+		},
+	}
+
+	mainSessioner := &mock.SessionerMock{
+		CopyFunc: func() health.Sessioner {
+			return copiedSessioner
+		},
+	}
+
+	return mainSessioner, copiedSessioner, mockedDatabaser
+}
+
+func createSessionMocksPingError() (*mock.SessionerMock, *mock.SessionerMock) {
+	copiedSessioner := &mock.SessionerMock{
+		CloseFunc: func() {},
+		PingFunc: func() error {
+			return errUnableToPingDB
+		},
+	}
+
+	mainSessioner := &mock.SessionerMock{
+		CopyFunc: func() health.Sessioner {
+			return copiedSessioner
+		},
+	}
+
+	return mainSessioner, copiedSessioner
+}
+
+func TestClient_Healthcheck(t *testing.T) {
+
+	ctx := context.Background()
+
 	Convey("Given that the databaseCollection is nil", t, func() {
 
-		c := health.NewClient(mainSessioner)
+		main, copied, _ := createSessionMocks()
+		c := health.NewClient(main)
 
 		Convey("Healthcheck returns the serviceName and nil error, and the database isn't called", func() {
 			res, err := c.Healthcheck(ctx)
-			So(res, ShouldEqual, "mongodb")
 			So(err, ShouldEqual, nil)
-			So(copiedSessioner.DBCalls(), ShouldHaveLength, 0)
+			So(res, ShouldEqual, "mongodb")
+			So(copied.DBCalls(), ShouldHaveLength, 0)
+		})
+
+	})
+
+	Convey("Given that the databaseCollection has one database but the collection list is empty", t, func() {
+
+		dc := make(map[health.Database][]health.Collection)
+		dc["databaseOne"] = []health.Collection{}
+		main, copied, _ := createSessionMocks()
+		c := health.NewClientWithCollections(main, dc)
+
+		Convey("Healthcheck returns the ServiceName and nil error, and the database is called once", func() {
+			res, err := c.Healthcheck(ctx)
+			So(err, ShouldEqual, nil)
+			So(res, ShouldEqual, "mongodb")
+			So(copied.DBCalls(), ShouldHaveLength, 1)
 		})
 
 	})
 
 	Convey("Given that the databaseCollection has one database and one collection and the collection exists", t, func() {
-		c := health.NewClientWithCollections(mainSessioner, dc1)
+
+		dc := make(map[health.Database][]health.Collection)
+		dc["databaseOne"] = []health.Collection{"collectionOne"}
+		main, copied, _ := createSessionMocks()
+		c := health.NewClientWithCollections(main, dc)
 
 		Convey("Healthcheck returns the serviceName and nil error, and the database is called once", func() {
 			res, err := c.Healthcheck(ctx)
-			So(res, ShouldEqual, "mongodb")
 			So(err, ShouldEqual, nil)
-			So(copiedSessioner.DBCalls(), ShouldHaveLength, 1)
+			So(res, ShouldEqual, "mongodb")
+			So(copied.DBCalls(), ShouldHaveLength, 1)
 		})
 	})
+
+	Convey("Given that the databaseCollection has one database and one collection and the collection does not exist", t, func() {
+
+		dc := make(map[health.Database][]health.Collection)
+		dc["databaseOne"] = []health.Collection{"collectionTwo"}
+		main, copied, _ := createSessionMocks()
+		c := health.NewClientWithCollections(main, dc)
+
+		Convey("Healthcheck returns the serviceName and an error, and the database is called once", func() {
+			res, err := c.Healthcheck(ctx)
+			So(err, ShouldNotBeNil)
+			So(err, ShouldEqual, health.ErrorCollectionDoesNotExist)
+			So(res, ShouldEqual, "mongodb")
+			So(copied.DBCalls(), ShouldHaveLength, 1)
+		})
+	})
+
+	Convey("Given that the databaseCollection has two databases and four collections in each one and the collections exist", t, func() {
+
+		dc := make(map[health.Database][]health.Collection)
+		dc["databaseOne"] = []health.Collection{"collectionOne", "collectionTwo", "collectionThree", "collectionFour"}
+		dc["databaseTwo"] = []health.Collection{"collectionOne", "collectionTwo", "collectionThree", "collectionFour"}
+		main, copied, _ := createSessionMocksMultipleCollections()
+		c := health.NewClientWithCollections(main, dc)
+
+		Convey("Healthcheck returns the serviceName and nil error, and the database is called twice", func() {
+			res, err := c.Healthcheck(ctx)
+			So(err, ShouldBeNil)
+			So(res, ShouldEqual, "mongodb")
+			So(copied.DBCalls(), ShouldHaveLength, 2)
+		})
+	})
+
+	Convey("Given that the call to the Mongo database fails on the collectionNames call", t, func() {
+
+		dc := make(map[health.Database][]health.Collection)
+		dc["databaseOne"] = []health.Collection{"collectionOne"}
+		main, copied, _ := createSessionMocksCollectionNamesError()
+		c := health.NewClientWithCollections(main, dc)
+
+		Convey("Healthcheck returns the serviceName and error, and the database is called once", func() {
+			res, err := c.Healthcheck(ctx)
+			So(err, ShouldNotBeNil)
+			So(err, ShouldResemble, errUnableToConnect)
+			So(res, ShouldEqual, "mongodb")
+			So(copied.DBCalls(), ShouldHaveLength, 1)
+		})
+	})
+
+	Convey("Given that the ping to the mongo client returns an error", t, func() {
+		main, _ := createSessionMocksPingError()
+		c := health.NewClient(main)
+
+		Convey("Healthcheck returns the serviceName and error", func() {
+			res, err := c.Healthcheck(ctx)
+			So(err, ShouldNotBeNil)
+			So(err, ShouldResemble, errUnableToPingDB)
+			So(res, ShouldEqual, "mongodb")
+		})
+	})
+
 }
 
 var (

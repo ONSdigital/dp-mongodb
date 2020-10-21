@@ -4,6 +4,7 @@ package health
 
 import (
 	"context"
+	"errors"
 
 	"github.com/ONSdigital/dp-healthcheck/healthcheck"
 	"github.com/ONSdigital/log.go/log"
@@ -15,6 +16,12 @@ const ServiceName = "mongodb"
 var (
 	// HealthyMessage is the message that will be used in healthcheck when mongo is Healthy and all the collections exist
 	HealthyMessage = "mongodb is OK and all expected collections exist"
+)
+
+//List of errors
+var (
+	ErrorCollectionDoesNotExist = errors.New("collection not found in database")
+	ErrorWithMongoDBConnection  = errors.New("unable to connect with MongoDB")
 )
 
 // Healthcheck health check function
@@ -69,27 +76,33 @@ func NewClientWithCollections(db Sessioner, clientDatabaseCollection map[Databas
 
 func checkCollections(ctx context.Context, dbSession Sessioner, databaseCollectionMap map[Database][]Collection) (err error) {
 
-	for database, collections := range databaseCollectionMap {
+	for databaseToCheck, collectionsToCheck := range databaseCollectionMap {
 
-		logData := log.Data{"Database": string(database)}
-		collectionsInDb, err := dbSession.DB(string(database)).CollectionNames()
+		logData := log.Data{"Database": string(databaseToCheck)}
+		collectionsInDb, err := dbSession.DB(string(databaseToCheck)).CollectionNames()
 		if err != nil {
 			log.Event(ctx, "Failed to connect to mongoDB to get the collections", log.ERROR, logData, log.Error(err))
+			return ErrorWithMongoDBConnection
 		}
 
-		for _, collection := range collections {
-			logData := log.Data{"Database": string(database), "Collection": string(collection)}
-			for _, collectionInDb := range collectionsInDb {
-				if string(collection) == collectionInDb {
-					break
-				} else {
-					log.Event(ctx, "Collection does not exist in the database", log.ERROR, logData, log.Error(err))
-					return err
-				}
+		for _, collectionToCheck := range collectionsToCheck {
+			if found := find(collectionsInDb, string(collectionToCheck)); !found {
+				logData["Collection"] = string(collectionToCheck)
+				log.Event(ctx, "Collection does not exist in the database", log.ERROR, logData, log.Error(ErrorCollectionDoesNotExist))
+				return ErrorCollectionDoesNotExist
 			}
 		}
 	}
 	return nil
+}
+
+func find(slice []string, val string) bool {
+	for _, item := range slice {
+		if item == val {
+			return true
+		}
+	}
+	return false
 }
 
 // Healthcheck calls service to check its health status
@@ -100,12 +113,14 @@ func (m *Client) Healthcheck(ctx context.Context) (res string, err error) {
 	err = s.Ping()
 	if err != nil {
 		log.Event(ctx, "Ping mongo", log.ERROR, log.Error(err))
+		return
 	}
 
 	if m.databaseCollection != nil {
 		err = checkCollections(ctx, s, m.databaseCollection)
 		if err != nil {
 			log.Event(ctx, "Error checking collections in mongo", log.ERROR, log.Error(err))
+			return
 		}
 	}
 
