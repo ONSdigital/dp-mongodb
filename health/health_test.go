@@ -10,7 +10,9 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 )
 
-var errUnableToConnect = errors.New("unable to connect to mongo datastore")
+var (
+	errUnableToConnect = errors.New("unable to connect with MongoDB")
+)
 
 func TestClient_GetOutput(t *testing.T) {
 
