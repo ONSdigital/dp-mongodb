@@ -5,26 +5,34 @@ package mock
 
 import (
 	"github.com/ONSdigital/dp-mongodb/health"
+	"github.com/globalsign/mgo"
 	"sync"
 )
 
-// Ensure, that SessionerMock does implement health.Sessioner.
-// If this is not the case, regenerate this file with moq.
-var _ health.Sessioner = &SessionerMock{}
+var (
+	lockSessionMockClose sync.RWMutex
+	lockSessionMockCopy  sync.RWMutex
+	lockSessionMockDB    sync.RWMutex
+	lockSessionMockPing  sync.RWMutex
+)
 
-// SessionerMock is a mock implementation of health.Sessioner.
+// Ensure, that SessionMock does implement health.Session.
+// If this is not the case, regenerate this file with moq.
+var _ health.Session = &SessionMock{}
+
+// SessionMock is a mock implementation of health.Session.
 //
-//     func TestSomethingThatUsesSessioner(t *testing.T) {
+//     func TestSomethingThatUsesSession(t *testing.T) {
 //
-//         // make and configure a mocked health.Sessioner
-//         mockedSessioner := &SessionerMock{
+//         // make and configure a mocked health.Session
+//         mockedSession := &SessionMock{
 //             CloseFunc: func()  {
 // 	               panic("mock out the Close method")
 //             },
-//             CopyFunc: func() health.Sessioner {
+//             CopyFunc: func() health.Session {
 // 	               panic("mock out the Copy method")
 //             },
-//             DBFunc: func(name string) health.Databaser {
+//             DBFunc: func(name string) health.DataLayer {
 // 	               panic("mock out the DB method")
 //             },
 //             PingFunc: func() error {
@@ -32,19 +40,19 @@ var _ health.Sessioner = &SessionerMock{}
 //             },
 //         }
 //
-//         // use mockedSessioner in code that requires health.Sessioner
+//         // use mockedSession in code that requires health.Session
 //         // and then make assertions.
 //
 //     }
-type SessionerMock struct {
+type SessionMock struct {
 	// CloseFunc mocks the Close method.
 	CloseFunc func()
 
 	// CopyFunc mocks the Copy method.
-	CopyFunc func() health.Sessioner
+	CopyFunc func() health.Session
 
 	// DBFunc mocks the DB method.
-	DBFunc func(name string) health.Databaser
+	DBFunc func(name string) health.DataLayer
 
 	// PingFunc mocks the Ping method.
 	PingFunc func() error
@@ -66,175 +74,383 @@ type SessionerMock struct {
 		Ping []struct {
 		}
 	}
-	lockClose sync.RWMutex
-	lockCopy  sync.RWMutex
-	lockDB    sync.RWMutex
-	lockPing  sync.RWMutex
 }
 
 // Close calls CloseFunc.
-func (mock *SessionerMock) Close() {
+func (mock *SessionMock) Close() {
 	if mock.CloseFunc == nil {
-		panic("SessionerMock.CloseFunc: method is nil but Sessioner.Close was just called")
+		panic("SessionMock.CloseFunc: method is nil but Session.Close was just called")
 	}
 	callInfo := struct {
 	}{}
-	mock.lockClose.Lock()
+	lockSessionMockClose.Lock()
 	mock.calls.Close = append(mock.calls.Close, callInfo)
-	mock.lockClose.Unlock()
+	lockSessionMockClose.Unlock()
 	mock.CloseFunc()
 }
 
 // CloseCalls gets all the calls that were made to Close.
 // Check the length with:
-//     len(mockedSessioner.CloseCalls())
-func (mock *SessionerMock) CloseCalls() []struct {
+//     len(mockedSession.CloseCalls())
+func (mock *SessionMock) CloseCalls() []struct {
 } {
 	var calls []struct {
 	}
-	mock.lockClose.RLock()
+	lockSessionMockClose.RLock()
 	calls = mock.calls.Close
-	mock.lockClose.RUnlock()
+	lockSessionMockClose.RUnlock()
 	return calls
 }
 
 // Copy calls CopyFunc.
-func (mock *SessionerMock) Copy() health.Sessioner {
+func (mock *SessionMock) Copy() health.Session {
 	if mock.CopyFunc == nil {
-		panic("SessionerMock.CopyFunc: method is nil but Sessioner.Copy was just called")
+		panic("SessionMock.CopyFunc: method is nil but Session.Copy was just called")
 	}
 	callInfo := struct {
 	}{}
-	mock.lockCopy.Lock()
+	lockSessionMockCopy.Lock()
 	mock.calls.Copy = append(mock.calls.Copy, callInfo)
-	mock.lockCopy.Unlock()
+	lockSessionMockCopy.Unlock()
 	return mock.CopyFunc()
 }
 
 // CopyCalls gets all the calls that were made to Copy.
 // Check the length with:
-//     len(mockedSessioner.CopyCalls())
-func (mock *SessionerMock) CopyCalls() []struct {
+//     len(mockedSession.CopyCalls())
+func (mock *SessionMock) CopyCalls() []struct {
 } {
 	var calls []struct {
 	}
-	mock.lockCopy.RLock()
+	lockSessionMockCopy.RLock()
 	calls = mock.calls.Copy
-	mock.lockCopy.RUnlock()
+	lockSessionMockCopy.RUnlock()
 	return calls
 }
 
 // DB calls DBFunc.
-func (mock *SessionerMock) DB(name string) health.Databaser {
+func (mock *SessionMock) DB(name string) health.DataLayer {
 	if mock.DBFunc == nil {
-		panic("SessionerMock.DBFunc: method is nil but Sessioner.DB was just called")
+		panic("SessionMock.DBFunc: method is nil but Session.DB was just called")
 	}
 	callInfo := struct {
 		Name string
 	}{
 		Name: name,
 	}
-	mock.lockDB.Lock()
+	lockSessionMockDB.Lock()
 	mock.calls.DB = append(mock.calls.DB, callInfo)
-	mock.lockDB.Unlock()
+	lockSessionMockDB.Unlock()
 	return mock.DBFunc(name)
 }
 
 // DBCalls gets all the calls that were made to DB.
 // Check the length with:
-//     len(mockedSessioner.DBCalls())
-func (mock *SessionerMock) DBCalls() []struct {
+//     len(mockedSession.DBCalls())
+func (mock *SessionMock) DBCalls() []struct {
 	Name string
 } {
 	var calls []struct {
 		Name string
 	}
-	mock.lockDB.RLock()
+	lockSessionMockDB.RLock()
 	calls = mock.calls.DB
-	mock.lockDB.RUnlock()
+	lockSessionMockDB.RUnlock()
 	return calls
 }
 
 // Ping calls PingFunc.
-func (mock *SessionerMock) Ping() error {
+func (mock *SessionMock) Ping() error {
 	if mock.PingFunc == nil {
-		panic("SessionerMock.PingFunc: method is nil but Sessioner.Ping was just called")
+		panic("SessionMock.PingFunc: method is nil but Session.Ping was just called")
 	}
 	callInfo := struct {
 	}{}
-	mock.lockPing.Lock()
+	lockSessionMockPing.Lock()
 	mock.calls.Ping = append(mock.calls.Ping, callInfo)
-	mock.lockPing.Unlock()
+	lockSessionMockPing.Unlock()
 	return mock.PingFunc()
 }
 
 // PingCalls gets all the calls that were made to Ping.
 // Check the length with:
-//     len(mockedSessioner.PingCalls())
-func (mock *SessionerMock) PingCalls() []struct {
+//     len(mockedSession.PingCalls())
+func (mock *SessionMock) PingCalls() []struct {
 } {
 	var calls []struct {
 	}
-	mock.lockPing.RLock()
+	lockSessionMockPing.RLock()
 	calls = mock.calls.Ping
-	mock.lockPing.RUnlock()
+	lockSessionMockPing.RUnlock()
 	return calls
 }
 
-// Ensure, that DatabaserMock does implement health.Databaser.
-// If this is not the case, regenerate this file with moq.
-var _ health.Databaser = &DatabaserMock{}
+var (
+	lockDataLayerMockC               sync.RWMutex
+	lockDataLayerMockCollectionNames sync.RWMutex
+)
 
-// DatabaserMock is a mock implementation of health.Databaser.
+// Ensure, that DataLayerMock does implement health.DataLayer.
+// If this is not the case, regenerate this file with moq.
+var _ health.DataLayer = &DataLayerMock{}
+
+// DataLayerMock is a mock implementation of health.DataLayer.
 //
-//     func TestSomethingThatUsesDatabaser(t *testing.T) {
+//     func TestSomethingThatUsesDataLayer(t *testing.T) {
 //
-//         // make and configure a mocked health.Databaser
-//         mockedDatabaser := &DatabaserMock{
+//         // make and configure a mocked health.DataLayer
+//         mockedDataLayer := &DataLayerMock{
+//             CFunc: func(name string) health.CollectionLayer {
+// 	               panic("mock out the C method")
+//             },
 //             CollectionNamesFunc: func() ([]string, error) {
 // 	               panic("mock out the CollectionNames method")
 //             },
 //         }
 //
-//         // use mockedDatabaser in code that requires health.Databaser
+//         // use mockedDataLayer in code that requires health.DataLayer
 //         // and then make assertions.
 //
 //     }
-type DatabaserMock struct {
+type DataLayerMock struct {
+	// CFunc mocks the C method.
+	CFunc func(name string) health.CollectionLayer
+
 	// CollectionNamesFunc mocks the CollectionNames method.
 	CollectionNamesFunc func() ([]string, error)
 
 	// calls tracks calls to the methods.
 	calls struct {
+		// C holds details about calls to the C method.
+		C []struct {
+			// Name is the name argument value.
+			Name string
+		}
 		// CollectionNames holds details about calls to the CollectionNames method.
 		CollectionNames []struct {
 		}
 	}
-	lockCollectionNames sync.RWMutex
+}
+
+// C calls CFunc.
+func (mock *DataLayerMock) C(name string) health.CollectionLayer {
+	if mock.CFunc == nil {
+		panic("DataLayerMock.CFunc: method is nil but DataLayer.C was just called")
+	}
+	callInfo := struct {
+		Name string
+	}{
+		Name: name,
+	}
+	lockDataLayerMockC.Lock()
+	mock.calls.C = append(mock.calls.C, callInfo)
+	lockDataLayerMockC.Unlock()
+	return mock.CFunc(name)
+}
+
+// CCalls gets all the calls that were made to C.
+// Check the length with:
+//     len(mockedDataLayer.CCalls())
+func (mock *DataLayerMock) CCalls() []struct {
+	Name string
+} {
+	var calls []struct {
+		Name string
+	}
+	lockDataLayerMockC.RLock()
+	calls = mock.calls.C
+	lockDataLayerMockC.RUnlock()
+	return calls
 }
 
 // CollectionNames calls CollectionNamesFunc.
-func (mock *DatabaserMock) CollectionNames() ([]string, error) {
+func (mock *DataLayerMock) CollectionNames() ([]string, error) {
 	if mock.CollectionNamesFunc == nil {
-		panic("DatabaserMock.CollectionNamesFunc: method is nil but Databaser.CollectionNames was just called")
+		panic("DataLayerMock.CollectionNamesFunc: method is nil but DataLayer.CollectionNames was just called")
 	}
 	callInfo := struct {
 	}{}
-	mock.lockCollectionNames.Lock()
+	lockDataLayerMockCollectionNames.Lock()
 	mock.calls.CollectionNames = append(mock.calls.CollectionNames, callInfo)
-	mock.lockCollectionNames.Unlock()
+	lockDataLayerMockCollectionNames.Unlock()
 	return mock.CollectionNamesFunc()
 }
 
 // CollectionNamesCalls gets all the calls that were made to CollectionNames.
 // Check the length with:
-//     len(mockedDatabaser.CollectionNamesCalls())
-func (mock *DatabaserMock) CollectionNamesCalls() []struct {
+//     len(mockedDataLayer.CollectionNamesCalls())
+func (mock *DataLayerMock) CollectionNamesCalls() []struct {
 } {
 	var calls []struct {
 	}
-	mock.lockCollectionNames.RLock()
+	lockDataLayerMockCollectionNames.RLock()
 	calls = mock.calls.CollectionNames
-	mock.lockCollectionNames.RUnlock()
+	lockDataLayerMockCollectionNames.RUnlock()
+	return calls
+}
+
+var (
+	lockCollectionLayerMockFind     sync.RWMutex
+	lockCollectionLayerMockUpdateId sync.RWMutex
+	lockCollectionLayerMockUpsertId sync.RWMutex
+)
+
+// Ensure, that CollectionLayerMock does implement health.CollectionLayer.
+// If this is not the case, regenerate this file with moq.
+var _ health.CollectionLayer = &CollectionLayerMock{}
+
+// CollectionLayerMock is a mock implementation of health.CollectionLayer.
+//
+//     func TestSomethingThatUsesCollectionLayer(t *testing.T) {
+//
+//         // make and configure a mocked health.CollectionLayer
+//         mockedCollectionLayer := &CollectionLayerMock{
+//             FindFunc: func(query interface{}) *mgo.Query {
+// 	               panic("mock out the Find method")
+//             },
+//             UpdateIdFunc: func(id interface{}, update interface{}) error {
+// 	               panic("mock out the UpdateId method")
+//             },
+//             UpsertIdFunc: func(id interface{}, update interface{}) (*mgo.ChangeInfo, error) {
+// 	               panic("mock out the UpsertId method")
+//             },
+//         }
+//
+//         // use mockedCollectionLayer in code that requires health.CollectionLayer
+//         // and then make assertions.
+//
+//     }
+type CollectionLayerMock struct {
+	// FindFunc mocks the Find method.
+	FindFunc func(query interface{}) *mgo.Query
+
+	// UpdateIdFunc mocks the UpdateId method.
+	UpdateIdFunc func(id interface{}, update interface{}) error
+
+	// UpsertIdFunc mocks the UpsertId method.
+	UpsertIdFunc func(id interface{}, update interface{}) (*mgo.ChangeInfo, error)
+
+	// calls tracks calls to the methods.
+	calls struct {
+		// Find holds details about calls to the Find method.
+		Find []struct {
+			// Query is the query argument value.
+			Query interface{}
+		}
+		// UpdateId holds details about calls to the UpdateId method.
+		UpdateId []struct {
+			// ID is the id argument value.
+			ID interface{}
+			// Update is the update argument value.
+			Update interface{}
+		}
+		// UpsertId holds details about calls to the UpsertId method.
+		UpsertId []struct {
+			// ID is the id argument value.
+			ID interface{}
+			// Update is the update argument value.
+			Update interface{}
+		}
+	}
+}
+
+// Find calls FindFunc.
+func (mock *CollectionLayerMock) Find(query interface{}) *mgo.Query {
+	if mock.FindFunc == nil {
+		panic("CollectionLayerMock.FindFunc: method is nil but CollectionLayer.Find was just called")
+	}
+	callInfo := struct {
+		Query interface{}
+	}{
+		Query: query,
+	}
+	lockCollectionLayerMockFind.Lock()
+	mock.calls.Find = append(mock.calls.Find, callInfo)
+	lockCollectionLayerMockFind.Unlock()
+	return mock.FindFunc(query)
+}
+
+// FindCalls gets all the calls that were made to Find.
+// Check the length with:
+//     len(mockedCollectionLayer.FindCalls())
+func (mock *CollectionLayerMock) FindCalls() []struct {
+	Query interface{}
+} {
+	var calls []struct {
+		Query interface{}
+	}
+	lockCollectionLayerMockFind.RLock()
+	calls = mock.calls.Find
+	lockCollectionLayerMockFind.RUnlock()
+	return calls
+}
+
+// UpdateId calls UpdateIdFunc.
+func (mock *CollectionLayerMock) UpdateId(id interface{}, update interface{}) error {
+	if mock.UpdateIdFunc == nil {
+		panic("CollectionLayerMock.UpdateIdFunc: method is nil but CollectionLayer.UpdateId was just called")
+	}
+	callInfo := struct {
+		ID     interface{}
+		Update interface{}
+	}{
+		ID:     id,
+		Update: update,
+	}
+	lockCollectionLayerMockUpdateId.Lock()
+	mock.calls.UpdateId = append(mock.calls.UpdateId, callInfo)
+	lockCollectionLayerMockUpdateId.Unlock()
+	return mock.UpdateIdFunc(id, update)
+}
+
+// UpdateIdCalls gets all the calls that were made to UpdateId.
+// Check the length with:
+//     len(mockedCollectionLayer.UpdateIdCalls())
+func (mock *CollectionLayerMock) UpdateIdCalls() []struct {
+	ID     interface{}
+	Update interface{}
+} {
+	var calls []struct {
+		ID     interface{}
+		Update interface{}
+	}
+	lockCollectionLayerMockUpdateId.RLock()
+	calls = mock.calls.UpdateId
+	lockCollectionLayerMockUpdateId.RUnlock()
+	return calls
+}
+
+// UpsertId calls UpsertIdFunc.
+func (mock *CollectionLayerMock) UpsertId(id interface{}, update interface{}) (*mgo.ChangeInfo, error) {
+	if mock.UpsertIdFunc == nil {
+		panic("CollectionLayerMock.UpsertIdFunc: method is nil but CollectionLayer.UpsertId was just called")
+	}
+	callInfo := struct {
+		ID     interface{}
+		Update interface{}
+	}{
+		ID:     id,
+		Update: update,
+	}
+	lockCollectionLayerMockUpsertId.Lock()
+	mock.calls.UpsertId = append(mock.calls.UpsertId, callInfo)
+	lockCollectionLayerMockUpsertId.Unlock()
+	return mock.UpsertIdFunc(id, update)
+}
+
+// UpsertIdCalls gets all the calls that were made to UpsertId.
+// Check the length with:
+//     len(mockedCollectionLayer.UpsertIdCalls())
+func (mock *CollectionLayerMock) UpsertIdCalls() []struct {
+	ID     interface{}
+	Update interface{}
+} {
+	var calls []struct {
+		ID     interface{}
+		Update interface{}
+	}
+	lockCollectionLayerMockUpsertId.RLock()
+	calls = mock.calls.UpsertId
+	lockCollectionLayerMockUpsertId.RUnlock()
 	return calls
 }

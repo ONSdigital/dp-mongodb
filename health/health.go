@@ -1,6 +1,6 @@
 package health
 
-//go:generate moq -out mock/health.go -pkg mock . Sessioner Databaser
+//go:generate moq -out mock/health.go -pkg mock . Session DataLayer CollectionLayer
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 
 	"github.com/ONSdigital/dp-healthcheck/healthcheck"
 	"github.com/ONSdigital/log.go/log"
+	"github.com/globalsign/mgo"
 )
 
 // ServiceName mongodb
@@ -40,33 +41,74 @@ type (
 	Collection string
 )
 
-//Databaser is an interface that define the functions from mgo.db
-type Databaser interface {
-	CollectionNames() ([]string, error)
+// MongoSession is currently a mgo.Session
+type MongoSession struct {
+	*mgo.Session
 }
 
-//Sessioner is an interface that define the functions from mgo
-type Sessioner interface {
-	DB(name string) Databaser
-	Copy() Sessioner
+// MongoDatabase wraps a mgo.Database to embed methods in models
+type MongoDatabase struct {
+	*mgo.Database
+}
+
+// MongoCollection wraps a mgo.Collection to embed methods in models
+type MongoCollection struct {
+	*mgo.Collection
+}
+
+// Check that the MongoSession satifies the the Session interface
+var _ Session = (*MongoSession)(nil)
+
+// Session is an interface that define the functions from mgo
+type Session interface {
 	Close()
+	Copy() Session
+	DB(name string) DataLayer
 	Ping() error
+}
+
+// DataLayer is an interface that define the functions from mgo.db
+type DataLayer interface {
+	CollectionNames() ([]string, error)
+	C(name string) CollectionLayer
+}
+
+// CollectionLayer is an interface that define the functions from mgo.Collection
+type CollectionLayer interface {
+	Find(query interface{}) *mgo.Query
+	UpsertId(id interface{}, update interface{}) (info *mgo.ChangeInfo, err error)
+	UpdateId(id interface{}, update interface{}) error
+}
+
+// Copy shadows *mgo.Copy to return a Session interface instead of *mgo.Session
+func (s MongoSession) Copy() Session {
+	return &MongoSession{Session: s.Session.Copy()}
+}
+
+// DB shadows *mgo.DB to return a DataLayer interface instead of *mgo.Database
+func (s MongoSession) DB(name string) DataLayer {
+	return &MongoDatabase{Database: s.Session.DB(name)}
+}
+
+// C shadows *mgo.Collection to return a CollectionLayer interface instead of *mgo.Collection
+func (db MongoDatabase) C(name string) CollectionLayer {
+	return &MongoCollection{Collection: db.Database.C(name)}
 }
 
 // Client provides a healthcheck.Client implementation for health checking the service
 type Client struct {
-	mongo              Sessioner
+	mongo              Session
 	serviceName        string
 	databaseCollection map[Database][]Collection
 }
 
 // NewClient returns a new health check client using the given service
-func NewClient(db Sessioner) *Client {
+func NewClient(db Session) *Client {
 	return NewClientWithCollections(db, nil)
 }
 
 // NewClientWithCollections returns a new health check client containing the collections using the given service
-func NewClientWithCollections(db Sessioner, clientDatabaseCollection map[Database][]Collection) *Client {
+func NewClientWithCollections(db Session, clientDatabaseCollection map[Database][]Collection) *Client {
 	return &Client{
 		mongo:              db,
 		serviceName:        ServiceName,
@@ -74,7 +116,7 @@ func NewClientWithCollections(db Sessioner, clientDatabaseCollection map[Databas
 	}
 }
 
-func checkCollections(ctx context.Context, dbSession Sessioner, databaseCollectionMap map[Database][]Collection) (err error) {
+func checkCollections(ctx context.Context, dbSession Session, databaseCollectionMap map[Database][]Collection) (err error) {
 
 	for databaseToCheck, collectionsToCheck := range databaseCollectionMap {
 

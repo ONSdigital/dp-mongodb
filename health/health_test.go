@@ -60,99 +60,99 @@ func TestClient_GetOutput(t *testing.T) {
 	})
 }
 
-func createSessionMocks() (*mock.SessionerMock, *mock.SessionerMock, *mock.DatabaserMock) {
-	mockedDatabaser := &mock.DatabaserMock{
+func createSessionMocks() (*mock.SessionMock, *mock.SessionMock, *mock.DataLayerMock) {
+	mockedDatabaser := &mock.DataLayerMock{
 		CollectionNamesFunc: func() ([]string, error) {
 			return []string{"collectionOne"}, nil
 		},
 	}
 
-	copiedSessioner := &mock.SessionerMock{
+	copiedSession := &mock.SessionMock{
 		CloseFunc: func() {},
 		PingFunc: func() error {
 			return nil
 		},
-		DBFunc: func(string) health.Databaser {
+		DBFunc: func(string) health.DataLayer {
 			return mockedDatabaser
 		},
 	}
 
-	mainSessioner := &mock.SessionerMock{
-		CopyFunc: func() health.Sessioner {
-			return copiedSessioner
+	mainSession := &mock.SessionMock{
+		CopyFunc: func() health.Session {
+			return copiedSession
 		},
 	}
 
-	return mainSessioner, copiedSessioner, mockedDatabaser
+	return mainSession, copiedSession, mockedDatabaser
 }
 
-func createSessionMocksMultipleCollections() (*mock.SessionerMock, *mock.SessionerMock, *mock.DatabaserMock) {
-	mockedDatabaser := &mock.DatabaserMock{
+func createSessionMocksMultipleCollections() (*mock.SessionMock, *mock.SessionMock, *mock.DataLayerMock) {
+	mockedDatabaser := &mock.DataLayerMock{
 		CollectionNamesFunc: func() ([]string, error) {
 			return []string{"collectionOne", "collectionTwo", "collectionThree", "collectionFour"}, nil
 		},
 	}
 
-	copiedSessioner := &mock.SessionerMock{
+	copiedSession := &mock.SessionMock{
 		CloseFunc: func() {},
 		PingFunc: func() error {
 			return nil
 		},
-		DBFunc: func(string) health.Databaser {
+		DBFunc: func(string) health.DataLayer {
 			return mockedDatabaser
 		},
 	}
 
-	mainSessioner := &mock.SessionerMock{
-		CopyFunc: func() health.Sessioner {
-			return copiedSessioner
+	mainSession := &mock.SessionMock{
+		CopyFunc: func() health.Session {
+			return copiedSession
 		},
 	}
 
-	return mainSessioner, copiedSessioner, mockedDatabaser
+	return mainSession, copiedSession, mockedDatabaser
 }
 
-func createSessionMocksCollectionNamesError() (*mock.SessionerMock, *mock.SessionerMock, *mock.DatabaserMock) {
-	mockedDatabaser := &mock.DatabaserMock{
+func createSessionMocksCollectionNamesError() (*mock.SessionMock, *mock.SessionMock, *mock.DataLayerMock) {
+	mockedDatabaser := &mock.DataLayerMock{
 		CollectionNamesFunc: func() ([]string, error) {
 			return nil, errUnableToConnect
 		},
 	}
 
-	copiedSessioner := &mock.SessionerMock{
+	copiedSession := &mock.SessionMock{
 		CloseFunc: func() {},
 		PingFunc: func() error {
 			return nil
 		},
-		DBFunc: func(string) health.Databaser {
+		DBFunc: func(string) health.DataLayer {
 			return mockedDatabaser
 		},
 	}
 
-	mainSessioner := &mock.SessionerMock{
-		CopyFunc: func() health.Sessioner {
-			return copiedSessioner
+	mainSession := &mock.SessionMock{
+		CopyFunc: func() health.Session {
+			return copiedSession
 		},
 	}
 
-	return mainSessioner, copiedSessioner, mockedDatabaser
+	return mainSession, copiedSession, mockedDatabaser
 }
 
-func createSessionMocksPingError() (*mock.SessionerMock, *mock.SessionerMock) {
-	copiedSessioner := &mock.SessionerMock{
+func createSessionMocksPingError() (*mock.SessionMock, *mock.SessionMock) {
+	copiedSession := &mock.SessionMock{
 		CloseFunc: func() {},
 		PingFunc: func() error {
 			return errUnableToPingDB
 		},
 	}
 
-	mainSessioner := &mock.SessionerMock{
-		CopyFunc: func() health.Sessioner {
-			return copiedSessioner
+	mainSession := &mock.SessionMock{
+		CopyFunc: func() health.Session {
+			return copiedSession
 		},
 	}
 
-	return mainSessioner, copiedSessioner
+	return mainSession, copiedSession
 }
 
 func TestClient_Healthcheck(t *testing.T) {
