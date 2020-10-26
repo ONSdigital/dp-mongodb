@@ -1,13 +1,12 @@
 package health
 
-//go:generate moq -out mock/health.go -pkg mock . Sessioner Databaser
-
 import (
 	"context"
 	"errors"
 
 	"github.com/ONSdigital/dp-healthcheck/healthcheck"
 	"github.com/ONSdigital/log.go/log"
+	mgo "github.com/globalsign/mgo"
 )
 
 // ServiceName mongodb
@@ -40,33 +39,20 @@ type (
 	Collection string
 )
 
-//Databaser is an interface that define the functions from mgo.db
-type Databaser interface {
-	CollectionNames() ([]string, error)
-}
-
-//Sessioner is an interface that define the functions from mgo
-type Sessioner interface {
-	DB(name string) Databaser
-	Copy() Sessioner
-	Close()
-	Ping() error
-}
-
 // Client provides a healthcheck.Client implementation for health checking the service
 type Client struct {
-	mongo              Sessioner
+	mongo              *mgo.Session
 	serviceName        string
 	databaseCollection map[Database][]Collection
 }
 
 // NewClient returns a new health check client using the given service
-func NewClient(db Sessioner) *Client {
+func NewClient(db *mgo.Session) *Client {
 	return NewClientWithCollections(db, nil)
 }
 
 // NewClientWithCollections returns a new health check client containing the collections using the given service
-func NewClientWithCollections(db Sessioner, clientDatabaseCollection map[Database][]Collection) *Client {
+func NewClientWithCollections(db *mgo.Session, clientDatabaseCollection map[Database][]Collection) *Client {
 	return &Client{
 		mongo:              db,
 		serviceName:        ServiceName,
@@ -74,7 +60,7 @@ func NewClientWithCollections(db Sessioner, clientDatabaseCollection map[Databas
 	}
 }
 
-func checkCollections(ctx context.Context, dbSession Sessioner, databaseCollectionMap map[Database][]Collection) (err error) {
+func checkCollections(ctx context.Context, dbSession *mgo.Session, databaseCollectionMap map[Database][]Collection) (err error) {
 
 	for databaseToCheck, collectionsToCheck := range databaseCollectionMap {
 
