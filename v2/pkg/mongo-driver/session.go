@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 	"time"
 )
 
@@ -14,6 +15,7 @@ var (
 
 type MongoSessioner interface {
 	Close(ctx context.Context) error
+	UpsertId(ctx context.Context, id interface{}, update interface{}) (*MongoUpdateResult, error)
 }
 
 type MongoSession struct {
@@ -22,12 +24,21 @@ type MongoSession struct {
 	collection string
 }
 
+// MongoUpdateResult is the result type returned from UpdateOne, UpdateMany, and ReplaceOne operations.
+type MongoUpdateResult struct {
+	MatchedCount  int64       // The number of documents matched by the filter.
+	ModifiedCount int64       // The number of documents modified by the operation.
+	UpsertedCount int64       // The number of documents upserted by the operation.
+	UpsertedID    interface{} // The _id field of the upserted document, or nil if no upsert was done.
+}
+
 func NewMongoSession(client *mongo.Client, database string, collection string) *MongoSession {
-	return &MongoSession{client: client, database: database, collection: collection}
+	m := &MongoSession{client: client, database: database, collection: collection}
+	return m
 }
 
 // Close represents mongo session closing within the context deadline
-func (mc *MongoSession) Close(ctx context.Context) error {
+func (ms *MongoSession) Close(ctx context.Context) error {
 	closedChannel := make(chan bool)
 	defer close(closedChannel)
 
@@ -41,7 +52,7 @@ func (mc *MongoSession) Close(ctx context.Context) error {
 	}
 
 	go func() {
-		start.shutdown(ctx, mc.client, closedChannel)
+		start.shutdown(ctx, ms.client, closedChannel)
 		return
 	}()
 
@@ -53,4 +64,24 @@ func (mc *MongoSession) Close(ctx context.Context) error {
 	case <-ctx.Done():
 		return ctx.Err()
 	}
+}
+
+func (ms *MongoSession) getConfiguredCollection() *mongo.Collection {
+	return ms.client.Database(ms.database).Collection(ms.collection)
+}
+
+func (ms *MongoSession) UpsertId(ctx context.Context, id interface{}, update interface{}) (*MongoUpdateResult, error) {
+	collection := ms.getConfiguredCollection()
+	opts := options.Update().SetUpsert(true)
+
+	updateResult, err := collection.UpdateByID(ctx, id, update, opts)
+	if err == nil {
+		return &MongoUpdateResult{
+			MatchedCount:  updateResult.MatchedCount,
+			ModifiedCount: updateResult.ModifiedCount,
+			UpsertedCount: updateResult.UpsertedCount,
+			UpsertedID:    updateResult.UpsertedID,
+		}, nil
+	}
+	return nil, err
 }

@@ -23,11 +23,7 @@ const (
 	connectionStringTemplate = "mongodb://%s:%s@%s/sample-database?ssl=true&replicaSet=rs0"
 )
 
-type Driver interface {
-	Open()
-}
-
-type MongoDriver struct {
+type MongoConnectionConfig struct {
 	caFilePath              string
 	connectTimeoutInSeconds time.Duration
 	queryTimeoutInSeconds   time.Duration
@@ -39,11 +35,11 @@ type MongoDriver struct {
 	collection      string
 }
 
-func (m *MongoDriver) getConnectionURI() string {
+func (m *MongoConnectionConfig) getConnectionURI() string {
 	return fmt.Sprintf(connectionStringTemplate, m.username, m.password, m.clusterEndpoint)
 }
 
-func (m *MongoDriver) Open() (*MongoSession, error) {
+func Open(m *MongoConnectionConfig) (*MongoSession, error) {
 	var tlsConfig *tls.Config
 	var err error
 	if len(m.caFilePath) > 0 {
