@@ -16,6 +16,7 @@ var (
 type MongoSessioner interface {
 	Close(ctx context.Context) error
 	UpsertId(ctx context.Context, id interface{}, update interface{}) (*MongoUpdateResult, error)
+	UpdateId(ctx context.Context, id interface{}, update interface{}) (error)
 }
 
 type MongoSession struct {
@@ -84,4 +85,11 @@ func (ms *MongoSession) UpsertId(ctx context.Context, id interface{}, update int
 		}, nil
 	}
 	return nil, err
+}
+
+
+func (ms *MongoSession) UpdateId(ctx context.Context, id interface{}, update interface{}) (error) {
+	collection := ms.getConfiguredCollection()
+	_, err := collection.UpdateByID(ctx, id, update)
+	return err
 }
