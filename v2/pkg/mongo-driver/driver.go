@@ -14,9 +14,9 @@ import (
 	"crypto/x509"
 	"errors"
 	"io/ioutil"
-
-	"log"
 	"time"
+
+	"github.com/ONSdigital/log.go/log"
 )
 
 const (
@@ -50,7 +50,7 @@ func (m *MongoDriver) Open() (*MongoSession, error) {
 		tlsConfig, err = getCustomTLSConfig(m.caFilePath)
 		if err != nil {
 			errMessage := fmt.Sprintf("Failed getting TLS configuration: %v", err)
-			log.Fatalf(errMessage)
+			log.Event(context.Background(), errMessage, log.ERROR, log.Error(err))
 			return nil, errors.New(errMessage)
 		}
 	}
@@ -67,7 +67,7 @@ func (m *MongoDriver) Open() (*MongoSession, error) {
 	client, err = mongo.NewClient(mongoClientOptions)
 	if err != nil {
 		errMessage := fmt.Sprintf("Failed to create client: %v", err)
-		log.Fatalf(errMessage)
+		log.Event(context.Background(), errMessage, log.ERROR, log.Error(err))
 		return nil, errors.New(errMessage)
 	}
 
@@ -77,7 +77,7 @@ func (m *MongoDriver) Open() (*MongoSession, error) {
 	err = client.Connect(connectionCtx)
 	if err != nil {
 		errMessage := fmt.Sprintf("Failed to connect to cluster: %v", err)
-		log.Fatalf(errMessage)
+		log.Event(context.Background(), errMessage, log.ERROR, log.Error(err))
 		return nil, errors.New(errMessage)
 	}
 
@@ -85,7 +85,7 @@ func (m *MongoDriver) Open() (*MongoSession, error) {
 	err = client.Ping(connectionCtx, nil)
 	if err != nil {
 		errMessage := fmt.Sprintf("Failed to ping cluster: %v", err)
-		log.Fatalf(errMessage)
+		log.Event(context.Background(), errMessage, log.ERROR, log.Error(err))
 		return nil, errors.New(errMessage)
 	}
 
