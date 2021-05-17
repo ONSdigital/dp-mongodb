@@ -12,5 +12,6 @@ require (
 	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect
 	github.com/smartystreets/goconvey v1.6.4
 	github.com/square/mongo-lock v0.0.0-20191001051310-282c90e422d0
+	go.mongodb.org/mongo-driver v1.5.2
 	gopkg.in/check.v1 v1.0.0-20200902074654-038fdea0a05b // indirect
 )
