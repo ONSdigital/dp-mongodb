@@ -13,13 +13,13 @@ var (
 	timeLeft          = 1000 * time.Millisecond
 )
 
-type MongoSessioner interface {
+type MongoConnector interface {
 	Close(ctx context.Context) error
 	UpsertId(ctx context.Context, id interface{}, update interface{}) (*MongoUpdateResult, error)
 	UpdateId(ctx context.Context, id interface{}, update interface{}) (error)
 }
 
-type MongoSession struct {
+type MongoConnection struct {
 	client     *mongo.Client
 	database   string
 	collection string
@@ -33,13 +33,13 @@ type MongoUpdateResult struct {
 	UpsertedID    interface{} // The _id field of the upserted document, or nil if no upsert was done.
 }
 
-func NewMongoSession(client *mongo.Client, database string, collection string) *MongoSession {
-	m := &MongoSession{client: client, database: database, collection: collection}
+func NewMongoConnection(client *mongo.Client, database string, collection string) *MongoConnection {
+	m := &MongoConnection{client: client, database: database, collection: collection}
 	return m
 }
 
 // Close represents mongo session closing within the context deadline
-func (ms *MongoSession) Close(ctx context.Context) error {
+func (ms *MongoConnection) Close(ctx context.Context) error {
 	closedChannel := make(chan bool)
 	defer close(closedChannel)
 
@@ -67,11 +67,11 @@ func (ms *MongoSession) Close(ctx context.Context) error {
 	}
 }
 
-func (ms *MongoSession) getConfiguredCollection() *mongo.Collection {
+func (ms *MongoConnection) getConfiguredCollection() *mongo.Collection {
 	return ms.client.Database(ms.database).Collection(ms.collection)
 }
 
-func (ms *MongoSession) UpsertId(ctx context.Context, id interface{}, update interface{}) (*MongoUpdateResult, error) {
+func (ms *MongoConnection) UpsertId(ctx context.Context, id interface{}, update interface{}) (*MongoUpdateResult, error) {
 	collection := ms.getConfiguredCollection()
 	opts := options.Update().SetUpsert(true)
 
@@ -88,7 +88,7 @@ func (ms *MongoSession) UpsertId(ctx context.Context, id interface{}, update int
 }
 
 
-func (ms *MongoSession) UpdateId(ctx context.Context, id interface{}, update interface{}) (error) {
+func (ms *MongoConnection) UpdateId(ctx context.Context, id interface{}, update interface{}) (error) {
 	collection := ms.getConfiguredCollection()
 	_, err := collection.UpdateByID(ctx, id, update)
 	return err

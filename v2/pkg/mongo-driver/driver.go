@@ -39,7 +39,7 @@ func (m *MongoConnectionConfig) getConnectionURI() string {
 	return fmt.Sprintf(connectionStringTemplate, m.username, m.password, m.clusterEndpoint)
 }
 
-func Open(m *MongoConnectionConfig) (*MongoSession, error) {
+func Open(m *MongoConnectionConfig) (*MongoConnection, error) {
 	var tlsConfig *tls.Config
 	var err error
 	if len(m.caFilePath) > 0 {
@@ -85,7 +85,7 @@ func Open(m *MongoConnectionConfig) (*MongoSession, error) {
 		return nil, errors.New(errMessage)
 	}
 
-	return NewMongoSession(client, m.database, m.collection), nil
+	return NewMongoConnection(client, m.database, m.collection), nil
 }
 
 func getCustomTLSConfig(caFile string) (*tls.Config, error) {
