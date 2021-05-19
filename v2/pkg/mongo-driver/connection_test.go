@@ -34,7 +34,13 @@ type testNamespacedModel struct {
 func TestSuccessfulMongoDatesViaMongo(t *testing.T) {
 	var err error
 	var mongoConnection *mongoDriver.MongoConnection
-	if mongoConnection, err = mongoDriver.Open(getMongoConnectionConfig()); err != nil {
+	connectionConfig := getMongoConnectionConfig()
+	if err := checkTcpConnection(connectionConfig.ClusterEndpoint); err != nil {
+		log.Event(nil, "mongo db instance not available, skip tests", log.ERROR, log.Error(err))
+		t.Skip()
+	}
+
+	if mongoConnection, err = mongoDriver.Open(connectionConfig); err != nil {
 		log.Event(nil, "mongo instance not available, skip timestamp tests", log.INFO, log.Error(err))
 		return
 	}
@@ -44,31 +50,57 @@ func TestSuccessfulMongoDatesViaMongo(t *testing.T) {
 		t.FailNow()
 	}
 
-	executeTestSuite(t, mongoConnection)
+	executeMongoDatesTestSuite(t, mongoConnection)
 
 	if err := cleanupTestData(mongoConnection); err != nil {
 		log.Event(nil, "failed to delete test data", log.ERROR, log.Error(err))
 	}
 }
 
-func executeTestSuite(t *testing.T, mongoConnection *mongoDriver.MongoConnection) {
+
+func TestSuccessfulMongoDatesViaDocumentDB(t *testing.T) {
+	var err error
+	var documentDBConnection *mongoDriver.MongoConnection
+	connectionConfig := getDocumentDbConnectionConfig()
+	if err := checkTcpConnection(connectionConfig.ClusterEndpoint); err != nil {
+		log.Event(nil, "documentdb instance not available, skip tests", log.ERROR, log.Error(err))
+		t.Skip()
+	}
+	if documentDBConnection, err = mongoDriver.Open(connectionConfig); err != nil {
+		log.Event(nil, "documentdb instance not available, skip timestamp tests", log.INFO, log.Error(err))
+		return
+	}
+
+	if err := setUpTestData(documentDBConnection); err != nil {
+		log.Event(nil, "failed to insert test data, skipping tests", log.ERROR, log.Error(err))
+		t.FailNow()
+	}
+
+	executeMongoDatesTestSuite(t, documentDBConnection)
+
+	if err := cleanupTestData(documentDBConnection); err != nil {
+		log.Event(nil, "failed to delete test data", log.ERROR, log.Error(err))
+	}
+}
+
+func executeMongoDatesTestSuite(t *testing.T, dataStoreConnection *mongoDriver.MongoConnection) {
 	Convey("WithUpdates adds both fields", t, func() {
 
 		Convey("check data in original state", func() {
 
 			res := TestModel{}
 
-			err := queryMongo(mongoConnection, bson.M{"_id": 1}, &res)
+			err := queryMongo(dataStoreConnection, bson.M{"_id": 1}, &res)
 			So(err, ShouldBeNil)
 			So(res.State, ShouldEqual, "first")
 		})
 
 		Convey("check data after plain Update", func() {
 			res := TestModel{}
-			err := mongoConnection.UpdateId(context.Background(), 1, bson.M{"$set": bson.M{"new_key": 123}})
+			err := dataStoreConnection.UpdateId(context.Background(), 1, bson.M{"$set": bson.M{"new_key": 123}})
 			So(err, ShouldBeNil)
 
-			err = queryMongo(mongoConnection, bson.M{"_id": 1}, &res)
+			err = queryMongo(dataStoreConnection, bson.M{"_id": 1}, &res)
 			So(err, ShouldBeNil)
 			So(res.State, ShouldEqual, "first")
 			So(res.NewKey, ShouldEqual, 123)
@@ -84,10 +116,10 @@ func executeTestSuite(t *testing.T, mongoConnection *mongoDriver.MongoConnection
 			So(err, ShouldBeNil)
 			So(updateWithTimestamps, ShouldResemble, bson.M{"$currentDate": bson.M{"last_updated": true, "unique_timestamp": bson.M{"$type": "timestamp"}}, "$set": bson.M{"new_key": 321}})
 
-			err = mongoConnection.UpdateId(context.Background(), 1, updateWithTimestamps)
+			err = dataStoreConnection.UpdateId(context.Background(), 1, updateWithTimestamps)
 			So(err, ShouldBeNil)
 
-			err = queryMongo(mongoConnection, bson.M{"_id": 1}, &res)
+			err = queryMongo(dataStoreConnection, bson.M{"_id": 1}, &res)
 			So(err, ShouldBeNil)
 			So(res.State, ShouldEqual, "first")
 			So(res.NewKey, ShouldEqual, 321)
@@ -116,10 +148,10 @@ func executeTestSuite(t *testing.T, mongoConnection *mongoDriver.MongoConnection
 				"$set": bson.M{"new_key": 1234},
 			})
 
-			err = mongoConnection.UpdateId(context.Background(), 1, updateWithTimestamps)
+			err = dataStoreConnection.UpdateId(context.Background(), 1, updateWithTimestamps)
 			So(err, ShouldBeNil)
 
-			err = queryMongo(mongoConnection, bson.M{"_id": 1}, &res)
+			err = queryMongo(dataStoreConnection, bson.M{"_id": 1}, &res)
 			So(err, ShouldBeNil)
 			So(res.State, ShouldEqual, "first")
 			So(res.NewKey, ShouldEqual, 1234)
@@ -145,6 +177,21 @@ func getMongoConnectionConfig() *mongoDriver.MongoConnectionConfig {
 		ClusterEndpoint: "localhost:27017",
 		Database:        "testDb",
 		Collection:      "testCollection",
+	}
+}
+
+func getDocumentDbConnectionConfig() *mongoDriver.MongoConnectionConfig {
+	return &mongoDriver.MongoConnectionConfig{
+		CaFilePath:              "./test/data/rds-combined-ca-bundle.pem",
+		ConnectTimeoutInSeconds: 5,
+		QueryTimeoutInSeconds:   5,
+
+		Username:             "test",
+		Password:             "test",
+		ClusterEndpoint:      "localhost:27017",
+		Database:             "recipes",
+		Collection:           "recipes",
+		SkipCertVerification: true,
 	}
 }
 
