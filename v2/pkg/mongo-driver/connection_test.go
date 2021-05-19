@@ -99,7 +99,7 @@ func executeMongoDatesTestSuite(t *testing.T, dataStoreConnection *mongoDriver.M
 
 		Convey("check data after plain Update", func() {
 			res := TestModel{}
-			err := dataStoreConnection.UpdateId(context.Background(), 1, bson.M{"$set": bson.M{"new_key": 123}})
+			_, err := dataStoreConnection.UpdateId(context.Background(), 1, bson.M{"$set": bson.M{"new_key": 123}})
 			So(err, ShouldBeNil)
 
 			err = queryMongo(dataStoreConnection, bson.M{"_id": 1}, &res)
@@ -118,7 +118,7 @@ func executeMongoDatesTestSuite(t *testing.T, dataStoreConnection *mongoDriver.M
 			So(err, ShouldBeNil)
 			So(updateWithTimestamps, ShouldResemble, bson.M{"$currentDate": bson.M{"last_updated": true, "unique_timestamp": bson.M{"$type": "timestamp"}}, "$set": bson.M{"new_key": 321}})
 
-			err = dataStoreConnection.UpdateId(context.Background(), 1, updateWithTimestamps)
+			_, err = dataStoreConnection.UpdateId(context.Background(), 1, updateWithTimestamps)
 			So(err, ShouldBeNil)
 
 			err = queryMongo(dataStoreConnection, bson.M{"_id": 1}, &res)
@@ -150,7 +150,7 @@ func executeMongoDatesTestSuite(t *testing.T, dataStoreConnection *mongoDriver.M
 				"$set": bson.M{"new_key": 1234},
 			})
 
-			err = dataStoreConnection.UpdateId(context.Background(), 1, updateWithTimestamps)
+			_, err = dataStoreConnection.UpdateId(context.Background(), 1, updateWithTimestamps)
 			So(err, ShouldBeNil)
 
 			err = queryMongo(dataStoreConnection, bson.M{"_id": 1}, &res)
@@ -173,6 +173,8 @@ func executeMongoQueryTestSuite(t *testing.T, dataStoreConnection *mongoDriver.M
 
 	Convey("UpsertId should insert if not exists", t, func() {
 		_, err := dataStoreConnection.UpsertId(context.Background(), 4, bson.M{"$set": bson.M{"new_key": 456}})
+		So(err, ShouldBeNil)
+
 		res := TestModel{}
 
 		err = queryMongo(dataStoreConnection, bson.M{"_id": 4}, &res)
@@ -181,13 +183,25 @@ func executeMongoQueryTestSuite(t *testing.T, dataStoreConnection *mongoDriver.M
 
 	})
 	Convey("UpsertId should update if  exists", t, func() {
-		res := TestModel{}
-
 		_, err := dataStoreConnection.UpsertId(context.Background(), 3, bson.M{"$set": bson.M{"new_key": 789}})
+		So(err, ShouldBeNil)
 
+		res := TestModel{}
 		err = queryMongo(dataStoreConnection, bson.M{"_id": 3}, &res)
 		So(err, ShouldBeNil)
 		So(res.NewKey, ShouldEqual, 789)
+	})
+
+
+	Convey("UpdateId should update data if document exists", t, func() {
+		_, err := dataStoreConnection.UpdateId(context.Background(), 3, bson.M{"$set": bson.M{"new_key": 7892}})
+		So(err, ShouldBeNil)
+
+		res := TestModel{}
+
+		err = queryMongo(dataStoreConnection, bson.M{"_id": 3}, &res)
+		So(err, ShouldBeNil)
+		So(res.NewKey, ShouldEqual, 7892)
 	})
 }
 func getMongoConnectionConfig() *mongoDriver.MongoConnectionConfig {
