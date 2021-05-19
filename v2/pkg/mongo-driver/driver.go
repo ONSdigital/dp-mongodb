@@ -6,6 +6,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/readconcern"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
 	"go.mongodb.org/mongo-driver/mongo/writeconcern"
+	"strings"
 
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -20,30 +21,37 @@ import (
 )
 
 const (
-	connectionStringTemplate = "mongodb://%s:%s@%s/sample-database?ssl=true&replicaSet=rs0"
+	connectionStringTemplate = "mongodb://%s:%s@%s/%s"
 )
 
 type MongoConnectionConfig struct {
-	caFilePath              string
-	connectTimeoutInSeconds time.Duration
-	queryTimeoutInSeconds   time.Duration
+	CaFilePath              string
+	ConnectTimeoutInSeconds time.Duration
+	QueryTimeoutInSeconds   time.Duration
 
-	username        string
-	password        string
-	clusterEndpoint string
-	database        string
-	collection      string
+	Username             string
+	Password             string
+	ClusterEndpoint      string
+	Database             string
+	Collection           string
+	replicaSet           string
+	SkipCertVerification bool
 }
 
-func (m *MongoConnectionConfig) getConnectionURI() string {
-	return fmt.Sprintf(connectionStringTemplate, m.username, m.password, m.clusterEndpoint)
+func (m *MongoConnectionConfig) getConnectionURI(isSSL bool) string {
+	connectionString := fmt.Sprintf(connectionStringTemplate, m.Username, m.Password, m.ClusterEndpoint, m.Database)
+	if isSSL {
+		connectionString = strings.Join([]string{connectionString, "ssl=true"}, "?")
+	}
+	return connectionString
 }
 
 func Open(m *MongoConnectionConfig) (*MongoConnection, error) {
 	var tlsConfig *tls.Config
 	var err error
-	if len(m.caFilePath) > 0 {
-		tlsConfig, err = getCustomTLSConfig(m.caFilePath)
+	isSSL := len(m.CaFilePath) > 0
+	if isSSL {
+		tlsConfig, err = getCustomTLSConfig(m.CaFilePath, m.SkipCertVerification)
 		if err != nil {
 			errMessage := fmt.Sprintf("Failed getting TLS configuration: %v", err)
 			log.Event(context.Background(), errMessage, log.ERROR, log.Error(err))
@@ -51,13 +59,19 @@ func Open(m *MongoConnectionConfig) (*MongoConnection, error) {
 		}
 	}
 
+	uri := m.getConnectionURI(isSSL)
+	fmt.Println(uri)
 	mongoClientOptions := options.Client().
-		ApplyURI(m.getConnectionURI()).
+		ApplyURI(uri).
 		SetTLSConfig(tlsConfig).
 		SetReadPreference(readpref.PrimaryPreferred()).
 		// For ensuring strong consistency
 		SetReadConcern(readconcern.Majority()).
 		SetWriteConcern(writeconcern.New(writeconcern.WMajority()))
+
+	if len(m.replicaSet) > 0 {
+		mongoClientOptions = mongoClientOptions.SetReplicaSet(m.replicaSet)
+	}
 
 	var client *mongo.Client
 	client, err = mongo.NewClient(mongoClientOptions)
@@ -67,7 +81,7 @@ func Open(m *MongoConnectionConfig) (*MongoConnection, error) {
 		return nil, errors.New(errMessage)
 	}
 
-	connectionCtx, cancel := context.WithTimeout(context.Background(), m.connectTimeoutInSeconds*time.Second)
+	connectionCtx, cancel := context.WithTimeout(context.Background(), m.ConnectTimeoutInSeconds*time.Second)
 	defer cancel()
 
 	err = client.Connect(connectionCtx)
@@ -85,15 +99,19 @@ func Open(m *MongoConnectionConfig) (*MongoConnection, error) {
 		return nil, errors.New(errMessage)
 	}
 
-	return NewMongoConnection(client, m.database, m.collection), nil
+	return NewMongoConnection(client, m.Database, m.Collection), nil
 }
 
-func getCustomTLSConfig(caFile string) (*tls.Config, error) {
+func getCustomTLSConfig(caFile string, skipCertVerification bool) (*tls.Config, error) {
 	tlsConfig := new(tls.Config)
 	certs, err := ioutil.ReadFile(caFile)
 
 	if err != nil {
-		return tlsConfig, err
+		return nil, err
+	}
+
+	if skipCertVerification {
+		tlsConfig.InsecureSkipVerify = true
 	}
 
 	tlsConfig.RootCAs = x509.NewCertPool()
