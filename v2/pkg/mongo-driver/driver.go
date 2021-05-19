@@ -67,7 +67,11 @@ func Open(m *MongoConnectionConfig) (*MongoConnection, error) {
 		SetReadPreference(readpref.PrimaryPreferred()).
 		// For ensuring strong consistency
 		SetReadConcern(readconcern.Majority()).
-		SetWriteConcern(writeconcern.New(writeconcern.WMajority()))
+		SetWriteConcern(writeconcern.New(writeconcern.WMajority())).
+		// No support for retryable writes, retryable commit and retryable abort.
+		//https://docs.aws.amazon.com/documentdb/latest/developerguide/transactions.html
+		//https://docs.aws.amazon.com/documentdb/latest/developerguide/functional-differences.html#functional-differences.retryable-writes
+		SetRetryWrites(false)
 
 	if len(m.replicaSet) > 0 {
 		mongoClientOptions = mongoClientOptions.SetReplicaSet(m.replicaSet)
