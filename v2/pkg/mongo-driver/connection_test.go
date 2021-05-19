@@ -203,6 +203,15 @@ func executeMongoQueryTestSuite(t *testing.T, dataStoreConnection *mongoDriver.M
 		So(err, ShouldBeNil)
 		So(res.NewKey, ShouldEqual, 7892)
 	})
+
+	Convey("FindOne should find data if document exists", t, func() {
+		res := TestModel{}
+		err := dataStoreConnection.FindOne(context.Background(), bson.M{"_id": 3}, &res)
+		So(err, ShouldBeNil)
+
+		So(res.State, ShouldEqual, "third")
+	})
+	
 }
 func getMongoConnectionConfig() *mongoDriver.MongoConnectionConfig {
 	return &mongoDriver.MongoConnectionConfig{
