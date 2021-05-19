@@ -16,7 +16,8 @@ var (
 type MongoConnector interface {
 	Close(ctx context.Context) error
 	UpsertId(ctx context.Context, id interface{}, update interface{}) (*MongoUpdateResult, error)
-	UpdateId(ctx context.Context, id interface{}, update interface{}) (error)
+	UpdateId(ctx context.Context, id interface{}, update interface{}) error
+	FindOne(ctx context.Context, filter interface{}, result interface{}) error
 }
 
 type MongoConnection struct {
@@ -87,8 +88,13 @@ func (ms *MongoConnection) UpsertId(ctx context.Context, id interface{}, update 
 	return nil, err
 }
 
+func (ms *MongoConnection) FindOne(ctx context.Context, filter interface{}, result interface{}) error {
+	collection := ms.getConfiguredCollection()
 
-func (ms *MongoConnection) UpdateId(ctx context.Context, id interface{}, update interface{}) (error) {
+	err := collection.FindOne(ctx, filter).Decode(result)
+	return err
+}
+func (ms *MongoConnection) UpdateId(ctx context.Context, id interface{}, update interface{}) error {
 	collection := ms.getConfiguredCollection()
 	_, err := collection.UpdateByID(ctx, id, update)
 	return err
