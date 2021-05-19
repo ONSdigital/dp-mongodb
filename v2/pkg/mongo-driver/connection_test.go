@@ -51,6 +51,7 @@ func TestSuccessfulMongoDatesViaMongo(t *testing.T) {
 	}
 
 	executeMongoDatesTestSuite(t, mongoConnection)
+	executeMongoQueryTestSuite(t, mongoConnection)
 
 	if err := cleanupTestData(mongoConnection); err != nil {
 		log.Event(nil, "failed to delete test data", log.ERROR, log.Error(err))
@@ -77,6 +78,7 @@ func TestSuccessfulMongoDatesViaDocumentDB(t *testing.T) {
 	}
 
 	executeMongoDatesTestSuite(t, documentDBConnection)
+	executeMongoQueryTestSuite(t, documentDBConnection)
 
 	if err := cleanupTestData(documentDBConnection); err != nil {
 		log.Event(nil, "failed to delete test data", log.ERROR, log.Error(err))
@@ -167,6 +169,27 @@ func executeMongoDatesTestSuite(t *testing.T, dataStoreConnection *mongoDriver.M
 	})
 }
 
+func executeMongoQueryTestSuite(t *testing.T, dataStoreConnection *mongoDriver.MongoConnection) {
+
+	Convey("UpsertId should insert if not exists", t, func() {
+		_, err := dataStoreConnection.UpsertId(context.Background(), 4, bson.M{"$set": bson.M{"new_key": 456}})
+		res := TestModel{}
+
+		err = queryMongo(dataStoreConnection, bson.M{"_id": 4}, &res)
+		So(err, ShouldBeNil)
+		So(res.NewKey, ShouldEqual, 456)
+
+	})
+	Convey("UpsertId should update if  exists", t, func() {
+		res := TestModel{}
+
+		_, err := dataStoreConnection.UpsertId(context.Background(), 3, bson.M{"$set": bson.M{"new_key": 789}})
+
+		err = queryMongo(dataStoreConnection, bson.M{"_id": 3}, &res)
+		So(err, ShouldBeNil)
+		So(res.NewKey, ShouldEqual, 789)
+	})
+}
 func getMongoConnectionConfig() *mongoDriver.MongoConnectionConfig {
 	return &mongoDriver.MongoConnectionConfig{
 		ConnectTimeoutInSeconds: 5,
@@ -212,6 +235,9 @@ func getTestData() []bson.M {
 		},
 		bson.M{
 			"state": "second",
+		},
+		bson.M{
+			"state": "third",
 		},
 	}
 }
