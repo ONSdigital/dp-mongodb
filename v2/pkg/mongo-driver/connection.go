@@ -3,6 +3,9 @@ package mongo_driver
 import (
 	"context"
 	"errors"
+	"fmt"
+	"github.com/ONSdigital/log.go/log"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"time"
@@ -14,10 +17,12 @@ var (
 )
 
 type MongoConnector interface {
+	Ping(ctx context.Context) error
 	Close(ctx context.Context) error
 	UpsertId(ctx context.Context, id interface{}, update interface{}) (*MongoUpdateResult, error)
 	UpdateId(ctx context.Context, id interface{}, update interface{}) (*MongoUpdateResult, error)
 	FindOne(ctx context.Context, filter interface{}, result interface{}) error
+	GetCollectionsFor(ctx context.Context, database string) ([]string, error)
 }
 
 type MongoConnection struct {
@@ -94,6 +99,7 @@ func (ms *MongoConnection) FindOne(ctx context.Context, filter interface{}, resu
 	err := collection.FindOne(ctx, filter).Decode(result)
 	return err
 }
+
 func (ms *MongoConnection) UpdateId(ctx context.Context, id interface{}, update interface{}) (*MongoUpdateResult, error) {
 	collection := ms.getConfiguredCollection()
 	updateResult, err := collection.UpdateByID(ctx, id, update)
@@ -106,4 +112,28 @@ func (ms *MongoConnection) UpdateId(ctx context.Context, id interface{}, update 
 		}, nil
 	}
 	return nil, err
+}
+
+func (ms *MongoConnection) Ping(ctx context.Context, timeoutInSeconds time.Duration) error {
+	connectionCtx, cancel := context.WithTimeout(ctx, timeoutInSeconds*time.Second)
+	defer cancel()
+
+	err := ms.client.Ping(connectionCtx, nil)
+	if err != nil {
+		errMessage := fmt.Sprintf("Failed to ping datastore: %v", err)
+		log.Event(context.Background(), errMessage, log.ERROR, log.Error(err))
+		return errors.New(errMessage)
+	}
+	return nil
+}
+func (ms *MongoConnection) ListCollectionsFor(ctx context.Context, database string) ([]string, error) {
+	collectionNames, err := ms.
+		client.
+		Database(database).
+		ListCollectionNames(ctx, bson.D{{}})
+
+	if err != nil {
+		return nil, err
+	}
+	return collectionNames, nil
 }
