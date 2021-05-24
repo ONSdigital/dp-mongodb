@@ -2,8 +2,6 @@ package mongo_driver
 
 import (
 	"context"
-	"github.com/ONSdigital/log.go/log"
-
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )

@@ -3,6 +3,7 @@ package mongo_driver
 import (
 	"errors"
 	"fmt"
+
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
@@ -23,19 +24,19 @@ func (m *MongoError) Unwrap() error {
 	return m.Inner
 }
 
-type Disconnect struct {
+type ErrDisconnect struct {
 	MongoError
 }
 
-type Timeout struct {
+type ErrTimeout struct {
 	MongoError
 }
 
-type CollectionNotFound struct {
+type ErrCollectionNotFound struct {
 	MongoError
 }
 
-type ServerError struct {
+type ErrServerError struct {
 	MongoError
 }
 
@@ -45,11 +46,11 @@ func wrapMongoError(err error) error {
 	}
 
 	if errors.Is(err, mongo.ErrClientDisconnected) {
-		return &Disconnect{MongoError{"Client Disconnect", err}}
+		return &ErrDisconnect{MongoError{"Client Disconnect", err}}
 	}
 
 	if mongo.IsTimeout(err) {
-		return &Timeout{MongoError{"Timeout", err}}
+		return &ErrTimeout{MongoError{"Timeout", err}}
 	}
 
 	var commandError *mongo.CommandError
@@ -57,9 +58,9 @@ func wrapMongoError(err error) error {
 	// should not fail, but return generic command error it does
 	if errors.As(err, &commandError) {
 		if commandError.Code == 26 || commandError.Message == "ns not found" {
-			return &CollectionNotFound{MongoError{"Collection not found", err}}
+			return &ErrCollectionNotFound{MongoError{"Collection not found", err}}
 		}
 	}
 
-	return &ServerError{MongoError{"Server Error", err}}
+	return &ErrServerError{MongoError{"Server Error", err}}
 }

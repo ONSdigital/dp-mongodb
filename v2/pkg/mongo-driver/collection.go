@@ -27,12 +27,12 @@ func (c *Collection) Find(query interface{}) *Find {
 	return newFind(c.collection, query)
 }
 
-func (c *Collection) UpsertId(ctx context.Context, id interface{}, update interface{}) (*MongoUpdateResult, error) {
+func (c *Collection) UpsertId(ctx context.Context, id interface{}, update interface{}) (*CollectionUpdateResult, error) {
 	opts := options.Update().SetUpsert(true)
 
 	updateResult, err := c.collection.UpdateByID(ctx, id, update, opts)
 	if err == nil {
-		return &MongoUpdateResult{
+		return &CollectionUpdateResult{
 			MatchedCount:  updateResult.MatchedCount,
 			ModifiedCount: updateResult.ModifiedCount,
 			UpsertedCount: updateResult.UpsertedCount,
