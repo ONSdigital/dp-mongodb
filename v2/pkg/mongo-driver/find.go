@@ -2,6 +2,7 @@ package mongo_driver
 
 import (
 	"context"
+	"github.com/ONSdigital/log.go/log"
 
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -75,4 +76,20 @@ func (find *Find) Iter(ctx context.Context) (*Cursor, error) {
 	}
 
 	return newCursor(cursor), nil
+}
+
+func (find *Find) IterAll(ctx context.Context, results interface{}) error {
+	cursor, err := find.Iter(ctx)
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		err := cursor.Close(ctx)
+		if err != nil {
+			log.Event(ctx, "error closing iterator", log.ERROR, log.Error(err))
+		}
+	}()
+
+	return cursor.All(ctx, results)
 }
