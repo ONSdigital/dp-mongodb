@@ -8,7 +8,7 @@ This interface is responsible for connection handling as well as the querying.
 
 ###  Env Setup
 
-`test` user is expected to be configured with accessed to `testDb` containing `testCollection`. 
+`test` user is expected to be configured with access to `testDb` containing `testCollection`. 
 
 ### Against MongoDB
 Bring up the mongodb test instance for testing the mongo db suite.

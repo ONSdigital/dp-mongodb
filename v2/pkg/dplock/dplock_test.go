@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ONSdigital/dp-mongodb/dplock"
-	"github.com/ONSdigital/dp-mongodb/dplock/mock"
+	"github.com/ONSdigital/dp-mongodb/v2/pkg/dplock"
+	mock "github.com/ONSdigital/dp-mongodb/v2/pkg/dplock/mock"
 	. "github.com/smartystreets/goconvey/convey"
 	lock "github.com/square/mongo-lock"
 )
@@ -24,7 +24,7 @@ func TestLock(t *testing.T) {
 
 	Convey("Given a lock with a client that can successfully lock", t, func() {
 		clientMock := &mock.ClientMock{
-			XLockFunc: func(resourceName string, lockID string, ld lock.LockDetails) error {
+			XLockFunc: func(ctx context.Context, resourceName string, lockID string, ld lock.LockDetails) error {
 				return nil
 			},
 		}
@@ -34,7 +34,7 @@ func TestLock(t *testing.T) {
 		}
 
 		Convey("Calling Lock performs a lock using the underlying client with the expected resource, id and TTL", func() {
-			lockID, err := l.Lock("myID")
+			lockID, err := l.Lock(ctx, "myID")
 			So(err, ShouldBeNil)
 			So(lockID, ShouldEqual, "image-myID-123456789")
 			So(len(clientMock.XLockCalls()), ShouldEqual, 1)
@@ -46,7 +46,7 @@ func TestLock(t *testing.T) {
 
 	Convey("Given a lock with a client that is already locked", t, func() {
 		clientMock := &mock.ClientMock{
-			XLockFunc: func(resourceName string, lockID string, ld lock.LockDetails) error {
+			XLockFunc: func(ctx context.Context, resourceName string, lockID string, ld lock.LockDetails) error {
 				return lock.ErrAlreadyLocked
 			},
 		}
@@ -56,7 +56,7 @@ func TestLock(t *testing.T) {
 		}
 
 		Convey("Calling Lock fails with the same error", func() {
-			_, err := l.Lock("myID")
+			_, err := l.Lock(ctx, "myID")
 			So(err, ShouldResemble, lock.ErrAlreadyLocked)
 		})
 	})
@@ -73,7 +73,7 @@ func TestAcquire(t *testing.T) {
 
 	Convey("Given a lock with a client that can successfully lock", t, func() {
 		clientMock := &mock.ClientMock{
-			XLockFunc: func(resourceName string, lockID string, ld lock.LockDetails) error {
+			XLockFunc: func(ctx context.Context, resourceName string, lockID string, ld lock.LockDetails) error {
 				return nil
 			},
 		}
@@ -96,7 +96,7 @@ func TestAcquire(t *testing.T) {
 	Convey("Given a lock with a client that fails to lock with ErrAlreadyLocked, only on the first iteration", t, func() {
 		i := 0
 		clientMock := &mock.ClientMock{
-			XLockFunc: func(resourceName string, lockID string, ld lock.LockDetails) error {
+			XLockFunc: func(ctx context.Context, resourceName string, lockID string, ld lock.LockDetails) error {
 				i++
 				if i == 1 {
 					return lock.ErrAlreadyLocked
@@ -119,7 +119,7 @@ func TestAcquire(t *testing.T) {
 	Convey("Given a lock with a client that fails with a generic error", t, func() {
 		errLock := errors.New("XLock generic error")
 		clientMock := &mock.ClientMock{
-			XLockFunc: func(resourceName string, lockID string, ld lock.LockDetails) error {
+			XLockFunc: func(ctx context.Context, resourceName string, lockID string, ld lock.LockDetails) error {
 				return errLock
 			},
 		}
@@ -137,7 +137,7 @@ func TestAcquire(t *testing.T) {
 
 	Convey("Given a lock with a client that always fails with ErrAlreadyLocked", t, func() {
 		clientMock := &mock.ClientMock{
-			XLockFunc: func(resourceName string, lockID string, ld lock.LockDetails) error {
+			XLockFunc: func(ctx context.Context, resourceName string, lockID string, ld lock.LockDetails) error {
 				return lock.ErrAlreadyLocked
 			},
 		}
@@ -173,7 +173,7 @@ func TestAcquire(t *testing.T) {
 func TestUnlock(t *testing.T) {
 	Convey("Given a lock with a client that can successfully unlock", t, func() {
 		clientMock := &mock.ClientMock{
-			UnlockFunc: func(lockID string) ([]lock.LockStatus, error) {
+			UnlockFunc: func(ctx context.Context, lockID string) ([]lock.LockStatus, error) {
 				return []lock.LockStatus{}, nil
 			},
 		}
@@ -183,7 +183,7 @@ func TestUnlock(t *testing.T) {
 		}
 
 		Convey("Calling Unlock performs an unlock using the underlying client with the provided lock id", func() {
-			err := l.Unlock("lockID")
+			err := l.Unlock(ctx, "lockID")
 			So(err, ShouldBeNil)
 			So(len(clientMock.UnlockCalls()), ShouldEqual, 1)
 			So(clientMock.UnlockCalls()[0].LockID, ShouldEqual, "lockID")
@@ -193,7 +193,7 @@ func TestUnlock(t *testing.T) {
 	Convey("Given a lock with a client that fails to unlock", t, func() {
 		errUnlock := errors.New("generic unlock error")
 		clientMock := &mock.ClientMock{
-			UnlockFunc: func(lockID string) ([]lock.LockStatus, error) {
+			UnlockFunc: func(ctx context.Context, lockID string) ([]lock.LockStatus, error) {
 				return []lock.LockStatus{}, errUnlock
 			},
 		}
@@ -203,7 +203,7 @@ func TestUnlock(t *testing.T) {
 		}
 
 		Convey("Calling Unlock fails with the same error", func() {
-			err := l.Unlock("myID")
+			err := l.Unlock(ctx, "myID")
 			So(err, ShouldResemble, errUnlock)
 		})
 	})
@@ -213,7 +213,7 @@ func TestLifecycleAndPurger(t *testing.T) {
 	Convey("Given a lock initialised with Client and Purger mocks", t, func() {
 		clientMock := &mock.ClientMock{}
 		purgerMock := &mock.PurgerMock{
-			PurgeFunc: func() ([]lock.LockStatus, error) {
+			PurgeFunc: func(ctx context.Context) ([]lock.LockStatus, error) {
 				return []lock.LockStatus{}, nil
 			},
 		}
