@@ -72,7 +72,7 @@ func (find *Find) Iter(ctx context.Context) (*Cursor, error) {
 	cursor, err := find.collection.Find(ctx, find.query, findOptions)
 
 	if err != nil {
-		return nil, err
+		return nil, wrapMongoError(err)
 	}
 
 	return newCursor(cursor), nil
@@ -81,15 +81,8 @@ func (find *Find) Iter(ctx context.Context) (*Cursor, error) {
 func (find *Find) IterAll(ctx context.Context, results interface{}) error {
 	cursor, err := find.Iter(ctx)
 	if err != nil {
-		return err
+		return wrapMongoError(err)
 	}
-
-	defer func() {
-		err := cursor.Close(ctx)
-		if err != nil {
-			log.Event(ctx, "error closing iterator", log.ERROR, log.Error(err))
-		}
-	}()
 
 	return cursor.All(ctx, results)
 }

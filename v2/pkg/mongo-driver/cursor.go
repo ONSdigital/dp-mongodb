@@ -19,7 +19,7 @@ func (cursor *Cursor) Close(ctx context.Context) error {
 }
 
 func (cursor *Cursor) All(ctx context.Context, results interface{}) error {
-	return cursor.cursor.All(ctx, results)
+	return wrapMongoError(cursor.cursor.All(ctx, results))
 }
 
 func (cursor *Cursor) Next(ctx context.Context) bool {

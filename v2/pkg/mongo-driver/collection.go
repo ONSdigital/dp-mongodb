@@ -12,7 +12,7 @@ type Collection struct {
 }
 
 // MongoUpdateResult is the result type returned from UpdateOne, UpdateMany, and ReplaceOne operations.
-type MongoUpdateResult struct {
+type CollectionUpdateResult struct {
 	MatchedCount  int64       // The number of documents matched by the filter.
 	ModifiedCount int64       // The number of documents modified by the operation.
 	UpsertedCount int64       // The number of documents upserted by the operation.
@@ -39,25 +39,25 @@ func (c *Collection) UpsertId(ctx context.Context, id interface{}, update interf
 			UpsertedID:    updateResult.UpsertedID,
 		}, nil
 	}
-	return nil, err
+	return nil, wrapMongoError(err)
 }
 
 func (c *Collection) FindOne(ctx context.Context, filter interface{}, result interface{}) error {
 
 	err := c.collection.FindOne(ctx, filter).Decode(result)
-	return err
+	return wrapMongoError(err)
 }
 
-func (c *Collection) UpdateId(ctx context.Context, id interface{}, update interface{}) (*MongoUpdateResult, error) {
+func (c *Collection) UpdateId(ctx context.Context, id interface{}, update interface{}) (*CollectionUpdateResult, error) {
 	updateResult, err := c.collection.UpdateByID(ctx, id, update)
 
 	if err == nil {
-		return &MongoUpdateResult{
+		return &CollectionUpdateResult{
 			MatchedCount:  updateResult.MatchedCount,
 			ModifiedCount: updateResult.ModifiedCount,
 			UpsertedCount: updateResult.UpsertedCount,
 			UpsertedID:    updateResult.UpsertedID,
 		}, nil
 	}
-	return nil, err
+	return nil, wrapMongoError(err)
 }
