@@ -11,7 +11,6 @@ import (
 	"time"
 )
 
-
 type TestModel struct {
 	State           string               `bson:"state"`
 	NewKey          int                  `bson:"new_key,omitempty"`
@@ -58,7 +57,6 @@ func TestSuccessfulMongoDatesViaMongo(t *testing.T) {
 	}
 }
 
-
 func TestSuccessfulMongoDatesViaDocumentDB(t *testing.T) {
 	var err error
 	var documentDBConnection *mongoDriver.MongoConnection
@@ -99,7 +97,7 @@ func executeMongoDatesTestSuite(t *testing.T, dataStoreConnection *mongoDriver.M
 
 		Convey("check data after plain Update", func() {
 			res := TestModel{}
-			_, err := dataStoreConnection.UpdateId(context.Background(), 1, bson.M{"$set": bson.M{"new_key": 123}})
+			_, err := dataStoreConnection.GetConfiguredCollection().UpdateId(context.Background(), 1, bson.M{"$set": bson.M{"new_key": 123}})
 			So(err, ShouldBeNil)
 
 			err = queryMongo(dataStoreConnection, bson.M{"_id": 1}, &res)
@@ -118,7 +116,7 @@ func executeMongoDatesTestSuite(t *testing.T, dataStoreConnection *mongoDriver.M
 			So(err, ShouldBeNil)
 			So(updateWithTimestamps, ShouldResemble, bson.M{"$currentDate": bson.M{"last_updated": true, "unique_timestamp": bson.M{"$type": "timestamp"}}, "$set": bson.M{"new_key": 321}})
 
-			_, err = dataStoreConnection.UpdateId(context.Background(), 1, updateWithTimestamps)
+			_, err = dataStoreConnection.GetConfiguredCollection().UpdateId(context.Background(), 1, updateWithTimestamps)
 			So(err, ShouldBeNil)
 
 			err = queryMongo(dataStoreConnection, bson.M{"_id": 1}, &res)
@@ -150,7 +148,7 @@ func executeMongoDatesTestSuite(t *testing.T, dataStoreConnection *mongoDriver.M
 				"$set": bson.M{"new_key": 1234},
 			})
 
-			_, err = dataStoreConnection.UpdateId(context.Background(), 1, updateWithTimestamps)
+			_, err = dataStoreConnection.GetConfiguredCollection().UpdateId(context.Background(), 1, updateWithTimestamps)
 			So(err, ShouldBeNil)
 
 			err = queryMongo(dataStoreConnection, bson.M{"_id": 1}, &res)
@@ -172,7 +170,9 @@ func executeMongoDatesTestSuite(t *testing.T, dataStoreConnection *mongoDriver.M
 func executeMongoQueryTestSuite(t *testing.T, dataStoreConnection *mongoDriver.MongoConnection) {
 
 	Convey("UpsertId should insert if not exists", t, func() {
-		_, err := dataStoreConnection.UpsertId(context.Background(), 4, bson.M{"$set": bson.M{"new_key": 456}})
+		_, err := dataStoreConnection.
+			GetConfiguredCollection().
+			UpsertId(context.Background(), 4, bson.M{"$set": bson.M{"new_key": 456}})
 		So(err, ShouldBeNil)
 
 		res := TestModel{}
@@ -183,7 +183,9 @@ func executeMongoQueryTestSuite(t *testing.T, dataStoreConnection *mongoDriver.M
 
 	})
 	Convey("UpsertId should update if  exists", t, func() {
-		_, err := dataStoreConnection.UpsertId(context.Background(), 3, bson.M{"$set": bson.M{"new_key": 789}})
+		_, err := dataStoreConnection.
+			GetConfiguredCollection().
+			UpsertId(context.Background(), 3, bson.M{"$set": bson.M{"new_key": 789}})
 		So(err, ShouldBeNil)
 
 		res := TestModel{}
@@ -192,9 +194,8 @@ func executeMongoQueryTestSuite(t *testing.T, dataStoreConnection *mongoDriver.M
 		So(res.NewKey, ShouldEqual, 789)
 	})
 
-
 	Convey("UpdateId should update data if document exists", t, func() {
-		_, err := dataStoreConnection.UpdateId(context.Background(), 3, bson.M{"$set": bson.M{"new_key": 7892}})
+		_, err := dataStoreConnection.GetConfiguredCollection().UpdateId(context.Background(), 3, bson.M{"$set": bson.M{"new_key": 7892}})
 		So(err, ShouldBeNil)
 
 		res := TestModel{}
@@ -206,12 +207,14 @@ func executeMongoQueryTestSuite(t *testing.T, dataStoreConnection *mongoDriver.M
 
 	Convey("FindOne should find data if document exists", t, func() {
 		res := TestModel{}
-		err := dataStoreConnection.FindOne(context.Background(), bson.M{"_id": 3}, &res)
+		err := dataStoreConnection.
+			GetConfiguredCollection().
+			FindOne(context.Background(), bson.M{"_id": 3}, &res)
 		So(err, ShouldBeNil)
 
 		So(res.State, ShouldEqual, "third")
 	})
-	
+
 }
 func getMongoConnectionConfig() *mongoDriver.MongoConnectionConfig {
 	return &mongoDriver.MongoConnectionConfig{
@@ -244,7 +247,9 @@ func getDocumentDbConnectionConfig() *mongoDriver.MongoConnectionConfig {
 func setUpTestData(mongoConnection *mongoDriver.MongoConnection) error {
 	ctx := context.Background()
 	for i, data := range getTestData() {
-		if _, err := mongoConnection.UpsertId(ctx, i+1, bson.M{"$set": data}); err != nil {
+		if _, err := mongoConnection.
+			GetConfiguredCollection().
+			UpsertId(ctx, i+1, bson.M{"$set": data}); err != nil {
 			return err
 		}
 	}
@@ -267,7 +272,8 @@ func getTestData() []bson.M {
 
 func queryMongo(mongoConnection *mongoDriver.MongoConnection, query bson.M, res interface{}) error {
 	ctx := context.Background()
-	if err := mongoConnection.FindOne(ctx, query, res); err != nil {
+	collection := mongoConnection.GetConfiguredCollection()
+	if err := collection.FindOne(ctx, query, res); err != nil {
 		return err
 	}
 

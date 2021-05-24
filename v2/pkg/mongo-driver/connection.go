@@ -7,7 +7,6 @@ import (
 	"github.com/ONSdigital/log.go/log"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 	"time"
 )
 
@@ -19,24 +18,14 @@ var (
 type MongoConnector interface {
 	Ping(ctx context.Context) error
 	Close(ctx context.Context) error
-	UpsertId(ctx context.Context, id interface{}, update interface{}) (*MongoUpdateResult, error)
-	UpdateId(ctx context.Context, id interface{}, update interface{}) (*MongoUpdateResult, error)
-	FindOne(ctx context.Context, filter interface{}, result interface{}) error
 	GetCollectionsFor(ctx context.Context, database string) ([]string, error)
+	GetConfiguredCollection() *Collection
 }
 
 type MongoConnection struct {
 	client     *mongo.Client
 	database   string
 	collection string
-}
-
-// MongoUpdateResult is the result type returned from UpdateOne, UpdateMany, and ReplaceOne operations.
-type MongoUpdateResult struct {
-	MatchedCount  int64       // The number of documents matched by the filter.
-	ModifiedCount int64       // The number of documents modified by the operation.
-	UpsertedCount int64       // The number of documents upserted by the operation.
-	UpsertedID    interface{} // The _id field of the upserted document, or nil if no upsert was done.
 }
 
 func NewMongoConnection(client *mongo.Client, database string, collection string) *MongoConnection {
@@ -73,45 +62,8 @@ func (ms *MongoConnection) Close(ctx context.Context) error {
 	}
 }
 
-func (ms *MongoConnection) getConfiguredCollection() *mongo.Collection {
-	return ms.client.Database(ms.database).Collection(ms.collection)
-}
-
-func (ms *MongoConnection) UpsertId(ctx context.Context, id interface{}, update interface{}) (*MongoUpdateResult, error) {
-	collection := ms.getConfiguredCollection()
-	opts := options.Update().SetUpsert(true)
-
-	updateResult, err := collection.UpdateByID(ctx, id, update, opts)
-	if err == nil {
-		return &MongoUpdateResult{
-			MatchedCount:  updateResult.MatchedCount,
-			ModifiedCount: updateResult.ModifiedCount,
-			UpsertedCount: updateResult.UpsertedCount,
-			UpsertedID:    updateResult.UpsertedID,
-		}, nil
-	}
-	return nil, err
-}
-
-func (ms *MongoConnection) FindOne(ctx context.Context, filter interface{}, result interface{}) error {
-	collection := ms.getConfiguredCollection()
-
-	err := collection.FindOne(ctx, filter).Decode(result)
-	return err
-}
-
-func (ms *MongoConnection) UpdateId(ctx context.Context, id interface{}, update interface{}) (*MongoUpdateResult, error) {
-	collection := ms.getConfiguredCollection()
-	updateResult, err := collection.UpdateByID(ctx, id, update)
-	if err == nil {
-		return &MongoUpdateResult{
-			MatchedCount:  updateResult.MatchedCount,
-			ModifiedCount: updateResult.ModifiedCount,
-			UpsertedCount: updateResult.UpsertedCount,
-			UpsertedID:    updateResult.UpsertedID,
-		}, nil
-	}
-	return nil, err
+func (ms *MongoConnection) GetConfiguredCollection() *Collection {
+	return NewCollection(ms.client.Database(ms.database).Collection(ms.collection))
 }
 
 func (ms *MongoConnection) Ping(ctx context.Context, timeoutInSeconds time.Duration) error {
