@@ -11,7 +11,7 @@ type Collection struct {
 	collection *mongo.Collection
 }
 
-// MongoUpdateResult is the result type returned from UpdateOne, UpdateMany, and ReplaceOne operations.
+// CollectionUpdateResult is the result type returned from UpdateOne, UpdateMany, and ReplaceOne operations.
 type CollectionUpdateResult struct {
 	MatchedCount  int64       // The number of documents matched by the filter.
 	ModifiedCount int64       // The number of documents modified by the operation.
