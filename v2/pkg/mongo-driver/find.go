@@ -17,7 +17,7 @@ type Find struct {
 }
 
 func newFind(collection *mongo.Collection, query interface{}) *Find {
-	return &Find{collection, query, 0, 0, nil}
+	return &Find{collection, query, 0, 0, nil, nil}
 }
 
 func (find *Find) Find(query interface{}) *Find {
