@@ -4,10 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
+
 	"github.com/ONSdigital/log.go/log"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
-	"time"
 )
 
 var (
@@ -93,4 +94,8 @@ func (ms *MongoConnection) ListCollectionsFor(ctx context.Context, database stri
 
 func (ms *MongoConnection) GetMongoCollection() *mongo.Collection {
 	return ms.client.Database(ms.database).Collection(ms.collection)
+}
+
+func (ms *MongoConnection) C(collection string) *Collection {
+	return NewCollection(ms.client.Database(ms.database).Collection(collection))
 }

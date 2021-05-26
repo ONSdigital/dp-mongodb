@@ -64,3 +64,10 @@ func wrapMongoError(err error) error {
 
 	return &ErrServerError{MongoError{"Server Error", err}}
 }
+
+func IsErrCollectionNotFound(err error) bool {
+	var collectionNotFound *ErrCollectionNotFound
+
+	return errors.As(err, &collectionNotFound)
+
+}

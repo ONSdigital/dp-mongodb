@@ -2,6 +2,7 @@ package mongo_driver
 
 import (
 	"context"
+
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -12,6 +13,7 @@ type Find struct {
 	limit      int64
 	skip       int64
 	sort       interface{}
+	projection interface{}
 }
 
 func newFind(collection *mongo.Collection, query interface{}) *Find {
@@ -38,6 +40,11 @@ func (find *Find) Skip(skip int64) *Find {
 	return find
 }
 
+func (find *Find) Select(projection interface{}) *Find {
+	find.projection = projection
+	return find
+}
+
 func (find *Find) Count(ctx context.Context) (int64, error) {
 	count := options.Count()
 
@@ -52,7 +59,17 @@ func (find *Find) Count(ctx context.Context) (int64, error) {
 	return find.collection.CountDocuments(ctx, find.query, count)
 }
 
-func (find *Find) Iter(ctx context.Context) (*Cursor, error) {
+func (find *Find) One(ctx context.Context, val interface{}) error {
+	result := find.collection.FindOne(ctx, find.query)
+
+	if result.Err() != nil {
+		return result.Err()
+	}
+
+	return result.Decode(val)
+}
+
+func (find *Find) Iter() *Cursor {
 	findOptions := options.Find()
 
 	if find.skip != 0 {
@@ -67,20 +84,19 @@ func (find *Find) Iter(ctx context.Context) (*Cursor, error) {
 		findOptions.SetSort(find.sort)
 	}
 
-	cursor, err := find.collection.Find(ctx, find.query, findOptions)
-
-	if err != nil {
-		return nil, wrapMongoError(err)
+	if find.projection != nil {
+		findOptions.SetProjection(find.projection)
 	}
 
-	return newCursor(cursor), nil
+	return newCursor(find.collection, find.query, findOptions)
 }
 
 func (find *Find) IterAll(ctx context.Context, results interface{}) error {
-	cursor, err := find.Iter(ctx)
-	if err != nil {
-		return wrapMongoError(err)
-	}
+	cursor := find.Iter()
 
 	return cursor.All(ctx, results)
+}
+
+func (find *Find) Distinct(ctx context.Context, fieldName string) ([]interface{}, error) {
+	return find.collection.Distinct(ctx, fieldName, find.query)
 }
