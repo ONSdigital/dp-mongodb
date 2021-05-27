@@ -18,6 +18,7 @@ var (
 
 type MongoConnector interface {
 	Ping(ctx context.Context) error
+	C(collection string) *Collection
 	Close(ctx context.Context) error
 	GetCollectionsFor(ctx context.Context, database string) ([]string, error)
 	GetConfiguredCollection() *Collection

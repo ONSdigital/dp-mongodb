@@ -24,7 +24,16 @@ func (cursor *Cursor) Close(ctx context.Context) error {
 }
 
 func (cursor *Cursor) All(ctx context.Context, results interface{}) error {
-	return wrapMongoError(cursor.cursor.All(ctx, results))
+	findCursor, err := cursor.collection.Find(ctx, cursor.query, cursor.findOptions)
+
+	if err != nil {
+		cursor.lastError = err
+		return wrapMongoError(err)
+	}
+
+	err = findCursor.All(ctx, results)
+
+	return wrapMongoError(err)
 }
 
 func (cursor *Cursor) Next(ctx context.Context) bool {
