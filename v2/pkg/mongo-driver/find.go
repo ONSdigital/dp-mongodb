@@ -94,7 +94,7 @@ func (find *Find) Iter() *Cursor {
 func (find *Find) IterAll(ctx context.Context, results interface{}) error {
 	cursor := find.Iter()
 
-	return cursor.All(ctx, results)
+	return wrapMongoError(cursor.All(ctx, results))
 }
 
 func (find *Find) Distinct(ctx context.Context, fieldName string) ([]interface{}, error) {
