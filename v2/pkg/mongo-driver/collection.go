@@ -51,9 +51,34 @@ func (c *Collection) Insert(ctx context.Context, documents []interface{}) (*Coll
 }
 
 func (c *Collection) Upsert(ctx context.Context, selector interface{}, update interface{}) (*CollectionUpdateResult, error) {
-	opts := options.Update().SetUpsert(true)
+	return c.updateRecord(ctx, selector, update, true)
+}
 
-	updateResult, err := c.collection.UpdateByID(ctx, selector, update, opts)
+func (c *Collection) UpsertId(ctx context.Context, id interface{}, update interface{}) (*CollectionUpdateResult, error) {
+	selector := bson.M{"_id": id}
+
+	return c.updateRecord(ctx, selector, update, true)
+}
+
+func (c *Collection) UpdateId(ctx context.Context, id interface{}, update interface{}) (*CollectionUpdateResult, error) {
+	selector := bson.M{"_id": id}
+
+	return c.updateRecord(ctx, selector, update, false)
+}
+
+func (c *Collection) Update(ctx context.Context, selector interface{}, update interface{}) (*CollectionUpdateResult, error) {
+	return c.updateRecord(ctx, selector, update, false)
+}
+
+func (c *Collection) updateRecord(ctx context.Context, selector interface{}, update interface{}, upsert bool) (*CollectionUpdateResult, error) {
+	opts := options.Update()
+
+	if upsert {
+		opts.SetUpsert(true)
+	}
+
+	updateResult, err := c.collection.UpdateOne(ctx, selector, update, opts)
+
 	if err == nil {
 		return &CollectionUpdateResult{
 			MatchedCount:  updateResult.MatchedCount,
@@ -63,38 +88,12 @@ func (c *Collection) Upsert(ctx context.Context, selector interface{}, update in
 		}, nil
 	}
 	return nil, wrapMongoError(err)
-}
-
-func (c *Collection) UpsertId(ctx context.Context, id interface{}, update interface{}) (*CollectionUpdateResult, error) {
-	selector := bson.M{"_id": id}
-
-	return c.Upsert(ctx, selector, update)
 }
 
 func (c *Collection) FindOne(ctx context.Context, filter interface{}, result interface{}) error {
 
 	err := c.collection.FindOne(ctx, filter).Decode(result)
 	return wrapMongoError(err)
-}
-
-func (c *Collection) UpdateId(ctx context.Context, id interface{}, update interface{}) (*CollectionUpdateResult, error) {
-	selector := bson.M{"_id": id}
-
-	return c.Update(ctx, selector, update)
-}
-
-func (c *Collection) Update(ctx context.Context, selector interface{}, update interface{}) (*CollectionUpdateResult, error) {
-	updateResult, err := c.collection.UpdateByID(ctx, selector, update)
-
-	if err == nil {
-		return &CollectionUpdateResult{
-			MatchedCount:  updateResult.MatchedCount,
-			ModifiedCount: updateResult.ModifiedCount,
-			UpsertedCount: updateResult.UpsertedCount,
-			UpsertedID:    updateResult.UpsertedID,
-		}, nil
-	}
-	return nil, wrapMongoError(err)
 }
 
 func (c *Collection) Remove(ctx context.Context, selector interface{}) (*CollectionDeleteResult, error) {
