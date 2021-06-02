@@ -88,7 +88,7 @@ func (find *Find) Iter() *Cursor {
 		findOptions.SetProjection(find.projection)
 	}
 
-	return newCursor(find.collection, find.query, findOptions)
+	return newCursor(newFindCursor(find.collection, find.query, findOptions))
 }
 
 func (find *Find) IterAll(ctx context.Context, results interface{}) error {

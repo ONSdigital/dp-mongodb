@@ -7,16 +7,46 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-type Cursor struct {
+type CreateCursor interface {
+	create(context.Context) (*mongo.Cursor, error)
+}
+
+type CreateFindCursor struct {
 	collection  *mongo.Collection
 	query       interface{}
 	findOptions *options.FindOptions
-	cursor      *mongo.Cursor
-	lastError   error
 }
 
-func newCursor(collection *mongo.Collection, query interface{}, findOptions *options.FindOptions) *Cursor {
-	return &Cursor{collection, query, findOptions, nil, nil}
+func newFindCursor(collection *mongo.Collection, query interface{}, findOptions *options.FindOptions) CreateCursor {
+	return &CreateFindCursor{collection, query, findOptions}
+}
+
+func (createFindCursor *CreateFindCursor) create(ctx context.Context) (*mongo.Cursor, error) {
+	return createFindCursor.collection.Find(ctx, createFindCursor.query, createFindCursor.findOptions)
+}
+
+type CreateAggregateCursor struct {
+	collectiom *mongo.Collection
+	pipeline   interface{}
+	options    *options.AggregateOptions
+}
+
+func newAggregateCursor(collection *mongo.Collection, pipeline interface{}, options *options.AggregateOptions) CreateCursor {
+	return &CreateAggregateCursor{collection, pipeline, options}
+}
+
+func (createAggregateCursor *CreateAggregateCursor) create(ctx context.Context) (*mongo.Cursor, error) {
+	return createAggregateCursor.collectiom.Aggregate(ctx, createAggregateCursor.pipeline, createAggregateCursor.options)
+}
+
+type Cursor struct {
+	createCursor CreateCursor
+	cursor       *mongo.Cursor
+	lastError    error
+}
+
+func newCursor(createCursor CreateCursor) *Cursor {
+	return &Cursor{createCursor, nil, nil}
 }
 
 func (cursor *Cursor) Close(ctx context.Context) error {
@@ -24,14 +54,14 @@ func (cursor *Cursor) Close(ctx context.Context) error {
 }
 
 func (cursor *Cursor) All(ctx context.Context, results interface{}) error {
-	findCursor, err := cursor.collection.Find(ctx, cursor.query, cursor.findOptions)
+	mongoCursor, err := cursor.createCursor.create(ctx)
 
 	if err != nil {
 		cursor.lastError = err
 		return wrapMongoError(err)
 	}
 
-	err = findCursor.All(ctx, results)
+	err = mongoCursor.All(ctx, results)
 
 	return wrapMongoError(err)
 }
@@ -39,7 +69,7 @@ func (cursor *Cursor) All(ctx context.Context, results interface{}) error {
 func (cursor *Cursor) Next(ctx context.Context) bool {
 	if cursor.cursor == nil {
 		var err error
-		cursor.cursor, err = cursor.collection.Find(ctx, cursor.query, cursor.findOptions)
+		cursor.cursor, err = cursor.createCursor.create(ctx)
 
 		if err != nil {
 			cursor.lastError = err
@@ -53,7 +83,7 @@ func (cursor *Cursor) Next(ctx context.Context) bool {
 func (cursor *Cursor) TryNext(ctx context.Context) bool {
 	if cursor.cursor == nil {
 		var err error
-		cursor.cursor, err = cursor.collection.Find(ctx, cursor.query, cursor.findOptions)
+		cursor.cursor, err = cursor.createCursor.create(ctx)
 
 		if err != nil {
 			cursor.lastError = err

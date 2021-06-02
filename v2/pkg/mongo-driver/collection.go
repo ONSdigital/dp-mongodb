@@ -29,6 +29,10 @@ type CollectionDeleteResult struct {
 	DeletedCount int64 // The number of records deleted
 }
 
+type CollectionInsertOneResult struct {
+	InsertedId interface{}
+}
+
 func NewCollection(collection *mongo.Collection) *Collection {
 	return &Collection{collection}
 }
@@ -91,6 +95,16 @@ func (c *Collection) updateRecord(ctx context.Context, selector interface{}, upd
 	return nil, wrapMongoError(err)
 }
 
+func (c *Collection) InsertOne(ctx context.Context, document interface{}) (*CollectionInsertOneResult, error) {
+	result, err := c.collection.InsertOne(ctx, document)
+
+	if err != nil {
+		return nil, wrapMongoError(err)
+	}
+
+	return &CollectionInsertOneResult{result.InsertedID}, nil
+}
+
 func (c *Collection) FindOne(ctx context.Context, filter interface{}, result interface{}) error {
 
 	err := c.collection.FindOne(ctx, filter).Decode(result)
@@ -112,4 +126,8 @@ func (c *Collection) RemoveId(ctx context.Context, id interface{}) (*CollectionD
 	selector := bson.M{"_id": id}
 
 	return c.Remove(ctx, selector)
+}
+
+func (c *Collection) Aggregate(pipeline interface{}) *Cursor {
+	return newCursor(newAggregateCursor(c.collection, pipeline, options.Aggregate()))
 }
