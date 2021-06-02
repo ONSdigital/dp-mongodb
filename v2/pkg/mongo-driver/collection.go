@@ -45,7 +45,8 @@ func (c *Collection) Insert(ctx context.Context, documents []interface{}) (*Coll
 	}
 
 	insertResult := &CollectionInsertResult{}
-	copy(result.InsertedIDs, result.InsertedIDs)
+
+	insertResult.InsertedIds = result.InsertedIDs
 
 	return insertResult, nil
 }
