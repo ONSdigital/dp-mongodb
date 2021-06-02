@@ -21,7 +21,8 @@ import (
 )
 
 const (
-	connectionStringTemplate = "mongodb://%s:%s@%s/%s"
+	connectionStringTemplate             = "mongodb://%s:%s@%s/%s"
+	connectionStringTemplateWithoutCreds = "mongodb://%s/%s"
 )
 
 type MongoConnectionConfig struct {
@@ -38,8 +39,15 @@ type MongoConnectionConfig struct {
 	SkipCertVerification bool
 }
 
-func (m *MongoConnectionConfig) getConnectionURI(isSSL bool) string {
-	connectionString := fmt.Sprintf(connectionStringTemplate, m.Username, m.Password, m.ClusterEndpoint, m.Database)
+func (m *MongoConnectionConfig) GetConnectionURI(isSSL bool) string {
+	var connectionString string
+
+	if len(m.Password) > 0 && len(m.Username) > 0 {
+		connectionString = fmt.Sprintf(connectionStringTemplate, m.Username, m.Password, m.ClusterEndpoint, m.Database)
+	} else {
+		connectionString = fmt.Sprintf(connectionStringTemplateWithoutCreds, m.ClusterEndpoint, m.Database)
+	}
+
 	if isSSL {
 		connectionString = strings.Join([]string{connectionString, "ssl=true"}, "?")
 	}
@@ -59,7 +67,7 @@ func Open(m *MongoConnectionConfig) (*MongoConnection, error) {
 		}
 	}
 
-	uri := m.getConnectionURI(isSSL)
+	uri := m.GetConnectionURI(isSSL)
 	fmt.Println(uri)
 	mongoClientOptions := options.Client().
 		ApplyURI(uri).
