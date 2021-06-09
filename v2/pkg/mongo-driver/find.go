@@ -56,7 +56,8 @@ func (find *Find) Count(ctx context.Context) (int64, error) {
 		count.SetLimit(find.limit)
 	}
 
-	return find.collection.CountDocuments(ctx, find.query, count)
+	docCount, err := find.collection.CountDocuments(ctx, find.query, count)
+	return docCount, wrapMongoError(err)
 }
 
 func (find *Find) One(ctx context.Context, val interface{}) error {
@@ -66,7 +67,7 @@ func (find *Find) One(ctx context.Context, val interface{}) error {
 		return result.Err()
 	}
 
-	return result.Decode(val)
+	return wrapMongoError(result.Decode(val))
 }
 
 func (find *Find) Iter() *Cursor {
@@ -98,5 +99,6 @@ func (find *Find) IterAll(ctx context.Context, results interface{}) error {
 }
 
 func (find *Find) Distinct(ctx context.Context, fieldName string) ([]interface{}, error) {
-	return find.collection.Distinct(ctx, fieldName, find.query)
+	distinctData, err := find.collection.Distinct(ctx, fieldName, find.query)
+	return distinctData, wrapMongoError(err)
 }
