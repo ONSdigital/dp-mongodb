@@ -233,7 +233,6 @@ func getMongoConnectionConfig() *mongoDriver.MongoConnectionConfig {
 
 func getDocumentDbConnectionConfig() *mongoDriver.MongoConnectionConfig {
 	return &mongoDriver.MongoConnectionConfig{
-		CaFilePath:              "./test/data/rds-combined-ca-bundle.pem",
 		ConnectTimeoutInSeconds: 5,
 		QueryTimeoutInSeconds:   5,
 
@@ -242,7 +241,6 @@ func getDocumentDbConnectionConfig() *mongoDriver.MongoConnectionConfig {
 		ClusterEndpoint:               "localhost:27017",
 		Database:                      "recipes",
 		Collection:                    "recipes",
-		SkipCertVerification:          true,
 		IsStrongReadConcernEnabled:    true,
 		IsWriteConcernMajorityEnabled: true,
 	}

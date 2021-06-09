@@ -12,9 +12,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"crypto/tls"
-	"crypto/x509"
 	"errors"
-	"io/ioutil"
 	"time"
 
 	"github.com/ONSdigital/log.go/log"
@@ -26,7 +24,7 @@ const (
 )
 
 type MongoConnectionConfig struct {
-	CaFilePath              string
+	IsSSL                   bool
 	ConnectTimeoutInSeconds time.Duration
 	QueryTimeoutInSeconds   time.Duration
 
@@ -36,7 +34,6 @@ type MongoConnectionConfig struct {
 	Database                      string
 	Collection                    string
 	replicaSet                    string
-	SkipCertVerification          bool
 	IsStrongReadConcernEnabled    bool
 	IsWriteConcernMajorityEnabled bool
 }
@@ -59,9 +56,8 @@ func (m *MongoConnectionConfig) GetConnectionURI(isSSL bool) string {
 func Open(m *MongoConnectionConfig) (*MongoConnection, error) {
 	var tlsConfig *tls.Config
 	var err error
-	isSSL := len(m.CaFilePath) > 0
-	if isSSL {
-		tlsConfig, err = getCustomTLSConfig(m.CaFilePath, m.SkipCertVerification)
+	if m.IsSSL {
+		tlsConfig, err = getCustomTLSConfig(true)
 		if err != nil {
 			errMessage := fmt.Sprintf("Failed getting TLS configuration: %v", err)
 			log.Event(context.Background(), errMessage, log.ERROR, log.Error(err))
@@ -69,7 +65,7 @@ func Open(m *MongoConnectionConfig) (*MongoConnection, error) {
 		}
 	}
 
-	uri := m.GetConnectionURI(isSSL)
+	uri := m.GetConnectionURI(m.IsSSL)
 	fmt.Println(uri)
 	mongoClientOptions := options.Client().
 		ApplyURI(uri).
@@ -122,23 +118,10 @@ func Open(m *MongoConnectionConfig) (*MongoConnection, error) {
 	return NewMongoConnection(client, m.Database, m.Collection), nil
 }
 
-func getCustomTLSConfig(caFile string, skipCertVerification bool) (*tls.Config, error) {
+func getCustomTLSConfig(skipCertVerification bool) (*tls.Config, error) {
 	tlsConfig := new(tls.Config)
-	certs, err := ioutil.ReadFile(caFile)
-
-	if err != nil {
-		return nil, err
-	}
-
 	if skipCertVerification {
 		tlsConfig.InsecureSkipVerify = true
-	}
-
-	tlsConfig.RootCAs = x509.NewCertPool()
-	ok := tlsConfig.RootCAs.AppendCertsFromPEM(certs)
-
-	if !ok {
-		return tlsConfig, errors.New("Failed parsing pem file")
 	}
 
 	return tlsConfig, nil

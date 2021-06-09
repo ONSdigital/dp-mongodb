@@ -41,7 +41,7 @@ func TestConnectionToMongoDB(t *testing.T) {
 // dp ssh develop publishing 4 -- -L 27017:<cluster-url>:27017
 func TestConnectionToDocumentDB(t *testing.T) {
 	connectionConfig := &mongoDriver.MongoConnectionConfig{
-		CaFilePath:              "./test/data/rds-combined-ca-bundle.pem",
+		IsSSL:                   true,
 		ConnectTimeoutInSeconds: 5,
 		QueryTimeoutInSeconds:   5,
 
@@ -50,7 +50,6 @@ func TestConnectionToDocumentDB(t *testing.T) {
 		ClusterEndpoint:               "localhost:27017",
 		Database:                      "recipes",
 		Collection:                    "recipes",
-		SkipCertVerification:          true,
 		IsStrongReadConcernEnabled:    true,
 		IsWriteConcernMajorityEnabled: true,
 	}
@@ -84,7 +83,7 @@ func checkTcpConnection(connectionString string) error {
 
 func TestMongoConnectionConfig_GetConnectionURIWhen(t *testing.T) {
 	connectionConfig := &mongoDriver.MongoConnectionConfig{
-		CaFilePath:              "./test/data/rds-combined-ca-bundle.pem",
+		IsSSL:                   true,
 		ConnectTimeoutInSeconds: 5,
 		QueryTimeoutInSeconds:   5,
 
@@ -93,7 +92,6 @@ func TestMongoConnectionConfig_GetConnectionURIWhen(t *testing.T) {
 		ClusterEndpoint:               "localhost:27017",
 		Database:                      "recipes",
 		Collection:                    "recipes",
-		SkipCertVerification:          true,
 		IsStrongReadConcernEnabled:    true,
 		IsWriteConcernMajorityEnabled: true,
 	}
