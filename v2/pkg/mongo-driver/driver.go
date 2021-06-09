@@ -30,13 +30,15 @@ type MongoConnectionConfig struct {
 	ConnectTimeoutInSeconds time.Duration
 	QueryTimeoutInSeconds   time.Duration
 
-	Username             string
-	Password             string
-	ClusterEndpoint      string
-	Database             string
-	Collection           string
-	replicaSet           string
-	SkipCertVerification bool
+	Username                      string
+	Password                      string
+	ClusterEndpoint               string
+	Database                      string
+	Collection                    string
+	replicaSet                    string
+	SkipCertVerification          bool
+	IsStrongReadConcernEnabled    bool
+	IsWriteConcernMajorityEnabled bool
 }
 
 func (m *MongoConnectionConfig) GetConnectionURI(isSSL bool) string {
@@ -73,16 +75,22 @@ func Open(m *MongoConnectionConfig) (*MongoConnection, error) {
 		ApplyURI(uri).
 		SetTLSConfig(tlsConfig).
 		SetReadPreference(readpref.PrimaryPreferred()).
-		// For ensuring strong consistency
-		SetReadConcern(readconcern.Majority()).
-		SetWriteConcern(writeconcern.New(writeconcern.WMajority())).
-		// No support for retryable writes, retryable commit and retryable abort.
-		//https://docs.aws.amazon.com/documentdb/latest/developerguide/transactions.html
-		//https://docs.aws.amazon.com/documentdb/latest/developerguide/functional-differences.html#functional-differences.retryable-writes
 		SetRetryWrites(false)
 
 	if len(m.replicaSet) > 0 {
 		mongoClientOptions = mongoClientOptions.SetReplicaSet(m.replicaSet)
+	}
+
+	if m.IsStrongReadConcernEnabled {
+		// For ensuring strong consistency
+		mongoClientOptions = mongoClientOptions.SetReadConcern(readconcern.Majority())
+	}
+
+	if m.IsWriteConcernMajorityEnabled {
+		mongoClientOptions = mongoClientOptions.SetWriteConcern(writeconcern.New(writeconcern.WMajority()))
+		// No support for retryable writes, retryable commit and retryable abort.
+		//https://docs.aws.amazon.com/documentdb/latest/developerguide/transactions.html
+		//https://docs.aws.amazon.com/documentdb/latest/developerguide/functional-differences.html#functional-differences.retryable-writes
 	}
 
 	var client *mongo.Client
