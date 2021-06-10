@@ -32,7 +32,7 @@ type ErrTimeout struct {
 	MongoError
 }
 
-type ErrCollectionNotFound struct {
+type ErrNoDocumentFound struct {
 	MongoError
 }
 
@@ -53,21 +53,25 @@ func wrapMongoError(err error) error {
 		return &ErrTimeout{MongoError{"Timeout", err}}
 	}
 
-	var commandError *mongo.CommandError
-
-	// should not fail, but return generic command error it does
-	if errors.As(err, &commandError) {
-		if commandError.Code == 26 || commandError.Message == "ns not found" {
-			return &ErrCollectionNotFound{MongoError{"Collection not found", err}}
-		}
+	if err == mongo.ErrNoDocuments {
+		return NewErrNoDocumentFoundError("No document found", err)
 	}
 
 	return &ErrServerError{MongoError{"Server Error", err}}
 }
 
-func IsErrCollectionNotFound(err error) bool {
-	var collectionNotFound *ErrCollectionNotFound
+func IsErrNoDocumentFound(err error) bool {
+	var noDocumentFound *ErrNoDocumentFound
 
-	return errors.As(err, &collectionNotFound)
+	return errors.As(err, &noDocumentFound)
+}
 
+func IsServerErr(err error) bool {
+	var serverError *ErrServerError
+
+	return errors.As(err, &serverError)
+}
+
+func NewErrNoDocumentFoundError(msg string, err error) error {
+	return &ErrNoDocumentFound{MongoError{msg, err}}
 }

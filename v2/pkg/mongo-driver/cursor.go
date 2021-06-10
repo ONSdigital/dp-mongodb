@@ -7,10 +7,12 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+// CreateCursor interface to create a unique cursor
 type CreateCursor interface {
 	create(context.Context) (*mongo.Cursor, error)
 }
 
+// CreateFindCursor creates a find cursor
 type CreateFindCursor struct {
 	collection  *mongo.Collection
 	query       interface{}
@@ -25,6 +27,7 @@ func (createFindCursor *CreateFindCursor) create(ctx context.Context) (*mongo.Cu
 	return createFindCursor.collection.Find(ctx, createFindCursor.query, createFindCursor.findOptions)
 }
 
+// CreateAggreateCursor creates a cursor used with aggregation
 type CreateAggregateCursor struct {
 	collectiom *mongo.Collection
 	pipeline   interface{}
@@ -49,10 +52,12 @@ func newCursor(createCursor CreateCursor) *Cursor {
 	return &Cursor{createCursor, nil, nil}
 }
 
+// Close closes a cursor
 func (cursor *Cursor) Close(ctx context.Context) error {
 	return cursor.cursor.Close(ctx)
 }
 
+// All returns all the results for this cursor
 func (cursor *Cursor) All(ctx context.Context, results interface{}) error {
 	mongoCursor, err := cursor.createCursor.create(ctx)
 
@@ -66,6 +71,7 @@ func (cursor *Cursor) All(ctx context.Context, results interface{}) error {
 	return wrapMongoError(err)
 }
 
+// Next returns the next available record which must be available
 func (cursor *Cursor) Next(ctx context.Context) bool {
 	if cursor.cursor == nil {
 		var err error
@@ -80,6 +86,7 @@ func (cursor *Cursor) Next(ctx context.Context) bool {
 	return cursor.cursor.Next(ctx)
 }
 
+// TryNext trys to retrieve the next available record
 func (cursor *Cursor) TryNext(ctx context.Context) bool {
 	if cursor.cursor == nil {
 		var err error
@@ -94,6 +101,7 @@ func (cursor *Cursor) TryNext(ctx context.Context) bool {
 	return cursor.TryNext(ctx)
 }
 
+// Err returns the last error which occured for this cursor
 func (cursor *Cursor) Err() error {
 	if cursor.cursor == nil {
 		return nil
