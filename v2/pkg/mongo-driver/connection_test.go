@@ -221,26 +221,28 @@ func getMongoConnectionConfig() *mongoDriver.MongoConnectionConfig {
 		ConnectTimeoutInSeconds: 5,
 		QueryTimeoutInSeconds:   5,
 
-		Username:        "test",
-		Password:        "test",
-		ClusterEndpoint: "localhost:27017",
-		Database:        "testDb",
-		Collection:      "testCollection",
+		Username:                      "test",
+		Password:                      "test",
+		ClusterEndpoint:               "localhost:27017",
+		Database:                      "testDb",
+		Collection:                    "testCollection",
+		IsStrongReadConcernEnabled:    true,
+		IsWriteConcernMajorityEnabled: true,
 	}
 }
 
 func getDocumentDbConnectionConfig() *mongoDriver.MongoConnectionConfig {
 	return &mongoDriver.MongoConnectionConfig{
-		CaFilePath:              "./test/data/rds-combined-ca-bundle.pem",
 		ConnectTimeoutInSeconds: 5,
 		QueryTimeoutInSeconds:   5,
 
-		Username:             "test",
-		Password:             "test",
-		ClusterEndpoint:      "localhost:27017",
-		Database:             "recipes",
-		Collection:           "recipes",
-		SkipCertVerification: true,
+		Username:                      "test",
+		Password:                      "test",
+		ClusterEndpoint:               "localhost:27017",
+		Database:                      "recipes",
+		Collection:                    "recipes",
+		IsStrongReadConcernEnabled:    true,
+		IsWriteConcernMajorityEnabled: true,
 	}
 }
 

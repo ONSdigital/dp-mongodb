@@ -41,16 +41,17 @@ func TestConnectionToMongoDB(t *testing.T) {
 // dp ssh develop publishing 4 -- -L 27017:<cluster-url>:27017
 func TestConnectionToDocumentDB(t *testing.T) {
 	connectionConfig := &mongoDriver.MongoConnectionConfig{
-		CaFilePath:              "./test/data/rds-combined-ca-bundle.pem",
+		IsSSL:                   true,
 		ConnectTimeoutInSeconds: 5,
 		QueryTimeoutInSeconds:   5,
 
-		Username:             "test",
-		Password:             "test",
-		ClusterEndpoint:      "localhost:27017",
-		Database:             "recipes",
-		Collection:           "recipes",
-		SkipCertVerification: true,
+		Username:                      "test",
+		Password:                      "test",
+		ClusterEndpoint:               "localhost:27017",
+		Database:                      "recipes",
+		Collection:                    "recipes",
+		IsStrongReadConcernEnabled:    true,
+		IsWriteConcernMajorityEnabled: true,
 	}
 	if err := checkTcpConnection(connectionConfig.ClusterEndpoint); err != nil {
 		log.Event(nil, "documentdb instance not available, skip tests", log.ERROR, log.Error(err))
@@ -78,4 +79,35 @@ func checkTcpConnection(connectionString string) error {
 		defer conn.Close()
 	}
 	return nil
+}
+
+func TestMongoConnectionConfig_GetConnectionURIWhen(t *testing.T) {
+	connectionConfig := &mongoDriver.MongoConnectionConfig{
+		IsSSL:                   true,
+		ConnectTimeoutInSeconds: 5,
+		QueryTimeoutInSeconds:   5,
+
+		Username:                      "test",
+		Password:                      "test",
+		ClusterEndpoint:               "localhost:27017",
+		Database:                      "recipes",
+		Collection:                    "recipes",
+		IsStrongReadConcernEnabled:    true,
+		IsWriteConcernMajorityEnabled: true,
+	}
+
+	Convey("When Credentials Are Present and ssl is true", t, func() {
+		So(connectionConfig.GetConnectionURI(true), ShouldEqual, "mongodb://test:test@localhost:27017/recipes?ssl=true")
+	})
+
+	Convey("When Credentials Are Present and ssl is false", t, func() {
+		So(connectionConfig.GetConnectionURI(false), ShouldEqual, "mongodb://test:test@localhost:27017/recipes")
+	})
+
+	Convey("When Credentials Are Not Configured", t, func() {
+		updatedConnectionConfig := connectionConfig
+		updatedConnectionConfig.Username = ""
+		updatedConnectionConfig.Password = ""
+		So(updatedConnectionConfig.GetConnectionURI(false), ShouldEqual, "mongodb://localhost:27017/recipes")
+	})
 }
