@@ -112,12 +112,7 @@ func (find *Find) IterAll(ctx context.Context, results interface{}) error {
 
 // Distinct return only distinct records
 func (find *Find) Distinct(ctx context.Context, fieldName string) ([]interface{}, error) {
-<<<<<<< HEAD
 	results, err := find.collection.Distinct(ctx, fieldName, find.query)
 
 	return results, wrapMongoError(err)
-=======
-	distinctData, err := find.collection.Distinct(ctx, fieldName, find.query)
-	return distinctData, wrapMongoError(err)
->>>>>>> 5d2dc38707741418276233d2b47a81d8cbf70d67
 }
