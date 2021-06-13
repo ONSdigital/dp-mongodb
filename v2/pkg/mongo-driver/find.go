@@ -67,8 +67,28 @@ func (find *Find) Count(ctx context.Context) (int64, error) {
 }
 
 // Find a record which matches the find criteria
+// Current FindOptions are limited to what is used: Sort, Skip, Projection
+// Other exhaustive list of options are: AllowPartialResults,BatchSize,Collation,
+// Comment,CursorType,Hint,Max, MaxAwaitTime, MaxTime ,Min,
+// NoCursorTimeout,OplogReplay,ReturnKey,ShowRecordID,
+// Snapshot,
+// ref: https://github.com/mongodb/mongo-go-driver/blob/master/mongo/options/findoptions.go#L306
 func (find *Find) One(ctx context.Context, val interface{}) error {
-	result := find.collection.FindOne(ctx, find.query)
+	findOneOptions := options.FindOne()
+
+	if find.skip != 0 {
+		findOneOptions.SetSkip(find.skip)
+	}
+
+	if find.sort != nil {
+		findOneOptions.SetSort(find.sort)
+	}
+
+	if find.projection != nil {
+		findOneOptions.SetProjection(find.projection)
+	}
+
+	result := find.collection.FindOne(ctx, find.query, findOneOptions)
 
 	if result.Err() != nil {
 		return wrapMongoError(result.Err())
