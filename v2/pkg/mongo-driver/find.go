@@ -33,14 +33,14 @@ func (find *Find) Sort(sort interface{}) *Find {
 }
 
 // Limit set the max number of records to retrieve
-func (find *Find) Limit(limit int64) *Find {
-	find.limit = limit
+func (find *Find) Limit(limit int) *Find {
+	find.limit = int64(limit)
 	return find
 }
 
 // Skip set the number of records to skip when the query is run
-func (find *Find) Skip(skip int64) *Find {
-	find.skip = skip
+func (find *Find) Skip(skip int) *Find {
+	find.skip = int64(skip)
 	return find
 }
 
@@ -51,7 +51,7 @@ func (find *Find) Select(projection interface{}) *Find {
 }
 
 // Count the number of records which match the find query
-func (find *Find) Count(ctx context.Context) (int64, error) {
+func (find *Find) Count(ctx context.Context) (int, error) {
 	count := options.Count()
 
 	if find.skip != 0 {
@@ -63,7 +63,7 @@ func (find *Find) Count(ctx context.Context) (int64, error) {
 	}
 
 	docCount, err := find.collection.CountDocuments(ctx, find.query, count)
-	return docCount, wrapMongoError(err)
+	return int(docCount), wrapMongoError(err)
 }
 
 // Find a record which matches the find criteria
@@ -112,12 +112,6 @@ func (find *Find) IterAll(ctx context.Context, results interface{}) error {
 
 // Distinct return only distinct records
 func (find *Find) Distinct(ctx context.Context, fieldName string) ([]interface{}, error) {
-<<<<<<< HEAD
-	results, err := find.collection.Distinct(ctx, fieldName, find.query)
-
-	return results, wrapMongoError(err)
-=======
 	distinctData, err := find.collection.Distinct(ctx, fieldName, find.query)
 	return distinctData, wrapMongoError(err)
->>>>>>> 5d2dc38707741418276233d2b47a81d8cbf70d67
 }

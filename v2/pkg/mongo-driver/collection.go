@@ -19,14 +19,14 @@ type CollectionInsertResult struct {
 
 // CollectionUpdateResult is the result type returned from UpdateOne, UpdateMany, and ReplaceOne operations.
 type CollectionUpdateResult struct {
-	MatchedCount  int64       // The number of documents matched by the filter.
-	ModifiedCount int64       // The number of documents modified by the operation.
-	UpsertedCount int64       // The number of documents upserted by the operation.
+	MatchedCount  int         // The number of documents matched by the filter.
+	ModifiedCount int         // The number of documents modified by the operation.
+	UpsertedCount int         // The number of documents upserted by the operation.
 	UpsertedID    interface{} // The _id field of the upserted document, or nil if no upsert was done.
 }
 
 type CollectionDeleteResult struct {
-	DeletedCount int64 // The number of records deleted
+	DeletedCount int // The number of records deleted
 }
 
 // CollectionInsertOneResult is the result type return from InsertOne
@@ -69,14 +69,14 @@ func (c *Collection) Upsert(ctx context.Context, selector interface{}, update in
 
 // UpsertId creates or updates records located by a provided Id selector
 func (c *Collection) UpsertId(ctx context.Context, id interface{}, update interface{}) (*CollectionUpdateResult, error) {
-	selector := bson.M{"_id": id}
+	selector := bson.D{{"_id", id}}
 
 	return c.updateRecord(ctx, selector, update, true)
 }
 
 // UpdateId modifies records located by a provided Id selector
 func (c *Collection) UpdateId(ctx context.Context, id interface{}, update interface{}) (*CollectionUpdateResult, error) {
-	selector := bson.M{"_id": id}
+	selector := bson.D{{"_id", id}}
 
 	return c.updateRecord(ctx, selector, update, false)
 }
@@ -97,9 +97,9 @@ func (c *Collection) updateRecord(ctx context.Context, selector interface{}, upd
 
 	if err == nil {
 		return &CollectionUpdateResult{
-			MatchedCount:  updateResult.MatchedCount,
-			ModifiedCount: updateResult.ModifiedCount,
-			UpsertedCount: updateResult.UpsertedCount,
+			MatchedCount:  int(updateResult.MatchedCount),
+			ModifiedCount: int(updateResult.ModifiedCount),
+			UpsertedCount: int(updateResult.UpsertedCount),
 			UpsertedID:    updateResult.UpsertedID,
 		}, nil
 	}
@@ -133,7 +133,7 @@ func (c *Collection) Remove(ctx context.Context, selector interface{}) (*Collect
 		return nil, wrapMongoError(err)
 	}
 
-	return &CollectionDeleteResult{result.DeletedCount}, nil
+	return &CollectionDeleteResult{int(result.DeletedCount)}, nil
 }
 
 // RemoveId deletes record based on the id selector
