@@ -148,7 +148,6 @@ Feature: Find records
             ]
             """
 
-
     Scenario: Count all records
         When I start a find operation
         Then I will count 3 records
