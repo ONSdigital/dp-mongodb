@@ -23,6 +23,7 @@ type MongoConnector interface {
 	GetCollectionsFor(ctx context.Context, database string) ([]string, error)
 	GetConfiguredCollection() *Collection
 	GetMongoCollection() *mongo.Collection
+	DropDatabase(ctx context.Context) error
 }
 
 type MongoConnection struct {
@@ -99,4 +100,8 @@ func (ms *MongoConnection) GetMongoCollection() *mongo.Collection {
 
 func (ms *MongoConnection) C(collection string) *Collection {
 	return NewCollection(ms.client.Database(ms.database).Collection(collection))
+}
+
+func (ms *MongoConnection) DropDatabase(ctx context.Context) error {
+	return ms.client.Database(ms.database).Drop(ctx)
 }

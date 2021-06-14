@@ -78,3 +78,4 @@ Feature: Must operation records
     Scenario:
         When I Must remove a record with id 20
         Then I should receive a ErrNoDocumentFound error
+
