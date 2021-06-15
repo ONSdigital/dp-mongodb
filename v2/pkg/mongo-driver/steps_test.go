@@ -93,7 +93,7 @@ func (m *MongoV2Component) insertedTheseRecords(recordsJson *godog.DocString) er
 	}
 
 	for _, record := range records {
-		_, err := collection.InsertOne(context.Background(), bson.D{{"_id", record.Id}, {"name", record.Name}, {"age", record.Age}})
+		_, err := collection.InsertOne(context.Background(), record)
 
 		if err != nil {
 			return err
@@ -183,7 +183,7 @@ func (m *MongoV2Component) findWithId(id int) error {
 }
 
 func (m *MongoV2Component) sortByIdDesc() error {
-	m.find.Sort(bson.D{{"_id", -1}})
+	m.find.Sort(bson.D{{Key: "_id", Value: -1}})
 
 	return nil
 }
@@ -218,7 +218,7 @@ func (m *MongoV2Component) upsertRecordById(id int, recordAsString *godog.DocStr
 		return err
 	}
 
-	upsert := bson.D{{"$set", bson.D{{"name", record.Name}, {"age", record.Age}}}}
+	upsert := bson.D{{Key: "$set", Value: bson.D{{Key: "name", Value: record.Name}, {Key: "age", Value: record.Age}}}}
 
 	m.updateResult, err = m.testClient.C(m.collection).UpsertId(context.Background(), id, upsert)
 
@@ -233,9 +233,9 @@ func (m *MongoV2Component) upsertRecord(id int, recordAsString *godog.DocString)
 		return err
 	}
 
-	idQuery := bson.D{{"_id", id}}
+	idQuery := bson.D{{Key: "_id", Value: id}}
 
-	upsert := bson.D{{"$set", bson.D{{"name", record.Name}, {"age", record.Age}}}}
+	upsert := bson.D{{Key: "$set", Value: bson.D{{Key: "name", Value: record.Name}, {Key: "age", Value: record.Age}}}}
 
 	m.updateResult, err = m.testClient.C(m.collection).Upsert(context.Background(), idQuery, upsert)
 
@@ -250,7 +250,7 @@ func (m *MongoV2Component) updateRecordById(id int, recordAsString *godog.DocStr
 		return err
 	}
 
-	update := bson.D{{"$set", bson.D{{"name", record.Name}, {"age", record.Age}}}}
+	update := bson.D{{Key: "$set", Value: bson.D{{Key: "name", Value: record.Name}, {Key: "age", Value: record.Age}}}}
 
 	m.updateResult, err = m.testClient.C(m.collection).UpdateId(context.Background(), id, update)
 
@@ -265,9 +265,9 @@ func (m *MongoV2Component) updateRecord(id int, recordAsString *godog.DocString)
 		return err
 	}
 
-	idQuery := bson.D{{"_id", id}}
+	idQuery := bson.D{{Key: "_id", Value: id}}
 
-	update := bson.D{{"$set", bson.D{{"name", record.Name}, {"age", record.Age}}}}
+	update := bson.D{{Key: "$set", Value: bson.D{{Key: "name", Value: record.Name}, {Key: "age", Value: record.Age}}}}
 
 	m.updateResult, err = m.testClient.C(m.collection).Update(context.Background(), idQuery, update)
 
@@ -285,7 +285,7 @@ func (m *MongoV2Component) removeRecordById(id int) error {
 func (m *MongoV2Component) removeRecord(id int) error {
 	var err error
 
-	idQuery := bson.D{{"_id", id}}
+	idQuery := bson.D{{Key: "_id", Value: id}}
 
 	m.deleteResult, err = m.testClient.C(m.collection).Remove(context.Background(), idQuery)
 
@@ -405,7 +405,7 @@ func (m *MongoV2Component) mustUpdateId(id int, recordAsString *godog.DocString)
 		return err
 	}
 
-	update := bson.D{{"$set", bson.D{{"name", record.Name}, {"age", record.Age}}}}
+	update := bson.D{{Key: "$set", Value: bson.D{{Key: "name", Value: record.Name}, {Key: "age", Value: record.Age}}}}
 
 	m.updateResult, m.mustErrorResult = m.testClient.C(m.collection).Must().UpdateId(context.Background(), id, update)
 
@@ -420,9 +420,9 @@ func (m *MongoV2Component) mustUpdateRecord(id int, recordAsString *godog.DocStr
 		return err
 	}
 
-	idQuery := bson.D{{"_id", id}}
+	idQuery := bson.D{{Key: "_id", Value: id}}
 
-	update := bson.D{{"$set", bson.D{{"name", record.Name}, {"age", record.Age}}}}
+	update := bson.D{{Key: "$set", Value: bson.D{{Key: "name", Value: record.Name}, {Key: "age", Value: record.Age}}}}
 
 	m.updateResult, m.mustErrorResult = m.testClient.C(m.collection).Must().Update(context.Background(), idQuery, update)
 
@@ -448,7 +448,7 @@ func (m *MongoV2Component) mustRemoveRecordById(id int) error {
 }
 
 func (m *MongoV2Component) mustRemoveRecord(id int) error {
-	idQuery := bson.D{{"_id", id}}
+	idQuery := bson.D{{Key: "_id", Value: id}}
 
 	m.deleteResult, m.mustErrorResult = m.testClient.C(m.collection).Must().Remove(context.Background(), idQuery)
 
