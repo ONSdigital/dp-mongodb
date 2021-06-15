@@ -21,7 +21,7 @@ Feature: Find records
             ]
             """
     Scenario: Find all records
-        When I Find all the records in the collection
+        When I start a find operation
         Then I should receive these records
             """
             [
@@ -104,7 +104,7 @@ Feature: Find records
             """
 
     Scenario: Find all records sorted by Id desc
-        When I Find all the records in the collection
+        When I start a find operation
         And I sort by ID desc
         Then I should receive these records
             """
@@ -128,7 +128,7 @@ Feature: Find records
             """
 
     Scenario: Find all records with the name field
-        When I Find all the records in the collection
+        When I start a find operation
         And I select the field "name"
         Then I should receive these records
             """

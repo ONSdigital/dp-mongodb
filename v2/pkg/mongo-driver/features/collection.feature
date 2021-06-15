@@ -28,7 +28,7 @@ Feature: Collection records
                 "age": "UpsertAge1"
             }
             """
-        When I Find all the records in the collection
+        When I start a find operation
         Then there are 1 matched, 1 modified, 0 upserted records
         And I should receive these records
          """
@@ -58,7 +58,7 @@ Feature: Collection records
                 "age": "TestAge4"
             } 
             """
-        When I Find all the records in the collection
+        When I start a find operation
         Then there are 0 matched, 0 modified, 1 upserted records, with upsert Id of 4
         And I should receive these records
          """
@@ -93,7 +93,7 @@ Feature: Collection records
                 "age": "UpsertByIdAge1"
             }
             """
-        When I Find all the records in the collection
+        When I start a find operation
         Then there are 1 matched, 1 modified, 0 upserted records
         And I should receive these records
          """
@@ -123,7 +123,7 @@ Feature: Collection records
                 "age": "TestByIdAge4"
             } 
             """
-        When I Find all the records in the collection
+        When I start a find operation
         Then there are 0 matched, 0 modified, 1 upserted records, with upsert Id of 4
         And I should receive these records
          """
@@ -158,7 +158,7 @@ Feature: Collection records
                 "age": "UpdateAge3"
             } 
             """
-            When I Find all the records in the collection
+            When I start a find operation
             Then there are 1 matched, 1 modified, 0 upserted records
             And I should receive these records
             """
@@ -188,7 +188,7 @@ Feature: Collection records
                 "age": "UpdateAge4"
             } 
             """
-            When I Find all the records in the collection
+            When I start a find operation
             Then there are 0 matched, 0 modified, 0 upserted records
             And I should receive these records
             """
@@ -218,7 +218,7 @@ Feature: Collection records
                 "age": "UpdateWithIdAge3"
             } 
             """
-            When I Find all the records in the collection
+            When I start a find operation
             Then there are 1 matched, 1 modified, 0 upserted records
             And I should receive these records
             """
@@ -248,7 +248,7 @@ Feature: Collection records
                 "age": "UpdateWithIdAge4"
             } 
             """
-            When I Find all the records in the collection
+            When I start a find operation
             Then there are 0 matched, 0 modified, 0 upserted records
             And I should receive these records
             """
@@ -272,7 +272,7 @@ Feature: Collection records
                 """
      Scenario:
         Given I removeById a record with id 2
-            When I Find all the records in the collection
+            When I start a find operation
             Then there are 1 deleted records
             And I should receive these records
             """
@@ -291,7 +291,7 @@ Feature: Collection records
             """
     Scenario:
         Given I removeById a record with id 4
-            When I Find all the records in the collection
+            When I start a find operation
             Then there are 0 deleted records
             And I should receive these records
             """
@@ -315,7 +315,7 @@ Feature: Collection records
             """
     Scenario:
         Given I remove a record with id 1
-            When I Find all the records in the collection
+            When I start a find operation
             Then there are 1 deleted records
             And I should receive these records
             """
@@ -334,7 +334,7 @@ Feature: Collection records
             """
     Scenario:
         Given I remove a record with id 4
-            When I Find all the records in the collection
+            When I start a find operation
             Then there are 0 deleted records
             And I should receive these records
             """
@@ -372,7 +372,7 @@ Feature: Collection records
                 }
             ]
             """
-            When I Find all the records in the collection
+            When I start a find operation
             Then this is the inserted records result 
             """
                 [4, 5]

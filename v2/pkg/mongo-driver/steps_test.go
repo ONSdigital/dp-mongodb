@@ -33,10 +33,9 @@ type MongoV2Component struct {
 
 func (m *MongoV2Component) RegisterSteps(ctx *godog.ScenarioContext) {
 	ctx.Step(`^I have inserted these Records$`, m.insertedTheseRecords)
-	ctx.Step(`^I Find all the records in the collection`, m.findAllRecords)
 	ctx.Step(`^I should receive these records$`, m.shouldReceiveTheseRecords)
 	ctx.Step(`^I will count (\d+) records$`, m.countRecords)
-	ctx.Step(`^I start a find operation`, m.startFind)
+	ctx.Step(`^I start a find operation`, m.findRecords)
 	ctx.Step(`^I set the limit to (\d+)`, m.setLimit)
 	ctx.Step(`^I skip (\d+) records$`, m.setSkip)
 	ctx.Step(`^I find records with Id > (\d+)$`, m.findWithId)
@@ -117,7 +116,7 @@ func (m *MongoV2Component) insertedTheseRecords(recordsJson *godog.DocString) er
 	return m.ErrorFeature.StepError()
 }
 
-func (m *MongoV2Component) findAllRecords() error {
+func (m *MongoV2Component) findRecords() error {
 	m.find = m.testClient.C(m.collection).Find(bson.D{})
 
 	return nil
@@ -156,12 +155,6 @@ func (m *MongoV2Component) countRecords(expected int) error {
 	assert.EqualValues(&m.ErrorFeature, int(expected), int(actual))
 
 	return m.ErrorFeature.StepError()
-}
-
-func (m *MongoV2Component) startFind() error {
-	m.find = m.testClient.C(m.collection).Find(bson.D{})
-
-	return nil
 }
 
 func (m *MongoV2Component) setLimit(limit int) error {
@@ -204,6 +197,10 @@ func (m *MongoV2Component) findOneRecord(recordAsString *godog.DocString) error 
 	}
 
 	err = m.find.One(context.Background(), &actualRecord)
+
+	if err != nil {
+		return err
+	}
 
 	assert.Equal(&m.ErrorFeature, expectedRecord, actualRecord)
 
