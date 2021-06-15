@@ -21,7 +21,7 @@ type dataModel struct {
 type MongoV2Component struct {
 	database        string
 	collection      string
-	rawClient       *mongo.Client
+	rawClient       mongo.Client
 	testClient      *mongoDriver.MongoConnection
 	find            *mongoDriver.Find
 	insertResult    *mongoDriver.CollectionInsertResult
@@ -64,9 +64,9 @@ func (m *MongoV2Component) RegisterSteps(ctx *godog.ScenarioContext) {
 	ctx.Step(`^I Must remove a record with id (\d+)$`, m.mustRemoveRecord)
 }
 
-func newMongoV2Component(database string, collection string, rawClient *mongo.Client) *MongoV2Component {
+func newMongoV2Component(database string, collection string, rawClient mongo.Client) *MongoV2Component {
 	return &MongoV2Component{database, collection, rawClient,
-		mongoDriver.NewMongoConnection(rawClient, database, collection),
+		mongoDriver.NewMongoConnection(&rawClient, database, collection),
 		nil, nil, nil, nil, nil, componenttest.ErrorFeature{}}
 }
 
