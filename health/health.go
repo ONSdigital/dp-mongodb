@@ -118,7 +118,7 @@ func (c *CheckMongoClient) Checker(ctx context.Context, state *healthcheck.Check
 	_, err := c.Healthcheck(ctx)
 	if err != nil {
 		state.Update(healthcheck.StatusCritical, err.Error(), 0)
-		return nil
+		return err
 	}
 	state.Update(healthcheck.StatusOK, HealthyMessage, 0)
 	return nil
