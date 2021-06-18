@@ -60,7 +60,7 @@ func NewClientWithCollections(db *mgo.Session, clientDatabaseCollection map[Data
 	}
 }
 
-func checkCollections(ctx context.Context, dbSession *mgo.Session, databaseCollectionMap map[Database][]Collection) (err error) {
+func checkCollections(ctx context.Context, dbSession *mgo.Session, databaseCollectionMap map[Database][]Collection) error {
 
 	for databaseToCheck, collectionsToCheck := range databaseCollectionMap {
 
