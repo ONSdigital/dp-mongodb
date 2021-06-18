@@ -1,7 +1,6 @@
 package mongodb_test
 
 import (
-	"fmt"
 	"net"
 	"strings"
 	"testing"
