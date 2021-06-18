@@ -68,7 +68,6 @@ func Open(m *MongoConnectionConfig) (*MongoConnection, error) {
 	}
 
 	uri := m.GetConnectionURI(m.IsSSL)
-	fmt.Println(uri)
 	mongoClientOptions := options.Client().
 		ApplyURI(uri).
 		SetTLSConfig(tlsConfig).

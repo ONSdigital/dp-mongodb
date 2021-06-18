@@ -73,7 +73,6 @@ func checkTcpConnection(connectionString string) error {
 	timeout := time.Second
 	conn, err := net.DialTimeout("tcp", net.JoinHostPort(address[0], address[1]), timeout)
 	if err != nil {
-		fmt.Println("Connecting error:", err)
 		return err
 	}
 	if conn != nil {
