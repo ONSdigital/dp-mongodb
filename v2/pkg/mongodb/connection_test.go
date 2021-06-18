@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	mongoDriver "github.com/ONSdigital/dp-mongodb/v2/pkg/mongo-driver"
+	mongoDriver "github.com/ONSdigital/dp-mongodb/v2/pkg/mongodb"
 	"github.com/ONSdigital/log.go/log"
 	. "github.com/smartystreets/goconvey/convey"
 	"go.mongodb.org/mongo-driver/bson"

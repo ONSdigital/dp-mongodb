@@ -3,7 +3,7 @@ package health
 import (
 	"context"
 	"errors"
-	mongoDriver "github.com/ONSdigital/dp-mongodb/v2/pkg/mongo-driver"
+	mongoDriver "github.com/ONSdigital/dp-mongodb/v2/pkg/mongodb"
 
 	"github.com/ONSdigital/dp-healthcheck/healthcheck"
 	"github.com/ONSdigital/log.go/log"
