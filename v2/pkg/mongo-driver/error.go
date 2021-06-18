@@ -1,4 +1,4 @@
-package mongo_driver
+package mongodb
 
 import (
 	"errors"

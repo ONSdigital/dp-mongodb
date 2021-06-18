@@ -1,14 +1,15 @@
-package mongo_driver_test
+package mongodb_test
 
 import (
 	"fmt"
-	mongoDriver "github.com/ONSdigital/dp-mongodb/v2/pkg/mongo-driver"
-	"github.com/ONSdigital/log.go/log"
-	. "github.com/smartystreets/goconvey/convey"
 	"net"
 	"strings"
 	"testing"
 	"time"
+
+	mongoDriver "github.com/ONSdigital/dp-mongodb/v2/pkg/mongo-driver"
+	"github.com/ONSdigital/log.go/log"
+	. "github.com/smartystreets/goconvey/convey"
 )
 
 func TestConnectionToMongoDB(t *testing.T) {

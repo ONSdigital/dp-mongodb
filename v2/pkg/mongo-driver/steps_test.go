@@ -1,4 +1,4 @@
-package mongo_driver_test
+package mongodb_test
 
 import (
 	"context"
@@ -100,13 +100,11 @@ func (m *MongoV2Component) insertedTheseRecords(recordsJson *godog.DocString) er
 	}
 
 	cursor, err := collection.Find(context.Background(), bson.D{})
-
 	if err != nil {
 		return err
 	}
 
 	err = cursor.All(context.Background(), &foundRecords)
-
 	if err != nil {
 		return err
 	}
@@ -123,11 +121,9 @@ func (m *MongoV2Component) findRecords() error {
 }
 
 func (m *MongoV2Component) shouldReceiveTheseRecords(recordsJson *godog.DocString) error {
-
 	actualRecords := make([]dataModel, 0)
 
 	err := m.find.Iter().All(context.Background(), &actualRecords)
-
 	if err != nil {
 		return err
 	}
@@ -145,9 +141,7 @@ func (m *MongoV2Component) shouldReceiveTheseRecords(recordsJson *godog.DocStrin
 }
 
 func (m *MongoV2Component) countRecords(expected int) error {
-
 	actual, err := m.find.Count(context.Background())
-
 	if err != nil {
 		return err
 	}
@@ -197,7 +191,6 @@ func (m *MongoV2Component) findOneRecord(recordAsString *godog.DocString) error 
 	}
 
 	err = m.find.One(context.Background(), &actualRecord)
-
 	if err != nil {
 		return err
 	}
@@ -336,7 +329,6 @@ func (m *MongoV2Component) insertRecords(recordsJson *godog.DocString) error {
 	testRecords := []interface{}{records[0], records[1]}
 
 	m.insertResult, err = m.testClient.C(m.collection).Insert(context.Background(), testRecords)
-
 	if err != nil {
 		return err
 	}
@@ -363,7 +355,6 @@ func (m *MongoV2Component) insertedRecords(recordsJson *godog.DocString) error {
 }
 
 func (m *MongoV2Component) testErrorItrAll() error {
-
 	badResult := 1
 
 	err := m.find.Iter().All(context.Background(), &badResult)
@@ -374,7 +365,6 @@ func (m *MongoV2Component) testErrorItrAll() error {
 }
 
 func (m *MongoV2Component) testFindErrorItrAll() error {
-
 	badResult := 1
 
 	err := m.find.IterAll(context.Background(), &badResult)
@@ -438,7 +428,6 @@ func (m *MongoV2Component) testMustDidNotReturnError() error {
 }
 
 func (m *MongoV2Component) mustRemoveRecordById(id int) error {
-
 	m.deleteResult, m.mustErrorResult = m.testClient.C(m.collection).Must().RemoveId(context.Background(), id)
 
 	return nil

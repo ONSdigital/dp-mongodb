@@ -1,4 +1,4 @@
-package mongo_driver
+package mongodb
 
 import (
 	"context"
@@ -87,10 +87,10 @@ func (ms *MongoConnection) ListCollectionsFor(ctx context.Context, database stri
 		client.
 		Database(database).
 		ListCollectionNames(ctx, bson.D{{}})
-
 	if err != nil {
 		return nil, err
 	}
+
 	return collectionNames, nil
 }
 

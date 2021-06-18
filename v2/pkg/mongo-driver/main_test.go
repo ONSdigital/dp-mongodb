@@ -1,4 +1,4 @@
-package mongo_driver_test
+package mongodb_test
 
 import (
 	"flag"
@@ -33,7 +33,6 @@ func (m *MongoDBComponentTest) InitializeTestSuite(ctx *godog.TestSuiteContext) 
 }
 
 func (m *MongoDBComponentTest) InitializeScenario(ctx *godog.ScenarioContext) {
-
 	ctx.BeforeScenario(func(*godog.Scenario) {
 		m.MongoFeature.Reset()
 		m.MongoV2Component.reset()

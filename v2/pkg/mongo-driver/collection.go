@@ -1,4 +1,4 @@
-package mongo_driver
+package mongodb
 
 import (
 	"context"
@@ -50,7 +50,6 @@ func (c *Collection) Find(query interface{}) *Find {
 // Insert adds a number of documents
 func (c *Collection) Insert(ctx context.Context, documents []interface{}) (*CollectionInsertResult, error) {
 	result, err := c.collection.InsertMany(ctx, documents)
-
 	if err != nil {
 		return nil, wrapMongoError(err)
 	}
@@ -70,14 +69,12 @@ func (c *Collection) Upsert(ctx context.Context, selector interface{}, update in
 // UpsertId creates or updates records located by a provided Id selector
 func (c *Collection) UpsertId(ctx context.Context, id interface{}, update interface{}) (*CollectionUpdateResult, error) {
 	selector := bson.D{{Key: "_id", Value: id}}
-
 	return c.updateRecord(ctx, selector, update, true)
 }
 
 // UpdateId modifies records located by a provided Id selector
 func (c *Collection) UpdateId(ctx context.Context, id interface{}, update interface{}) (*CollectionUpdateResult, error) {
 	selector := bson.D{{Key: "_id", Value: id}}
-
 	return c.updateRecord(ctx, selector, update, false)
 }
 
@@ -94,7 +91,6 @@ func (c *Collection) updateRecord(ctx context.Context, selector interface{}, upd
 	}
 
 	updateResult, err := c.collection.UpdateOne(ctx, selector, update, opts)
-
 	if err == nil {
 		return &CollectionUpdateResult{
 			MatchedCount:  int(updateResult.MatchedCount),
@@ -103,13 +99,13 @@ func (c *Collection) updateRecord(ctx context.Context, selector interface{}, upd
 			UpsertedID:    updateResult.UpsertedID,
 		}, nil
 	}
+
 	return nil, wrapMongoError(err)
 }
 
 // InsertOne creates a single record
 func (c *Collection) InsertOne(ctx context.Context, document interface{}) (*CollectionInsertOneResult, error) {
 	result, err := c.collection.InsertOne(ctx, document)
-
 	if err != nil {
 		return nil, wrapMongoError(err)
 	}
@@ -119,16 +115,13 @@ func (c *Collection) InsertOne(ctx context.Context, document interface{}) (*Coll
 
 // FindOne locates a single document
 func (c *Collection) FindOne(ctx context.Context, filter interface{}, result interface{}) error {
-
 	err := c.collection.FindOne(ctx, filter).Decode(result)
 	return wrapMongoError(err)
 }
 
 // Remove deletes records based on the provided selector
 func (c *Collection) Remove(ctx context.Context, selector interface{}) (*CollectionDeleteResult, error) {
-
 	result, err := c.collection.DeleteMany(ctx, selector)
-
 	if err != nil {
 		return nil, wrapMongoError(err)
 	}
@@ -139,7 +132,6 @@ func (c *Collection) Remove(ctx context.Context, selector interface{}) (*Collect
 // RemoveId deletes record based on the id selector
 func (c *Collection) RemoveId(ctx context.Context, id interface{}) (*CollectionDeleteResult, error) {
 	selector := bson.M{"_id": id}
-
 	return c.Remove(ctx, selector)
 }
 

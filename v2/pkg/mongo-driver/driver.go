@@ -1,12 +1,13 @@
-package mongo_driver
+package mongodb
 
 import (
 	"context"
 	"fmt"
+	"strings"
+
 	"go.mongodb.org/mongo-driver/mongo/readconcern"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
 	"go.mongodb.org/mongo-driver/mongo/writeconcern"
-	"strings"
 
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -50,6 +51,7 @@ func (m *MongoConnectionConfig) GetConnectionURI(isSSL bool) string {
 	if isSSL {
 		connectionString = strings.Join([]string{connectionString, "ssl=true"}, "?")
 	}
+
 	return connectionString
 }
 

@@ -1,4 +1,4 @@
-package mongo_driver
+package mongodb
 
 import (
 	"context"
@@ -89,7 +89,6 @@ func (find *Find) One(ctx context.Context, val interface{}) error {
 	}
 
 	result := find.collection.FindOne(ctx, find.query, findOneOptions)
-
 	if result.Err() != nil {
 		return wrapMongoError(result.Err())
 	}

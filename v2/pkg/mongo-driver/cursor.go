@@ -1,4 +1,4 @@
-package mongo_driver
+package mongodb
 
 import (
 	"context"
@@ -60,7 +60,6 @@ func (cursor *Cursor) Close(ctx context.Context) error {
 // All returns all the results for this cursor
 func (cursor *Cursor) All(ctx context.Context, results interface{}) error {
 	mongoCursor, err := cursor.createCursor.create(ctx)
-
 	if err != nil {
 		cursor.lastError = err
 		return wrapMongoError(err)

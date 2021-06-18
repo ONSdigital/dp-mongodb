@@ -1,10 +1,11 @@
-package mongo_driver
+package mongodb
 
 import (
 	"errors"
+	"time"
+
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
-	"time"
 )
 
 // keep these in sync with Timestamps tags below

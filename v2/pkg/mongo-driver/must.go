@@ -1,4 +1,4 @@
-package mongo_driver
+package mongodb
 
 import (
 	"context"
@@ -15,7 +15,6 @@ func newMust(collection *Collection) *Must {
 // UpdateId modifies records located by a provided Id selector, must modifiy one record
 func (m *Must) UpdateId(ctx context.Context, id interface{}, update interface{}) (*CollectionUpdateResult, error) {
 	result, err := m.collection.UpdateId(ctx, id, update)
-
 	if err != nil {
 		return nil, err
 	}
@@ -42,9 +41,7 @@ func (m *Must) Update(ctx context.Context, selector interface{}, update interfac
 
 // Remove deletes records based on the provided selector, must delete at least one record
 func (m *Must) Remove(ctx context.Context, selector interface{}) (*CollectionDeleteResult, error) {
-
 	result, err := m.collection.Remove(ctx, selector)
-
 	if err != nil {
 		return nil, err
 	}
@@ -58,9 +55,7 @@ func (m *Must) Remove(ctx context.Context, selector interface{}) (*CollectionDel
 
 // RemoveId deletes record based on the id selector must delete at least one record
 func (m *Must) RemoveId(ctx context.Context, id interface{}) (*CollectionDeleteResult, error) {
-
 	result, err := m.collection.RemoveId(ctx, id)
-
 	if err != nil {
 		return nil, err
 	}

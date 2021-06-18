@@ -1,14 +1,15 @@
-package mongo_driver_test
+package mongodb_test
 
 import (
 	"context"
+	"testing"
+	"time"
+
 	mongoDriver "github.com/ONSdigital/dp-mongodb/v2/pkg/mongo-driver"
 	"github.com/ONSdigital/log.go/log"
 	. "github.com/smartystreets/goconvey/convey"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
-	"testing"
-	"time"
 )
 
 type TestModel struct {

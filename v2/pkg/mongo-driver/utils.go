@@ -1,4 +1,4 @@
-package mongo_driver
+package mongodb
 
 // returns true if a update operation updated or upserted a record
 func HasUpdatedOrUpserted(updateResult *CollectionUpdateResult) bool {
