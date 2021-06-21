@@ -4,11 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	mongoDriver "github.com/ONSdigital/dp-mongodb/v2/pkg/mongodb"
 	"sync"
 	"time"
 
 	"github.com/ONSdigital/log.go/log"
-	"github.com/globalsign/mgo"
 	lock "github.com/square/mongo-lock"
 )
 
@@ -36,13 +36,13 @@ var ErrAcquireMaxRetries = errors.New("cannot acquire lock, maximum number of re
 
 //Client defines the lock Client methods from mongo-lock
 type Client interface {
-	XLock(resourceName, lockID string, ld lock.LockDetails) error
-	Unlock(lockID string) ([]lock.LockStatus, error)
+	XLock(ctx context.Context, resourceName, lockID string, ld lock.LockDetails) error
+	Unlock(ctx context.Context, lockID string) ([]lock.LockStatus, error)
 }
 
 // Purger defines the lock Purger methods from mongo-lock
 type Purger interface {
-	Purge() ([]lock.LockStatus, error)
+	Purge(ctx context.Context) ([]lock.LockStatus, error)
 }
 
 // Lock is a MongoDB lock for a resource
@@ -60,14 +60,16 @@ var GenerateTimeID = func() int {
 }
 
 // New creates a new mongoDB lock for the provided session, db, collection and resource
-func New(ctx context.Context, session *mgo.Session, db, resource string) *Lock {
-	lockClient := lock.NewClient(session, db, fmt.Sprintf("%s_locks", resource))
-	lockClient.CreateIndexes()
+func New(ctx context.Context, mongoConnection *mongoDriver.MongoConnection, resource string) *Lock {
+
+	lockClient := lock.NewClient(mongoConnection.GetMongoCollection())
+	lockClient.CreateIndexes(ctx)
 	lockPurger := lock.NewPurger(lockClient)
 	lck := &Lock{
 		Resource: resource,
 	}
 	lck.Init(ctx, lockClient, lockPurger)
+
 	return lck
 }
 
@@ -87,7 +89,7 @@ func (l *Lock) startPurgerLoop(ctx context.Context) {
 	go func() {
 		defer l.WaitGroup.Done()
 		for {
-			l.Purger.Purge()
+			l.Purger.Purge(ctx)
 			select {
 			case <-l.CloserChannel:
 				log.Event(ctx, "closing mongo db lock purger go-routine", log.INFO)
@@ -101,9 +103,9 @@ func (l *Lock) startPurgerLoop(ctx context.Context) {
 
 // Lock acquires an exclusive mongoDB lock with the provided id, with the default TTL value.
 // If the resource is already locked, an error will be returned.
-func (l *Lock) Lock(resourceID string) (lockID string, err error) {
+func (l *Lock) Lock(ctx context.Context, resourceID string) (lockID string, err error) {
 	lockID = fmt.Sprintf("%s-%s-%d", l.Resource, resourceID, GenerateTimeID())
-	return lockID, l.Client.XLock(
+	return lockID, l.Client.XLock(ctx,
 		fmt.Sprintf("%s-%s", l.Resource, resourceID),
 		lockID,
 		lock.LockDetails{TTL: TTL},
@@ -116,7 +118,7 @@ func (l *Lock) Lock(resourceID string) (lockID string, err error) {
 func (l *Lock) Acquire(ctx context.Context, id string) (lockID string, err error) {
 	retries := 0
 	for {
-		lockID, err = l.Lock(id)
+		lockID, err = l.Lock(ctx, id)
 		if err != lock.ErrAlreadyLocked {
 			return lockID, err
 		}
@@ -135,8 +137,8 @@ func (l *Lock) Acquire(ctx context.Context, id string) (lockID string, err error
 }
 
 // Unlock releases an exclusive mongoDB lock for the provided id (if it exists)
-func (l *Lock) Unlock(lockID string) error {
-	_, err := l.Client.Unlock(lockID)
+func (l *Lock) Unlock(ctx context.Context, lockID string) error {
+	_, err := l.Client.Unlock(ctx, lockID)
 	return err
 }
 
