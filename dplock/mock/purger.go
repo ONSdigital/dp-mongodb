@@ -5,7 +5,7 @@ package dplock
 
 import (
 	"context"
-	"github.com/ONSdigital/dp-mongodb/v2/pkg/dplock"
+	"github.com/ONSdigital/dp-mongodb/v2/dplock"
 	lock "github.com/square/mongo-lock"
 	"sync"
 )

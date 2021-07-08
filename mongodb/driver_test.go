@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	mongoDriver "github.com/ONSdigital/dp-mongodb/v2/pkg/mongodb"
+	mongoDriver "github.com/ONSdigital/dp-mongodb/v2/mongodb"
 	"github.com/ONSdigital/log.go/log"
 	. "github.com/smartystreets/goconvey/convey"
 )

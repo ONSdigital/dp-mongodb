@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ONSdigital/dp-mongodb/v2/pkg/dplock"
-	mock "github.com/ONSdigital/dp-mongodb/v2/pkg/dplock/mock"
+	"github.com/ONSdigital/dp-mongodb/v2/dplock"
+	mock "github.com/ONSdigital/dp-mongodb/v2/dplock/mock"
 	. "github.com/smartystreets/goconvey/convey"
 	lock "github.com/square/mongo-lock"
 )

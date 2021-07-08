@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 
 	componenttest "github.com/ONSdigital/dp-component-test"
-	mongoDriver "github.com/ONSdigital/dp-mongodb/v2/pkg/mongodb"
+	mongoDriver "github.com/ONSdigital/dp-mongodb/v2/mongodb"
 	"github.com/cucumber/godog"
 	"github.com/stretchr/testify/assert"
 	"go.mongodb.org/mongo-driver/bson"
