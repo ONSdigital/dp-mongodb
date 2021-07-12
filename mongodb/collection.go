@@ -69,7 +69,7 @@ func (c *Collection) Upsert(ctx context.Context, selector interface{}, update in
 // UpsertId creates or updates records located by a provided Id selector
 func (c *Collection) UpsertId(ctx context.Context, id interface{}, update interface{}) (*CollectionUpdateResult, error) {
 	selector := bson.D{{Key: "_id", Value: id}}
-	return c.updateRecord(ctx, selector, update, true)
+	return c.updateRecord(ctx, selector, bson.M{"$set": update}, true)
 }
 
 // UpdateId modifies records located by a provided Id selector
