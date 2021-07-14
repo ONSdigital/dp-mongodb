@@ -96,7 +96,7 @@ func TestMongoConnectionConfig_GetConnectionURIWhen(t *testing.T) {
 	}
 
 	Convey("When Credentials Are Present and ssl is true", t, func() {
-		So(connectionConfig.GetConnectionURI(true), ShouldEqual, "mongodb://test:test@localhost:27017/recipes?ssl=true")
+		So(connectionConfig.GetConnectionURI(true), ShouldEqual, "mongodb://test:test@localhost:27017/recipes?ssl=true&connect=direct&sslInsecure=true")
 	})
 
 	Convey("When Credentials Are Present and ssl is false", t, func() {
