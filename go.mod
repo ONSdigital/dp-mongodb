@@ -4,8 +4,7 @@ go 1.15
 
 require (
 	github.com/ONSdigital/dp-healthcheck v1.0.5
-	github.com/ONSdigital/dp-net v1.0.9 // indirect
-	github.com/ONSdigital/log.go v1.0.1
+	github.com/ONSdigital/log.go/v2 v2.0.5
 	github.com/globalsign/mgo v0.0.0-20181015135952-eeefdecb41b8
 	github.com/go-test/deep v1.0.7 // indirect
 	github.com/mongo-go/testdb v0.0.0-20190724200850-a72a12eee610 // indirect

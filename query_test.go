@@ -9,7 +9,7 @@ import (
 	mgo "github.com/globalsign/mgo"
 	"github.com/globalsign/mgo/bson"
 
-	"github.com/ONSdigital/log.go/log"
+	"github.com/ONSdigital/log.go/v2/log"
 	. "github.com/smartystreets/goconvey/convey"
 )
 
@@ -135,12 +135,12 @@ func TestSuccessfulMongoDates(t *testing.T) {
 func TestSuccessfulMongoDatesViaMongo(t *testing.T) {
 	session = nil
 	if _, err := setupSession(); err != nil {
-		log.Event(nil, "mongo instance not available, skip timestamp tests", log.INFO, log.Error(err))
+		log.Info(nil, "mongo instance not available, skip timestamp tests", log.FormatErrors([]error{err}))
 		return
 	}
 
 	if err := setUpTestData(session.Copy()); err != nil {
-		log.Event(nil, "failed to insert test data, skipping tests", log.ERROR, log.Error(err))
+		log.Error(nil, "failed to insert test data, skipping tests", err)
 		t.FailNow()
 	}
 
@@ -230,7 +230,7 @@ func TestSuccessfulMongoDatesViaMongo(t *testing.T) {
 	})
 
 	if err := cleanupTestData(session.Copy()); err != nil {
-		log.Event(nil, "failed to delete test data", log.ERROR, log.Error(err))
+		log.Error(nil, "failed to delete test data", err)
 	}
 }
 
