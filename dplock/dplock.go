@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ONSdigital/log.go/log"
+	"github.com/ONSdigital/log.go/v2/log"
 	"github.com/globalsign/mgo"
 	lock "github.com/square/mongo-lock"
 )
@@ -90,10 +90,10 @@ func (l *Lock) startPurgerLoop(ctx context.Context) {
 			l.Purger.Purge()
 			select {
 			case <-l.CloserChannel:
-				log.Event(ctx, "closing mongo db lock purger go-routine", log.INFO)
+				log.Info(ctx, "closing mongo db lock purger go-routine")
 				return
 			case <-time.After(PurgerPeriod):
-				log.Event(ctx, "purging expired mongoDB locks", log.INFO)
+				log.Info(ctx, "purging expired mongoDB locks")
 			}
 		}
 	}()
@@ -128,7 +128,7 @@ func (l *Lock) Acquire(ctx context.Context, id string) (lockID string, err error
 		case <-time.After(AcquirePeriod):
 			continue
 		case <-l.CloserChannel:
-			log.Event(ctx, "stop acquiring lock. Mongo db is being closed", log.INFO)
+			log.Info(ctx, "stop acquiring lock. Mongo db is being closed")
 			return "", ErrMongoDbClosing
 		}
 	}

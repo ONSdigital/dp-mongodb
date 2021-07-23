@@ -7,19 +7,19 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ONSdigital/log.go/log"
+	"github.com/ONSdigital/log.go/v2/log"
 	. "github.com/smartystreets/goconvey/convey"
 )
 
 func TestSuccessfulCloseMongoSession(t *testing.T) {
 	_, err := setupSession()
 	if err != nil {
-		log.Event(nil, "mongo instance not available, skip close tests", log.ERROR, log.Error(err))
+		log.Error(nil, "mongo instance not available, skip close tests", err)
 		return
 	}
 
 	if err = cleanupTestData(session.Copy()); err != nil {
-		log.Event(nil, "failed to delete test data", log.ERROR, log.Error(err))
+		log.Error(nil, "failed to delete test data", err)
 	}
 
 	Convey("Safely close mongo session", t, func() {
@@ -52,7 +52,7 @@ func TestSuccessfulCloseMongoSession(t *testing.T) {
 	})
 
 	if err = setUpTestData(session.Copy()); err != nil {
-		log.Event(nil, "failed to insert test data, skipping tests", log.FATAL, log.Error(err))
+		log.Fatal(nil, "failed to insert test data, skipping tests", err)
 		os.Exit(1)
 	}
 
@@ -92,6 +92,6 @@ func TestSuccessfulCloseMongoSession(t *testing.T) {
 	})
 
 	if err = cleanupTestData(session.Copy()); err != nil {
-		log.Event(nil, "failed to delete test data", log.ERROR, log.Error(err))
+		log.Error(nil, "failed to delete test data", err)
 	}
 }

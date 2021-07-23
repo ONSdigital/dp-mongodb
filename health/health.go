@@ -5,7 +5,7 @@ import (
 	"errors"
 
 	"github.com/ONSdigital/dp-healthcheck/healthcheck"
-	"github.com/ONSdigital/log.go/log"
+	"github.com/ONSdigital/log.go/v2/log"
 	mgo "github.com/globalsign/mgo"
 )
 
@@ -67,14 +67,14 @@ func checkCollections(ctx context.Context, dbSession *mgo.Session, databaseColle
 		logData := log.Data{"Database": string(databaseToCheck)}
 		collectionsInDb, err := dbSession.DB(string(databaseToCheck)).CollectionNames()
 		if err != nil {
-			log.Event(ctx, "Failed to connect to mongoDB to get the collections", log.ERROR, logData, log.Error(err))
+			log.Error(ctx, "Failed to connect to mongoDB to get the collections", err, logData)
 			return ErrorWithMongoDBConnection
 		}
 
 		for _, collectionToCheck := range collectionsToCheck {
 			if found := find(collectionsInDb, string(collectionToCheck)); !found {
 				logData["Collection"] = string(collectionToCheck)
-				log.Event(ctx, "Collection does not exist in the database", log.ERROR, logData, log.Error(ErrorCollectionDoesNotExist))
+				log.Error(ctx, "Collection does not exist in the database", ErrorCollectionDoesNotExist, logData)
 				return ErrorCollectionDoesNotExist
 			}
 		}
@@ -98,14 +98,14 @@ func (m *Client) Healthcheck(ctx context.Context) (res string, err error) {
 	res = m.serviceName
 	err = s.Ping()
 	if err != nil {
-		log.Event(ctx, "Ping mongo", log.ERROR, log.Error(err))
+		log.Error(ctx, "Ping mongo", err)
 		return
 	}
 
 	if m.databaseCollection != nil {
 		err = checkCollections(ctx, s, m.databaseCollection)
 		if err != nil {
-			log.Event(ctx, "Error checking collections in mongo", log.ERROR, log.Error(err))
+			log.Error(ctx, "Error checking collections in mongo", err)
 			return
 		}
 	}
