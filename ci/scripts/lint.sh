@@ -1,4 +1,3 @@
-
 #!/bin/bash -eux
 
 cwd=$(pwd)

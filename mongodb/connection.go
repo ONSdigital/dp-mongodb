@@ -86,7 +86,7 @@ func (ms *MongoConnection) ListCollectionsFor(ctx context.Context, database stri
 	collectionNames, err := ms.
 		client.
 		Database(database).
-		ListCollectionNames(ctx, bson.D{{"name",  bson.D{{"$ne", ""}}}})
+		ListCollectionNames(ctx, bson.D{{"name", bson.D{{"$ne", ""}}}})
 	if err != nil {
 		return nil, err
 	}
