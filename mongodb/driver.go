@@ -34,7 +34,7 @@ type MongoConnectionConfig struct {
 	ClusterEndpoint               string
 	Database                      string
 	Collection                    string
-	replicaSet                    string
+	ReplicaSet                    string
 	IsStrongReadConcernEnabled    bool
 	IsWriteConcernMajorityEnabled bool
 }
@@ -50,6 +50,8 @@ func (m *MongoConnectionConfig) GetConnectionURI(isSSL bool) string {
 
 	if isSSL {
 		connectionString = strings.Join([]string{connectionString, "ssl=true"}, "?")
+		connectionString = strings.Join([]string{connectionString, "connect=direct"}, "&")
+		connectionString = strings.Join([]string{connectionString, "sslInsecure=true"}, "&")
 	}
 
 	return connectionString
@@ -71,11 +73,11 @@ func Open(m *MongoConnectionConfig) (*MongoConnection, error) {
 	mongoClientOptions := options.Client().
 		ApplyURI(uri).
 		SetTLSConfig(tlsConfig).
-		SetReadPreference(readpref.PrimaryPreferred()).
+		SetReadPreference(readpref.SecondaryPreferred()).
 		SetRetryWrites(false)
 
-	if len(m.replicaSet) > 0 {
-		mongoClientOptions = mongoClientOptions.SetReplicaSet(m.replicaSet)
+	if len(m.ReplicaSet) > 0 {
+		mongoClientOptions = mongoClientOptions.SetReplicaSet(m.ReplicaSet)
 	}
 
 	if m.IsStrongReadConcernEnabled {
