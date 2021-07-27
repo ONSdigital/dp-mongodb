@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ONSdigital/log.go/log"
+	"github.com/ONSdigital/log.go/v2/log"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 )
@@ -77,7 +77,7 @@ func (ms *MongoConnection) Ping(ctx context.Context, timeoutInSeconds time.Durat
 	err := ms.client.Ping(connectionCtx, nil)
 	if err != nil {
 		errMessage := fmt.Sprintf("Failed to ping datastore: %v", err)
-		log.Event(context.Background(), errMessage, log.ERROR, log.Error(err))
+		log.Error(context.Background(), errMessage, err)
 		return errors.New(errMessage)
 	}
 	return nil
