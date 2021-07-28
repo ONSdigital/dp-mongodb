@@ -16,7 +16,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/ONSdigital/log.go/log"
+	"github.com/ONSdigital/log.go/v2/log"
 )
 
 const (
@@ -64,7 +64,7 @@ func Open(m *MongoConnectionConfig) (*MongoConnection, error) {
 		tlsConfig, err = getCustomTLSConfig(true)
 		if err != nil {
 			errMessage := fmt.Sprintf("Failed getting TLS configuration: %v", err)
-			log.Event(context.Background(), errMessage, log.ERROR, log.Error(err))
+			log.Error(context.Background(), errMessage, err)
 			return nil, errors.New(errMessage)
 		}
 	}
@@ -96,7 +96,7 @@ func Open(m *MongoConnectionConfig) (*MongoConnection, error) {
 	client, err = mongo.NewClient(mongoClientOptions)
 	if err != nil {
 		errMessage := fmt.Sprintf("Failed to create client: %v", err)
-		log.Event(context.Background(), errMessage, log.ERROR, log.Error(err))
+		log.Error(context.Background(), errMessage, err)
 		return nil, errors.New(errMessage)
 	}
 
@@ -106,7 +106,7 @@ func Open(m *MongoConnectionConfig) (*MongoConnection, error) {
 	err = client.Connect(connectionCtx)
 	if err != nil {
 		errMessage := fmt.Sprintf("Failed to connect to cluster: %v", err)
-		log.Event(context.Background(), errMessage, log.ERROR, log.Error(err))
+		log.Error(context.Background(), errMessage, err)
 		return nil, errors.New(errMessage)
 	}
 
@@ -114,7 +114,7 @@ func Open(m *MongoConnectionConfig) (*MongoConnection, error) {
 	err = client.Ping(connectionCtx, nil)
 	if err != nil {
 		errMessage := fmt.Sprintf("Failed to ping cluster: %v", err)
-		log.Event(context.Background(), errMessage, log.ERROR, log.Error(err))
+		log.Error(context.Background(), errMessage, err)
 		return nil, errors.New(errMessage)
 	}
 

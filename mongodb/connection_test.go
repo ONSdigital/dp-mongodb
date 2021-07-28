@@ -6,7 +6,7 @@ import (
 	"time"
 
 	mongoDriver "github.com/ONSdigital/dp-mongodb/v2/mongodb"
-	"github.com/ONSdigital/log.go/log"
+	"github.com/ONSdigital/log.go/v2/log"
 	. "github.com/smartystreets/goconvey/convey"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -36,17 +36,17 @@ func TestSuccessfulMongoDatesViaMongo(t *testing.T) {
 	var mongoConnection *mongoDriver.MongoConnection
 	connectionConfig := getMongoConnectionConfig()
 	if err := checkTcpConnection(connectionConfig.ClusterEndpoint); err != nil {
-		log.Event(nil, "mongo db instance not available, skip tests", log.ERROR, log.Error(err))
+		log.Error(context.Background(), "mongo db instance not available, skip tests", err)
 		t.Skip()
 	}
 
 	if mongoConnection, err = mongoDriver.Open(connectionConfig); err != nil {
-		log.Event(nil, "mongo instance not available, skip timestamp tests", log.INFO, log.Error(err))
+		log.Info(context.Background(), "mongo instance not available, skip timestamp tests", log.FormatErrors([]error{err}))
 		return
 	}
 
 	if err := setUpTestData(mongoConnection); err != nil {
-		log.Event(nil, "failed to insert test data, skipping tests", log.ERROR, log.Error(err))
+		log.Error(context.Background(), "failed to insert test data, skipping tests", err)
 		t.FailNow()
 	}
 
@@ -54,7 +54,7 @@ func TestSuccessfulMongoDatesViaMongo(t *testing.T) {
 	executeMongoQueryTestSuite(t, mongoConnection)
 
 	if err := cleanupTestData(mongoConnection); err != nil {
-		log.Event(nil, "failed to delete test data", log.ERROR, log.Error(err))
+		log.Error(context.Background(), "failed to delete test data", err)
 	}
 }
 
@@ -63,16 +63,16 @@ func TestSuccessfulMongoDatesViaDocumentDB(t *testing.T) {
 	var documentDBConnection *mongoDriver.MongoConnection
 	connectionConfig := getDocumentDbConnectionConfig()
 	if err := checkTcpConnection(connectionConfig.ClusterEndpoint); err != nil {
-		log.Event(nil, "documentdb instance not available, skip tests", log.ERROR, log.Error(err))
+		log.Error(context.Background(), "documentdb instance not available, skip tests", err)
 		t.Skip()
 	}
 	if documentDBConnection, err = mongoDriver.Open(connectionConfig); err != nil {
-		log.Event(nil, "documentdb instance not available, skip timestamp tests", log.INFO, log.Error(err))
+		log.Info(context.Background(), "documentdb instance not available, skip timestamp tests", log.FormatErrors([]error{err}))
 		return
 	}
 
 	if err := setUpTestData(documentDBConnection); err != nil {
-		log.Event(nil, "failed to insert test data, skipping tests", log.ERROR, log.Error(err))
+		log.Error(context.Background(), "failed to insert test data, skipping tests", err)
 		t.FailNow()
 	}
 
@@ -80,7 +80,7 @@ func TestSuccessfulMongoDatesViaDocumentDB(t *testing.T) {
 	executeMongoQueryTestSuite(t, documentDBConnection)
 
 	if err := cleanupTestData(documentDBConnection); err != nil {
-		log.Event(nil, "failed to delete test data", log.ERROR, log.Error(err))
+		log.Error(context.Background(), "failed to delete test data", err)
 	}
 }
 
