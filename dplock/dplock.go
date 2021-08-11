@@ -4,10 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	mongoDriver "github.com/ONSdigital/dp-mongodb/v2/mongodb"
 	"sync"
 	"time"
 
+	mongoDriver "github.com/ONSdigital/dp-mongodb/v2/mongodb"
 	"github.com/ONSdigital/log.go/v2/log"
 	lock "github.com/square/mongo-lock"
 )
@@ -21,8 +21,14 @@ const PurgerPeriod = 5 * time.Minute
 // AcquirePeriod is the time period between acquire lock retries
 var AcquirePeriod = 250 * time.Millisecond
 
+// UnlockPeriod is the time period between Unlock lock retries
+var UnlockPeriod = 5 * time.Millisecond
+
 // AcquireMaxRetries is the maximum number of locking retries by the Acquire lock, discounting the first attempt
 var AcquireMaxRetries = 10
+
+// UnlockMaxRetries is the maximum number of unlocking retries by the Unlock lock, discounting the first attempt
+var UnlockMaxRetries = 10
 
 // ErrMongoDbClosing is an error returned because MongoDB is being closed
 var ErrMongoDbClosing = errors.New("mongo db is being closed")
@@ -30,6 +36,10 @@ var ErrMongoDbClosing = errors.New("mongo db is being closed")
 // ErrAcquireMaxRetries is an error returned when acquire fails
 // after retrying to lock a resource 'AcquireMaxRetries' times
 var ErrAcquireMaxRetries = errors.New("cannot acquire lock, maximum number of retries has been reached")
+
+// ErrUnlockMaxRetries is an error returned when unlock fails
+// after retrying to unlock a resource 'UnlockMaxRetries' times
+var ErrUnlockMaxRetries = errors.New("cannot unlock, maximum number of retries has been reached")
 
 //go:generate moq -out mock/client.go -pkg mock . Client
 //go:generate moq -out mock/purger.go -pkg mock . Purger
@@ -138,8 +148,24 @@ func (l *Lock) Acquire(ctx context.Context, id string) (lockID string, err error
 
 // Unlock releases an exclusive mongoDB lock for the provided id (if it exists)
 func (l *Lock) Unlock(ctx context.Context, lockID string) error {
-	_, err := l.Client.Unlock(ctx, lockID)
-	return err
+	retries := 0
+	for {
+		_, err := l.Client.Unlock(ctx, lockID)
+		if err == nil {
+			return nil
+		}
+		if retries >= UnlockMaxRetries {
+			return ErrUnlockMaxRetries
+		}
+		retries++
+		select {
+		case <-time.After(UnlockPeriod):
+			continue
+		case <-l.CloserChannel:
+			log.Event(ctx, "stop unlocking lock. Mongo db is being closed", log.INFO)
+			return ErrMongoDbClosing
+		}
+	}
 }
 
 // Close closes the closer channel, and waits for the WaitGroup to finish.
