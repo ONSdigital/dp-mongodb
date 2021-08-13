@@ -37,7 +37,7 @@ var ErrMongoDbClosing = errors.New("mongo db is being closed")
 // after retrying to lock a resource 'AcquireMaxRetries' times
 var ErrAcquireMaxRetries = errors.New("cannot acquire lock, maximum number of retries has been reached")
 
-// ErrUnlockMaxRetries is an error returned when unlock fails
+// ErrUnlockMaxRetries is an error logged when unlock fails
 // after retrying to unlock a resource 'UnlockMaxRetries' times
 var ErrUnlockMaxRetries = errors.New("cannot unlock, maximum number of retries has been reached")
 
@@ -130,40 +130,44 @@ func (l *Lock) Acquire(ctx context.Context, id string) (lockID string, err error
 	for {
 		lockID, err = l.Lock(ctx, id)
 		if err != lock.ErrAlreadyLocked {
-			return lockID, err
+			return lockID, err // Successful or failed due to some generic error, no retry is attempted
 		}
 		if retries >= AcquireMaxRetries {
-			return "", ErrAcquireMaxRetries
+			return "", ErrAcquireMaxRetries // Failed too many times
 		}
 		retries++
 		select {
 		case <-time.After(AcquirePeriod):
-			continue
+			continue // Retry
 		case <-l.CloserChannel:
 			log.Info(ctx, "stop acquiring lock. Mongo db is being closed")
-			return "", ErrMongoDbClosing
+			return "", ErrMongoDbClosing // Abort because the app is closing
 		}
 	}
 }
 
 // Unlock releases an exclusive mongoDB lock for the provided id (if it exists)
-func (l *Lock) Unlock(ctx context.Context, lockID string) error {
+func (l *Lock) Unlock(ctx context.Context, lockID string) {
 	retries := 0
 	for {
 		_, err := l.Client.Unlock(ctx, lockID)
 		if err == nil {
-			return nil
+			if retries > 0 {
+				log.Info(ctx, "unlocking succeeded after some retries", log.Data{"retries": retries})
+			}
+			return // Successful unlock
 		}
 		if retries >= UnlockMaxRetries {
-			return ErrUnlockMaxRetries
+			log.Error(ctx, "error unlocking", ErrUnlockMaxRetries)
+			return // Failed too many times
 		}
 		retries++
 		select {
 		case <-time.After(UnlockPeriod):
-			continue
+			continue // Retry
 		case <-l.CloserChannel:
-			log.Event(ctx, "stop unlocking lock. Mongo db is being closed", log.INFO)
-			return ErrMongoDbClosing
+			log.Info(ctx, "stop unlocking lock. Mongo db is being closed", log.INFO)
+			return // Abort because the app is closing
 		}
 	}
 }

@@ -183,8 +183,7 @@ func TestUnlock(t *testing.T) {
 		}
 
 		Convey("Calling Unlock performs an unlock using the underlying client with the provided lock id", func() {
-			err := l.Unlock(ctx, "lockID")
-			So(err, ShouldBeNil)
+			l.Unlock(ctx, "lockID")
 			So(len(clientMock.UnlockCalls()), ShouldEqual, 1)
 			So(clientMock.UnlockCalls()[0].LockID, ShouldEqual, "lockID")
 		})
@@ -207,8 +206,7 @@ func TestUnlock(t *testing.T) {
 		}
 
 		Convey("Calling Unlock manages to acquire the lock using the underlying client in the second iteration", func() {
-			err := l.Unlock(ctx, "lockID")
-			So(err, ShouldBeNil)
+			l.Unlock(ctx, "lockID")
 			So(len(clientMock.UnlockCalls()), ShouldEqual, 2)
 		})
 	})
@@ -225,25 +223,22 @@ func TestUnlock(t *testing.T) {
 			CloserChannel: make(chan struct{}),
 		}
 
-		Convey("Calling Unlock fails with v after having retried to unlock UnlockMaxRetries times", func() {
-			err := l.Unlock(ctx, "lockID")
-			So(err, ShouldResemble, dplock.ErrUnlockMaxRetries)
+		Convey("Calling Unlock retries to unlock UnlockMaxRetries times", func() {
+			l.Unlock(ctx, "lockID")
 			So(len(clientMock.UnlockCalls()), ShouldEqual, dplock.UnlockMaxRetries+1)
 		})
 
-		Convey("Then closing the closer channel whilst unlock is trying to unlock the lock, results in the operation being aborted", func() {
-			// High period value to prevent race conditions between channel and 'timeout'
-			dplock.UnlockPeriod = 30 * time.Second
-			var err error
+		Convey("Then closing the closer channel whilst unlock is trying to unlock the lock, results in the operation being aborted and not retrying it", func() {
+			dplock.UnlockPeriod = 30 * time.Second // High period value to prevent race conditions between channel and 'timeout'
 			wg := &sync.WaitGroup{}
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				err = l.Unlock(ctx, "lockID")
+				l.Unlock(ctx, "lockID")
 			}()
 			close(l.CloserChannel)
-			wg.Wait()
-			So(err, ShouldResemble, dplock.ErrMongoDbClosing)
+			wg.Wait() // Make sure the unlock go-routine is done before checking that it only attempted the unlock once
+			So(len(clientMock.UnlockCalls()), ShouldEqual, 1)
 		})
 	})
 }
