@@ -28,7 +28,7 @@ var UnlockPeriod = 5 * time.Millisecond
 var AcquireMaxRetries = 10
 
 // UnlockMaxRetries is the maximum number of unlocking retries by the Unlock lock, discounting the first attempt
-var UnlockMaxRetries = 10
+var UnlockMaxRetries = 100
 
 // ErrMongoDbClosing is an error returned because MongoDB is being closed
 var ErrMongoDbClosing = errors.New("mongo db is being closed")
@@ -153,6 +153,7 @@ func (l *Lock) Unlock(ctx context.Context, lockID string) {
 		_, err := l.Client.Unlock(ctx, lockID)
 		if err == nil {
 			if retries > 0 {
+				// This log is temporary, we might want to delete it in the future
 				log.Info(ctx, "unlocking succeeded after some retries", log.Data{"retries": retries})
 			}
 			return // Successful unlock
