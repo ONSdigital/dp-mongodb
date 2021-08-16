@@ -278,11 +278,11 @@ func queryNamespacedMongo(session *mgo.Session, query bson.M, res *testNamespace
 
 func getTestData() []bson.M {
 	return []bson.M{
-		bson.M{
+		{
 			"_id":   "1",
 			"state": "first",
 		},
-		bson.M{
+		{
 			"_id":   "2",
 			"state": "second",
 		},
