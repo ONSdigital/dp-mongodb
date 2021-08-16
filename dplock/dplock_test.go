@@ -150,7 +150,7 @@ func TestAcquire(t *testing.T) {
 		Convey("Then after retrying 'AcquireMaxRetries' times, acquire fails with the expected error", func() {
 			_, err := l.Acquire(ctx, "myID")
 			So(err, ShouldResemble, dplock.ErrAcquireMaxRetries)
-			So(len(clientMock.XLockCalls()), ShouldEqual, 6)
+			So(len(clientMock.XLockCalls()), ShouldEqual, dplock.AcquireMaxRetries+1)
 		})
 
 		Convey("Then closing the closer channel whilst acquire is trying to acquire the lock, results in the operation being aborted", func() {
@@ -183,18 +183,21 @@ func TestUnlock(t *testing.T) {
 		}
 
 		Convey("Calling Unlock performs an unlock using the underlying client with the provided lock id", func() {
-			err := l.Unlock("lockID")
-			So(err, ShouldBeNil)
+			l.Unlock("lockID")
 			So(len(clientMock.UnlockCalls()), ShouldEqual, 1)
 			So(clientMock.UnlockCalls()[0].LockID, ShouldEqual, "lockID")
 		})
 	})
 
-	Convey("Given a lock with a client that fails to unlock", t, func() {
-		errUnlock := errors.New("generic unlock error")
+	Convey("Given a lock with a client that fails to unlock only on the first iteration", t, func() {
+		i := 0
 		clientMock := &mock.ClientMock{
 			UnlockFunc: func(lockID string) ([]lock.LockStatus, error) {
-				return []lock.LockStatus{}, errUnlock
+				i++
+				if i == 1 {
+					return []lock.LockStatus{}, errors.New("generic unlock error")
+				}
+				return []lock.LockStatus{}, nil
 			},
 		}
 		l := dplock.Lock{
@@ -202,9 +205,40 @@ func TestUnlock(t *testing.T) {
 			Client:   clientMock,
 		}
 
-		Convey("Calling Unlock fails with the same error", func() {
-			err := l.Unlock("myID")
-			So(err, ShouldResemble, errUnlock)
+		Convey("Calling Unlock manages to acquire the lock using the underlying client in the second iteration", func() {
+			l.Unlock("lockID")
+			So(len(clientMock.UnlockCalls()), ShouldEqual, 2)
+		})
+	})
+
+	Convey("Given a lock with a client that always fails to unlock", t, func() {
+		clientMock := &mock.ClientMock{
+			UnlockFunc: func(lockID string) ([]lock.LockStatus, error) {
+				return []lock.LockStatus{}, errors.New("generic unlock error")
+			},
+		}
+		l := dplock.Lock{
+			Resource:      "image",
+			Client:        clientMock,
+			CloserChannel: make(chan struct{}),
+		}
+
+		Convey("Calling Unlock retries to unlock UnlockMaxRetries times", func() {
+			l.Unlock("lockID")
+			So(len(clientMock.UnlockCalls()), ShouldEqual, dplock.UnlockMaxRetries+1)
+		})
+
+		Convey("Then closing the closer channel whilst unlock is trying to unlock the lock, results in the operation being aborted and not retrying it", func() {
+			dplock.UnlockPeriod = 30 * time.Second // High period value to prevent race conditions between channel and 'timeout'
+			wg := &sync.WaitGroup{}
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				l.Unlock("lockID")
+			}()
+			close(l.CloserChannel)
+			wg.Wait() // Make sure the unlock go-routine is done before checking that it only attempted the unlock once
+			So(len(clientMock.UnlockCalls()), ShouldEqual, 1)
 		})
 	})
 }
