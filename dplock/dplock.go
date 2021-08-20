@@ -72,7 +72,8 @@ var GenerateTimeID = func() int {
 // New creates a new mongoDB lock for the provided session, db, collection and resource
 func New(ctx context.Context, mongoConnection *mongoDriver.MongoConnection, resource string) *Lock {
 
-	lockClient := lock.NewClient(mongoConnection.GetMongoCollection())
+	collection := mongoConnection.GetMongoCollection().Database().Collection(fmt.Sprintf("%s_locks", resource))
+	lockClient := lock.NewClient(collection)
 	lockClient.CreateIndexes(ctx)
 	lockPurger := lock.NewPurger(lockClient)
 	lck := &Lock{
