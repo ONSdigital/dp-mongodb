@@ -24,7 +24,7 @@ Feature: Collection records
         Given I upsert this record with id 1
             """
             {
-                "name": "UpsertName1",
+                "name": "UpsertName",
                 "age": "UpsertAge1"
             }
             """
