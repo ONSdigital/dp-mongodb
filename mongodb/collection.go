@@ -97,7 +97,7 @@ func (c *Collection) updateRecord(ctx context.Context, selector interface{}, upd
 	if err == nil {
 		if updateResult.ModifiedCount > math.MaxInt32 || updateResult.UpsertedCount > math.MaxInt32 {
 			return nil, errors.New(
-				fmt.Sprintf("Invalid type conversion: %d or %d is out of bound to convert to int",
+				fmt.Sprintf("invalid type conversion: %d or %d is out of bound to convert to int",
 					updateResult.ModifiedCount, updateResult.UpsertedCount),
 			)
 		}
@@ -137,7 +137,7 @@ func (c *Collection) Remove(ctx context.Context, selector interface{}) (*Collect
 	}
 
 	if result.DeletedCount > math.MaxInt32 {
-		return nil, errors.New(fmt.Sprintf("Invalid type conversion: cannot convert %d to int", result.DeletedCount))
+		return nil, errors.New(fmt.Sprintf("invalid type conversion: cannot convert %d to int", result.DeletedCount))
 	}
 
 	return &CollectionDeleteResult{int(result.DeletedCount)}, nil
