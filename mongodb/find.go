@@ -2,6 +2,9 @@ package mongodb
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"math"
 
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -63,6 +66,11 @@ func (find *Find) Count(ctx context.Context) (int, error) {
 	}
 
 	docCount, err := find.collection.CountDocuments(ctx, find.query, count)
+
+	if err == nil && docCount > math.MaxInt32 {
+		return 0, errors.New(fmt.Sprintf("invalid type conversion: cannot convert %d to int", docCount))
+	}
+
 	return int(docCount), wrapMongoError(err)
 }
 

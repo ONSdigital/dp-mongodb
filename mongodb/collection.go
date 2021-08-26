@@ -2,6 +2,9 @@ package mongodb
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"math"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -92,6 +95,13 @@ func (c *Collection) updateRecord(ctx context.Context, selector interface{}, upd
 
 	updateResult, err := c.collection.UpdateOne(ctx, selector, update, opts)
 	if err == nil {
+		if updateResult.ModifiedCount > math.MaxInt32 || updateResult.UpsertedCount > math.MaxInt32 {
+			return nil, errors.New(
+				fmt.Sprintf("invalid type conversion: %d or %d is out of bound to convert to int",
+					updateResult.ModifiedCount, updateResult.UpsertedCount),
+			)
+		}
+
 		return &CollectionUpdateResult{
 			MatchedCount:  int(updateResult.MatchedCount),
 			ModifiedCount: int(updateResult.ModifiedCount),
@@ -124,6 +134,10 @@ func (c *Collection) Remove(ctx context.Context, selector interface{}) (*Collect
 	result, err := c.collection.DeleteMany(ctx, selector)
 	if err != nil {
 		return nil, wrapMongoError(err)
+	}
+
+	if result.DeletedCount > math.MaxInt32 {
+		return nil, errors.New(fmt.Sprintf("invalid type conversion: cannot convert %d to int", result.DeletedCount))
 	}
 
 	return &CollectionDeleteResult{int(result.DeletedCount)}, nil
