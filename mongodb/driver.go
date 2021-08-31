@@ -3,6 +3,7 @@ package mongodb
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"go.mongodb.org/mongo-driver/mongo/readconcern"
@@ -58,6 +59,10 @@ func (m *MongoConnectionConfig) GetConnectionURI(isSSL bool) string {
 }
 
 func Open(m *MongoConnectionConfig) (*MongoConnection, error) {
+	if strconv.IntSize < 64 {
+		return nil, errors.New("cannot use dp-mongodb library when default int size is less than 64 bits")
+	}
+
 	var tlsConfig *tls.Config
 	var err error
 	if m.IsSSL {
