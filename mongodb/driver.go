@@ -23,6 +23,7 @@ import (
 const (
 	connectionStringTemplate             = "mongodb://%s:%s@%s/%s"
 	connectionStringTemplateWithoutCreds = "mongodb://%s/%s"
+	int64Size                            = 64
 )
 
 type MongoConnectionConfig struct {
@@ -59,7 +60,7 @@ func (m *MongoConnectionConfig) GetConnectionURI(isSSL bool) string {
 }
 
 func Open(m *MongoConnectionConfig) (*MongoConnection, error) {
-	if strconv.IntSize < 64 {
+	if strconv.IntSize < int64Size {
 		return nil, errors.New("cannot use dp-mongodb library when default int size is less than 64 bits")
 	}
 
