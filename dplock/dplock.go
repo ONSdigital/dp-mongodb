@@ -12,24 +12,6 @@ import (
 	lock "github.com/square/mongo-lock"
 )
 
-// TTL is the 'time to live' for a lock in number of seconds
-const TTL = 30
-
-// PurgerPeriod is the time period between expired lock purges
-const PurgerPeriod = 5 * time.Minute
-
-// AcquirePeriod is the time period between acquire lock retries
-var AcquirePeriod = 250 * time.Millisecond
-
-// UnlockPeriod is the time period between Unlock lock retries
-var UnlockPeriod = 5 * time.Millisecond
-
-// AcquireMaxRetries is the maximum number of locking retries by the Acquire lock, discounting the first attempt
-var AcquireMaxRetries = 10
-
-// UnlockMaxRetries is the maximum number of unlocking retries by the Unlock lock, discounting the first attempt
-var UnlockMaxRetries = 100
-
 // ErrMongoDbClosing is an error returned because MongoDB is being closed
 var ErrMongoDbClosing = errors.New("mongo db is being closed")
 
@@ -62,6 +44,7 @@ type Lock struct {
 	Purger        Purger
 	WaitGroup     *sync.WaitGroup
 	Resource      string
+	Config        Config
 }
 
 // GenerateTimeID returns the current timestamp in nanoseconds
@@ -70,23 +53,24 @@ var GenerateTimeID = func() int {
 }
 
 // New creates a new mongoDB lock for the provided session, db, collection and resource
-func New(ctx context.Context, session *mgo.Session, db, resource string) *Lock {
+func New(ctx context.Context, session *mgo.Session, db, resource string, cfg *ConfigOverride) *Lock {
 	lockClient := lock.NewClient(session, db, fmt.Sprintf("%s_locks", resource))
 	lockClient.CreateIndexes()
 	lockPurger := lock.NewPurger(lockClient)
 	lck := &Lock{
 		Resource: resource,
 	}
-	lck.Init(ctx, lockClient, lockPurger)
+	lck.Init(ctx, lockClient, lockPurger, cfg)
 	return lck
 }
 
-// Init initialises a lock with the provided client and purger, and starts the purger loop
-func (l *Lock) Init(ctx context.Context, lockClient Client, lockPurger Purger) {
+// Init initialises a lock with the provided client, purger and config, and starts the purger loop
+func (l *Lock) Init(ctx context.Context, lockClient Client, lockPurger Purger, cfg *ConfigOverride) {
 	l.Client = lockClient
 	l.Purger = lockPurger
 	l.CloserChannel = make(chan struct{})
 	l.WaitGroup = &sync.WaitGroup{}
+	l.Config = GetConfig(cfg)
 	l.startPurgerLoop(ctx)
 }
 
@@ -102,7 +86,7 @@ func (l *Lock) startPurgerLoop(ctx context.Context) {
 			case <-l.CloserChannel:
 				log.Info(ctx, "closing mongo db lock purger go-routine")
 				return
-			case <-time.After(PurgerPeriod):
+			case <-time.After(l.Config.PurgerPeriod):
 				log.Info(ctx, "purging expired mongoDB locks")
 			}
 		}
@@ -116,7 +100,7 @@ func (l *Lock) Lock(resourceID string) (lockID string, err error) {
 	return lockID, l.Client.XLock(
 		fmt.Sprintf("%s-%s", l.Resource, resourceID),
 		lockID,
-		lock.LockDetails{TTL: TTL},
+		lock.LockDetails{TTL: l.Config.TTL},
 	)
 }
 
@@ -130,12 +114,12 @@ func (l *Lock) Acquire(ctx context.Context, id string) (lockID string, err error
 		if err != lock.ErrAlreadyLocked {
 			return lockID, err // Successful or failed due to some generic error, no retry is attempted
 		}
-		if retries >= AcquireMaxRetries {
+		if retries >= l.Config.AcquireMaxRetries {
 			return "", ErrAcquireMaxRetries // Failed too many times
 		}
 		retries++
 		select {
-		case <-time.After(AcquirePeriod):
+		case <-time.After(l.Config.AcquirePeriod):
 			continue // Retry
 		case <-l.CloserChannel:
 			log.Info(ctx, "stop acquiring lock. Mongo db is being closed")
@@ -157,13 +141,13 @@ func (l *Lock) Unlock(lockID string) {
 			}
 			return // Successful unlock
 		}
-		if retries >= UnlockMaxRetries {
+		if retries >= l.Config.UnlockMaxRetries {
 			log.Error(ctx, "error unlocking", ErrUnlockMaxRetries)
 			return // Failed too many times
 		}
 		retries++
 		select {
-		case <-time.After(UnlockPeriod):
+		case <-time.After(l.Config.UnlockPeriod):
 			continue // Retry
 		case <-l.CloserChannel:
 			log.Info(ctx, "stop unlocking lock. Mongo db is being closed", log.INFO)
