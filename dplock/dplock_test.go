@@ -71,9 +71,20 @@ func TestAcquire(t *testing.T) {
 	dplock.GenerateTimeID = func() int {
 		return 123456789
 	}
-	cfg := dplock.Config{
-		AcquirePeriod:     1 * time.Nanosecond,
-		AcquireMaxRetries: 5,
+
+	// aux func to get a testing Lock for acquire with short times and the provided mock client
+	testLockWithMock := func(clientMock *mock.ClientMock) dplock.Lock {
+		return dplock.Lock{
+			Resource:      "image",
+			Client:        clientMock,
+			CloserChannel: make(chan struct{}),
+			Config: dplock.Config{
+				TTL:                    dplock.DefaultTTL,
+				AcquireMinPeriodMillis: 1,
+				AcquireMaxPeriodMillis: 2,
+				AcquireRetryTimeout:    3 * time.Millisecond,
+			},
+		}
 	}
 
 	Convey("Given a lock with a client that can successfully lock", t, func() {
@@ -82,11 +93,7 @@ func TestAcquire(t *testing.T) {
 				return nil
 			},
 		}
-		l := dplock.Lock{
-			Resource: "image",
-			Client:   clientMock,
-			Config:   cfg,
-		}
+		l := testLockWithMock(clientMock)
 
 		Convey("Calling Acquire performs a lock using the underlying client with the expected resource, id and TTL", func() {
 			lockID, err := l.Acquire(ctx, "myID")
@@ -95,7 +102,7 @@ func TestAcquire(t *testing.T) {
 			So(len(clientMock.XLockCalls()), ShouldEqual, 1)
 			So(clientMock.XLockCalls()[0].ResourceName, ShouldEqual, "image-myID")
 			So(clientMock.XLockCalls()[0].LockID, ShouldEqual, "image-myID-123456789")
-			So(clientMock.XLockCalls()[0].Ld, ShouldResemble, lock.LockDetails{TTL: cfg.TTL})
+			So(clientMock.XLockCalls()[0].Ld, ShouldResemble, lock.LockDetails{TTL: l.Config.TTL})
 		})
 	})
 
@@ -110,11 +117,7 @@ func TestAcquire(t *testing.T) {
 				return nil
 			},
 		}
-		l := dplock.Lock{
-			Resource: "image",
-			Client:   clientMock,
-			Config:   cfg,
-		}
+		l := testLockWithMock(clientMock)
 
 		Convey("Calling Acquire manages to acquire the lock using the underlying client in the second iteration", func() {
 			_, err := l.Acquire(ctx, "myID")
@@ -130,11 +133,7 @@ func TestAcquire(t *testing.T) {
 				return errLock
 			},
 		}
-		l := dplock.Lock{
-			Resource: "image",
-			Client:   clientMock,
-			Config:   cfg,
-		}
+		l := testLockWithMock(clientMock)
 
 		Convey("Calling Acquire, fails to acquire locking with the same error, without retrying", func() {
 			_, err := l.Acquire(ctx, "myID")
@@ -149,22 +148,18 @@ func TestAcquire(t *testing.T) {
 				return lock.ErrAlreadyLocked
 			},
 		}
-		l := dplock.Lock{
-			Resource:      "image",
-			Client:        clientMock,
-			CloserChannel: make(chan struct{}),
-			Config:        cfg,
-		}
+		l := testLockWithMock(clientMock)
 
 		Convey("Then after retrying 'AcquireMaxRetries' times, acquire fails with the expected error", func() {
 			_, err := l.Acquire(ctx, "myID")
-			So(err, ShouldResemble, dplock.ErrAcquireMaxRetries)
-			So(len(clientMock.XLockCalls()), ShouldEqual, cfg.AcquireMaxRetries+1)
+			So(err, ShouldResemble, dplock.ErrAcquireTimeout)
+			So(len(clientMock.XLockCalls()), ShouldBeGreaterThan, 1)
 		})
 
 		Convey("Then closing the closer channel whilst acquire is trying to acquire the lock, results in the operation being aborted", func() {
 			// High period value to prevent race conditions between channel and 'timeout'
-			l.Config.AcquirePeriod = 30 * time.Second
+			l.Config.AcquireMinPeriodMillis = 30000
+			l.Config.AcquireMaxPeriodMillis = 30001
 			var err error
 			wg := &sync.WaitGroup{}
 			wg.Add(1)
@@ -181,17 +176,28 @@ func TestAcquire(t *testing.T) {
 
 func TestUnlock(t *testing.T) {
 
+	// aux func to get a testing Lock for acquire with short times and the provided mock client
+	testLockWithMock := func(clientMock *mock.ClientMock) dplock.Lock {
+		return dplock.Lock{
+			Resource:      "image",
+			Client:        clientMock,
+			CloserChannel: make(chan struct{}),
+			Config: dplock.Config{
+				TTL:                   dplock.DefaultTTL,
+				UnlockMinPeriodMillis: 1,
+				UnlockMaxPeriodMillis: 2,
+				UnlockRetryTimeout:    3 * time.Millisecond,
+			},
+		}
+	}
+
 	Convey("Given a lock with a client that can successfully unlock", t, func() {
 		clientMock := &mock.ClientMock{
 			UnlockFunc: func(lockID string) ([]lock.LockStatus, error) {
 				return []lock.LockStatus{}, nil
 			},
 		}
-		l := dplock.Lock{
-			Resource: "image",
-			Client:   clientMock,
-			Config:   dplock.GetConfig(nil),
-		}
+		l := testLockWithMock(clientMock)
 
 		Convey("Calling Unlock performs an unlock using the underlying client with the provided lock id", func() {
 			l.Unlock("lockID")
@@ -211,11 +217,7 @@ func TestUnlock(t *testing.T) {
 				return []lock.LockStatus{}, nil
 			},
 		}
-		l := dplock.Lock{
-			Resource: "image",
-			Client:   clientMock,
-			Config:   dplock.GetConfig(nil),
-		}
+		l := testLockWithMock(clientMock)
 
 		Convey("Calling Unlock manages to acquire the lock using the underlying client in the second iteration", func() {
 			l.Unlock("lockID")
@@ -229,20 +231,17 @@ func TestUnlock(t *testing.T) {
 				return []lock.LockStatus{}, errors.New("generic unlock error")
 			},
 		}
-		l := dplock.Lock{
-			Resource:      "image",
-			Client:        clientMock,
-			CloserChannel: make(chan struct{}),
-			Config:        dplock.GetConfig(nil),
-		}
+		l := testLockWithMock(clientMock)
 
-		Convey("Calling Unlock retries to unlock UnlockMaxRetries times", func() {
+		Convey("Calling Unlock retries to unlock multiple times until timeout is reached", func() {
 			l.Unlock("lockID")
-			So(len(clientMock.UnlockCalls()), ShouldEqual, l.Config.UnlockMaxRetries+1)
+			So(len(clientMock.UnlockCalls()), ShouldBeGreaterThan, 1)
 		})
 
 		Convey("Then closing the closer channel whilst unlock is trying to unlock the lock, results in the operation being aborted and not retrying it", func() {
-			l.Config.UnlockPeriod = 30 * time.Second // High period value to prevent race conditions between channel and 'timeout'
+			// High period value to prevent race conditions between channel and 'timeout'
+			l.Config.UnlockMinPeriodMillis = 30000
+			l.Config.UnlockMaxPeriodMillis = 30001
 			wg := &sync.WaitGroup{}
 			wg.Add(1)
 			go func() {
@@ -266,6 +265,7 @@ func TestLifecycleAndPurger(t *testing.T) {
 		}
 		l := dplock.Lock{Resource: "image"}
 		l.Init(ctx, clientMock, purgerMock, nil)
+		// TODO test config override
 
 		Convey("Then executing Close result in the closer channel being closed, and the purger go-routine ends", func() {
 			l.Close(ctx)
