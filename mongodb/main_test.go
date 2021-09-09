@@ -10,7 +10,7 @@ import (
 	"github.com/cucumber/godog/colors"
 )
 
-const MongoVersion = "4.0.23"
+const MongoVersion = "4.4.8"
 const MongoPort = 27017
 const DatabaseName = "testing"
 const CollectionName = "testCollection"
