@@ -102,19 +102,22 @@ func (l *Lock) startPurgerLoop(ctx context.Context) {
 
 // Lock acquires an exclusive mongoDB lock with the provided id, with the default TTL value.
 // If the resource is already locked, an error will be returned.
-func (l *Lock) Lock(resourceID string) (lockID string, err error) {
+func (l *Lock) Lock(resourceID, owner string) (lockID string, err error) {
 	lockID = fmt.Sprintf("%s-%s-%d", l.Resource, resourceID, GenerateTimeID())
 	return lockID, l.Client.XLock(
 		fmt.Sprintf("%s-%s", l.Resource, resourceID),
 		lockID,
-		lock.LockDetails{TTL: l.Config.TTL},
+		lock.LockDetails{
+			Owner: owner,
+			TTL:   l.Config.TTL,
+		},
 	)
 }
 
 // Acquire tries to lock the provided id.
 // If the resource is already locked, this function will block until the existing lock is released,
 // at which point we acquire the lock and return.
-func (l *Lock) Acquire(ctx context.Context, id string) (lockID string, err error) {
+func (l *Lock) Acquire(ctx context.Context, id, owner string) (lockID string, err error) {
 	retries := 0
 	var t0 time.Time
 
@@ -135,7 +138,7 @@ func (l *Lock) Acquire(ctx context.Context, id string) (lockID string, err error
 
 	for {
 		// Try to acquire the lock
-		lockID, err = l.Lock(id)
+		lockID, err = l.Lock(id, owner)
 		if err != lock.ErrAlreadyLocked {
 			logIfNeeded()
 			return lockID, err // Successful or failed due to some generic error (not ErrAlreadyLocked)

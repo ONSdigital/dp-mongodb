@@ -18,7 +18,7 @@ const (
 	DefaultUnlockRetryTimeout     = 5 * time.Second
 )
 
-const MinAllowedPurgerPeriod = 10 * time.Second
+const MinAllowedPurgerPeriod = time.Second
 
 // Config is a lock configuration
 type Config struct {
@@ -58,7 +58,7 @@ func GetConfig(cfgOverride *ConfigOverride) Config {
 		UnlockMaxPeriodMillis:  DefaultUnlockMaxPeriodMillis,
 		UnlockRetryTimeout:     DefaultUnlockRetryTimeout,
 	}
-	// default any provided non-nil value:
+	// override any provided non-nil value:
 	if cfgOverride != nil {
 		if cfgOverride.TTL != nil {
 			cfg.TTL = *cfgOverride.TTL

@@ -37,13 +37,16 @@ func TestLock(t *testing.T) {
 		}
 
 		Convey("Calling Lock performs a lock using the underlying client with the expected resource, id and TTL", func() {
-			lockID, err := l.Lock("myID")
+			lockID, err := l.Lock("myID", "owner")
 			So(err, ShouldBeNil)
 			So(lockID, ShouldEqual, "image-myID-123456789")
 			So(len(clientMock.XLockCalls()), ShouldEqual, 1)
 			So(clientMock.XLockCalls()[0].ResourceName, ShouldEqual, "image-myID")
 			So(clientMock.XLockCalls()[0].LockID, ShouldEqual, "image-myID-123456789")
-			So(clientMock.XLockCalls()[0].Ld, ShouldResemble, lock.LockDetails{TTL: dplock.DefaultTTL})
+			So(clientMock.XLockCalls()[0].Ld, ShouldResemble, lock.LockDetails{
+				Owner: "owner",
+				TTL:   dplock.DefaultTTL,
+			})
 		})
 	})
 
@@ -59,7 +62,7 @@ func TestLock(t *testing.T) {
 		}
 
 		Convey("Calling Lock fails with the same error", func() {
-			_, err := l.Lock("myID")
+			_, err := l.Lock("myID", "owner")
 			So(err, ShouldResemble, lock.ErrAlreadyLocked)
 		})
 	})
@@ -96,13 +99,16 @@ func TestAcquire(t *testing.T) {
 		l := testLockWithMock(clientMock)
 
 		Convey("Calling Acquire performs a lock using the underlying client with the expected resource, id and TTL", func() {
-			lockID, err := l.Acquire(ctx, "myID")
+			lockID, err := l.Acquire(ctx, "myID", "owner")
 			So(err, ShouldBeNil)
 			So(lockID, ShouldEqual, "image-myID-123456789")
 			So(len(clientMock.XLockCalls()), ShouldEqual, 1)
 			So(clientMock.XLockCalls()[0].ResourceName, ShouldEqual, "image-myID")
 			So(clientMock.XLockCalls()[0].LockID, ShouldEqual, "image-myID-123456789")
-			So(clientMock.XLockCalls()[0].Ld, ShouldResemble, lock.LockDetails{TTL: l.Config.TTL})
+			So(clientMock.XLockCalls()[0].Ld, ShouldResemble, lock.LockDetails{
+				Owner: "owner",
+				TTL:   l.Config.TTL,
+			})
 		})
 	})
 
@@ -120,7 +126,7 @@ func TestAcquire(t *testing.T) {
 		l := testLockWithMock(clientMock)
 
 		Convey("Calling Acquire manages to acquire the lock using the underlying client in the second iteration", func() {
-			_, err := l.Acquire(ctx, "myID")
+			_, err := l.Acquire(ctx, "myID", "owner")
 			So(err, ShouldBeNil)
 			So(len(clientMock.XLockCalls()), ShouldEqual, 2)
 		})
@@ -136,7 +142,7 @@ func TestAcquire(t *testing.T) {
 		l := testLockWithMock(clientMock)
 
 		Convey("Calling Acquire, fails to acquire locking with the same error, without retrying", func() {
-			_, err := l.Acquire(ctx, "myID")
+			_, err := l.Acquire(ctx, "myID", "owner")
 			So(err, ShouldResemble, errLock)
 			So(len(clientMock.XLockCalls()), ShouldEqual, 1)
 		})
@@ -151,7 +157,7 @@ func TestAcquire(t *testing.T) {
 		l := testLockWithMock(clientMock)
 
 		Convey("Then after retrying 'AcquireMaxRetries' times, acquire fails with the expected error", func() {
-			_, err := l.Acquire(ctx, "myID")
+			_, err := l.Acquire(ctx, "myID", "owner")
 			So(err, ShouldResemble, dplock.ErrAcquireTimeout)
 			So(len(clientMock.XLockCalls()), ShouldBeGreaterThan, 1)
 		})
@@ -165,7 +171,7 @@ func TestAcquire(t *testing.T) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				_, err = l.Acquire(ctx, "myID")
+				_, err = l.Acquire(ctx, "myID", "owner")
 			}()
 			close(l.CloserChannel)
 			wg.Wait()
