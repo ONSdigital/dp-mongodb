@@ -22,7 +22,7 @@ const MinAllowedPurgerPeriod = time.Second
 
 // Config is a lock configuration
 type Config struct {
-	TTL                    uint          // TTL is the 'time to live' for a lock in number of seconds
+	TTL                    uint          // TTL is the 'time to live' for a lock in number of seconds, note that expred locks will be cleaned up by the purger (so the worst case scenario is that a lock is cleaned up after TTL + PurgerPeriod)
 	PurgerPeriod           time.Duration // PurgerPeriod is the time period between expired lock purges
 	AcquireMinPeriodMillis uint          // AcquireMinPeriod is the minimum time period between acquire lock retries [ms]
 	AcquireMaxPeriodMillis uint          // AcquireMinPeriod is the maximum time period between acquire lock retries [ms]

@@ -52,6 +52,7 @@ type Lock struct {
 	WaitGroup     *sync.WaitGroup
 	Resource      string
 	Config        Config
+	Usages        Usages
 }
 
 // GenerateTimeID returns the current timestamp in nanoseconds
@@ -77,6 +78,7 @@ func (l *Lock) Init(ctx context.Context, lockClient Client, lockPurger Purger, c
 	l.Purger = lockPurger
 	l.CloserChannel = make(chan struct{})
 	l.WaitGroup = &sync.WaitGroup{}
+	l.Usages = Usages{}
 	l.Config = GetConfig(cfg)
 	l.startPurgerLoop(ctx)
 }
@@ -89,6 +91,7 @@ func (l *Lock) startPurgerLoop(ctx context.Context) {
 		defer l.WaitGroup.Done()
 		for {
 			l.Purger.Purge()
+			l.Usages.Purge()
 			select {
 			case <-l.CloserChannel:
 				log.Info(ctx, "closing mongo db lock purger go-routine")
@@ -105,7 +108,8 @@ func (l *Lock) startPurgerLoop(ctx context.Context) {
 func (l *Lock) Lock(resourceID, owner string) (lockID string, err error) {
 	lockID = fmt.Sprintf("%s-%s-%d", l.Resource, resourceID, GenerateTimeID())
 	return lockID, l.Client.XLock(
-		fmt.Sprintf("%s-%s", l.Resource, resourceID),
+		l.GetResourceName(resourceID),
+		// fmt.Sprintf("%s-%s", l.Resource, resourceID),
 		lockID,
 		lock.LockDetails{
 			Owner: owner,
@@ -114,10 +118,15 @@ func (l *Lock) Lock(resourceID, owner string) (lockID string, err error) {
 	)
 }
 
-// Acquire tries to lock the provided id.
+// GetResourceName generates a resource name by using the lock Resource and the provided resourceID
+func (l *Lock) GetResourceName(resourceID string) string {
+	return fmt.Sprintf("%s-%s", l.Resource, resourceID)
+}
+
+// Acquire tries to lock the provided resourceID.
 // If the resource is already locked, this function will block until the existing lock is released,
 // at which point we acquire the lock and return.
-func (l *Lock) Acquire(ctx context.Context, id, owner string) (lockID string, err error) {
+func (l *Lock) Acquire(ctx context.Context, resourceID, owner string) (lockID string, err error) {
 	retries := 0
 	var t0 time.Time
 
@@ -127,7 +136,7 @@ func (l *Lock) Acquire(ctx context.Context, id, owner string) (lockID string, er
 			timeSinceFirstAttempt := time.Since(t0)               // time since the first attempt failed
 			if timeSinceFirstAttempt > AcquireRetryLogThreshold { // if the time is greater than a threshold, log it
 				log.Warn(ctx, "successfully acquired a lock after retrying for an unusually long period of time", log.Data{
-					"resource_id":          id,
+					"resource_id":          resourceID,
 					"lock_id":              lockID,
 					"acquire_retry_period": timeSinceFirstAttempt,
 					"num_retries":          retries,
@@ -136,11 +145,17 @@ func (l *Lock) Acquire(ctx context.Context, id, owner string) (lockID string, er
 		}
 	}
 
+	// if the same caller has acquired a lock lots of times, we may need to wait to give other callers the opportunity to acquire it.
+	l.Usages.WaitIfNeeded(l.GetResourceName(resourceID), owner)
+
 	for {
 		// Try to acquire the lock
-		lockID, err = l.Lock(id, owner)
+		lockID, err = l.Lock(resourceID, owner)
 		if err != lock.ErrAlreadyLocked {
 			logIfNeeded()
+			if err == nil && retries == 0 {
+				l.Usages.SetCount(l.GetResourceName(resourceID), owner) // obtained it straight away
+			}
 			return lockID, err // Successful or failed due to some generic error (not ErrAlreadyLocked)
 		}
 
@@ -189,8 +204,13 @@ func (l *Lock) Unlock(lockID string) {
 
 	for {
 		// Try to unlock the lock
-		_, err = l.Client.Unlock(lockID)
+		status, err := l.Client.Unlock(lockID)
+		log.Event(ctx, "========= DEBUG == Unlock ok", log.INFO, log.Data{"status": status})
 		if err == nil {
+			if len(status) > 0 {
+				l.Usages.SetReleased(status[0].Resource, status[0].Owner, time.Now())
+				log.Event(ctx, "+++++++++++ DEBUG after SetReleased", log.INFO, log.Data{"usages": l.Usages})
+			}
 			logIfNeeded()
 			return // Successful unlock
 		}
