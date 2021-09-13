@@ -51,7 +51,7 @@ type Lock struct {
 	Purger        Purger
 	WaitGroup     *sync.WaitGroup
 	Resource      string
-	Config        Config
+	Cfg           Config
 	Usages        Usages
 }
 
@@ -79,7 +79,7 @@ func (l *Lock) Init(ctx context.Context, lockClient Client, lockPurger Purger, c
 	l.CloserChannel = make(chan struct{})
 	l.WaitGroup = &sync.WaitGroup{}
 	l.Usages = Usages{}
-	l.Config = GetConfig(cfg)
+	l.Cfg = GetConfig(cfg)
 	l.startPurgerLoop(ctx)
 }
 
@@ -91,12 +91,12 @@ func (l *Lock) startPurgerLoop(ctx context.Context) {
 		defer l.WaitGroup.Done()
 		for {
 			l.Purger.Purge()
-			l.Usages.Purge()
+			l.Usages.Purge(&l.Cfg)
 			select {
 			case <-l.CloserChannel:
 				log.Info(ctx, "closing mongo db lock purger go-routine")
 				return
-			case <-time.After(l.Config.PurgerPeriod):
+			case <-time.After(l.Cfg.PurgerPeriod):
 				log.Info(ctx, "purging expired mongoDB locks")
 			}
 		}
@@ -109,11 +109,10 @@ func (l *Lock) Lock(resourceID, owner string) (lockID string, err error) {
 	lockID = fmt.Sprintf("%s-%s-%d", l.Resource, resourceID, GenerateTimeID())
 	return lockID, l.Client.XLock(
 		l.GetResourceName(resourceID),
-		// fmt.Sprintf("%s-%s", l.Resource, resourceID),
 		lockID,
 		lock.LockDetails{
 			Owner: owner,
-			TTL:   l.Config.TTL,
+			TTL:   l.Cfg.TTL,
 		},
 	)
 }
@@ -146,7 +145,7 @@ func (l *Lock) Acquire(ctx context.Context, resourceID, owner string) (lockID st
 	}
 
 	// if the same caller has acquired a lock lots of times, we may need to wait to give other callers the opportunity to acquire it.
-	l.Usages.WaitIfNeeded(l.GetResourceName(resourceID), owner)
+	l.Usages.WaitIfNeeded(&l.Cfg, l.GetResourceName(resourceID), owner)
 
 	for {
 		// Try to acquire the lock
@@ -154,7 +153,7 @@ func (l *Lock) Acquire(ctx context.Context, resourceID, owner string) (lockID st
 		if err != lock.ErrAlreadyLocked {
 			logIfNeeded()
 			if err == nil && retries == 0 {
-				l.Usages.SetCount(l.GetResourceName(resourceID), owner) // obtained it straight away
+				l.Usages.SetCount(&l.Cfg, l.GetResourceName(resourceID), owner) // obtained it straight away
 			}
 			return lockID, err // Successful or failed due to some generic error (not ErrAlreadyLocked)
 		}
@@ -165,14 +164,14 @@ func (l *Lock) Acquire(ctx context.Context, resourceID, owner string) (lockID st
 			// to prevent degrading performance in the vast majority of cases where the first attempt will be successful
 			t0 = time.Now()
 		} else {
-			if time.Since(t0) >= l.Config.AcquireRetryTimeout {
+			if time.Since(t0) >= l.Cfg.AcquireRetryTimeout {
 				return "", ErrAcquireTimeout // Acquire timeout has expired, aborting.
 			}
 		}
 		retries++
 
 		select {
-		case <-time.After(randomDuration(l.Config.AcquireMinPeriodMillis, l.Config.AcquireMaxPeriodMillis)):
+		case <-time.After(randomDuration(l.Cfg.AcquireMinPeriodMillis, l.Cfg.AcquireMaxPeriodMillis)):
 			continue // Retry
 		case <-l.CloserChannel:
 			log.Info(ctx, "stop acquiring lock. Mongo db is being closed")
@@ -221,7 +220,7 @@ func (l *Lock) Unlock(lockID string) {
 			// to prevent degrading performance in the vast majority of cases where the first attempt will be successful
 			t0 = time.Now()
 		} else {
-			if time.Since(t0) >= l.Config.UnlockRetryTimeout {
+			if time.Since(t0) >= l.Cfg.UnlockRetryTimeout {
 				log.Error(ctx, "error unlocking", ErrUnlockTimeout)
 				return // Unlock timeout has expired, aborting.
 			}
@@ -229,7 +228,7 @@ func (l *Lock) Unlock(lockID string) {
 		retries++
 
 		select {
-		case <-time.After(randomDuration(l.Config.UnlockMinPeriodMillis, l.Config.UnlockMaxPeriodMillis)):
+		case <-time.After(randomDuration(l.Cfg.UnlockMinPeriodMillis, l.Cfg.UnlockMaxPeriodMillis)):
 			continue // Retry
 		case <-l.CloserChannel:
 			log.Info(ctx, "stop unlocking lock. Mongo db is being closed", log.INFO)

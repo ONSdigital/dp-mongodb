@@ -8,13 +8,19 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 )
 
+var cfg = &dplock.Config{
+	MaxCount:                      dplock.DefaultMaxCount,
+	TimeThresholdSinceLastRelease: dplock.DefaultTimeThresholdSinceLastRelease,
+	UsageSleep:                    dplock.DefaultUsageSleep,
+}
+
 func TestSetCount(t *testing.T) {
 
 	Convey("Given a new Usages var", t, func() {
 		u := dplock.Usages{}
 
 		Convey("Then SetCount creates the expected Usage and sets a value of 1 to the count", func() {
-			u.SetCount(testResourceName, testOwner)
+			u.SetCount(cfg, testResourceName, testOwner)
 			So(u, ShouldResemble, dplock.Usages{
 				testResourceName: map[string]*dplock.Usage{
 					testOwner: {
@@ -37,7 +43,7 @@ func TestSetCount(t *testing.T) {
 		}
 
 		Convey("Then SetCount increases the count value by 1", func() {
-			u.SetCount(testResourceName, testOwner)
+			u.SetCount(cfg, testResourceName, testOwner)
 			So(u, ShouldResemble, dplock.Usages{
 				testResourceName: map[string]*dplock.Usage{
 					testOwner: {
@@ -61,7 +67,7 @@ func TestSetCount(t *testing.T) {
 		}
 
 		Convey("Then SetCount is set to 0", func() {
-			u.SetCount(testResourceName, testOwner)
+			u.SetCount(cfg, testResourceName, testOwner)
 			So(u, ShouldResemble, dplock.Usages{
 				testResourceName: map[string]*dplock.Usage{
 					testOwner: {
@@ -86,7 +92,7 @@ func TestWaitIfNeeded(t *testing.T) {
 			u := dplock.Usages{}
 
 			Convey("Then WaitIfNeeded does not sleep and does not modify the struct", func() {
-				u.WaitIfNeeded(testResourceName, testOwner)
+				u.WaitIfNeeded(cfg, testResourceName, testOwner)
 				So(slept, ShouldBeEmpty)
 				So(u, ShouldResemble, dplock.Usages{})
 			})
@@ -98,16 +104,16 @@ func TestWaitIfNeeded(t *testing.T) {
 			u := dplock.Usages{
 				testResourceName: {
 					testOwner: {
-						Count:    dplock.MaxCount,
+						Count:    cfg.MaxCount,
 						Released: t0,
 					},
 				},
 			}
 
 			Convey("Then WaitIfNeeded will sleep for the expected duration and resets the counter", func() {
-				u.WaitIfNeeded(testResourceName, testOwner)
+				u.WaitIfNeeded(cfg, testResourceName, testOwner)
 				So(slept, ShouldHaveLength, 1)
-				So(slept[0], ShouldEqual, dplock.UsageSleep)
+				So(slept[0], ShouldEqual, cfg.UsageSleep)
 				So(u, ShouldResemble, dplock.Usages{
 					testResourceName: {
 						testOwner: {
@@ -124,19 +130,19 @@ func TestWaitIfNeeded(t *testing.T) {
 			u := dplock.Usages{
 				testResourceName: {
 					testOwner: {
-						Count:    dplock.MaxCount,
+						Count:    cfg.MaxCount,
 						Released: t0,
 					},
 				},
 			}
 
 			Convey("Then WaitIfNeeded does not sleep and does not reset the counter", func() {
-				u.WaitIfNeeded(testResourceName, testOwner)
+				u.WaitIfNeeded(cfg, testResourceName, testOwner)
 				So(slept, ShouldBeEmpty)
 				So(u, ShouldResemble, dplock.Usages{
 					testResourceName: {
 						testOwner: {
-							Count:    dplock.MaxCount,
+							Count:    cfg.MaxCount,
 							Released: t0,
 						},
 					},
@@ -156,7 +162,7 @@ func TestWaitIfNeeded(t *testing.T) {
 			}
 
 			Convey("Then WaitIfNeeded does not sleep and does not reset the counter", func() {
-				u.WaitIfNeeded(testResourceName, testOwner)
+				u.WaitIfNeeded(cfg, testResourceName, testOwner)
 				So(slept, ShouldBeEmpty)
 				So(u, ShouldResemble, dplock.Usages{
 					testResourceName: {
@@ -265,7 +271,7 @@ func TestPurge(t *testing.T) {
 		u := dplock.Usages{}
 
 		Convey("Then Purge has no effect", func() {
-			u.Purge()
+			u.Purge(cfg)
 			So(u, ShouldResemble, dplock.Usages{})
 		})
 	})
@@ -284,7 +290,7 @@ func TestPurge(t *testing.T) {
 		}
 
 		Convey("Then Purge removes the expired ones only", func() {
-			u.Purge()
+			u.Purge(cfg)
 			So(u, ShouldResemble, dplock.Usages{
 				testResourceName: {
 					testOwner: {Released: t0},
@@ -296,7 +302,7 @@ func TestPurge(t *testing.T) {
 
 // returns an expired time for testing
 func getExpiredTime() time.Time {
-	return time.Now().Add(-dplock.TimeThresholdSinceLastRelease)
+	return time.Now().Add(-cfg.TimeThresholdSinceLastRelease)
 }
 
 // returns a non-expired time for testing

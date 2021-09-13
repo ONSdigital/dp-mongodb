@@ -42,7 +42,7 @@ func TestLock(t *testing.T) {
 		l := dplock.Lock{
 			Resource: testResource,
 			Client:   clientMock,
-			Config: dplock.Config{
+			Cfg: dplock.Config{
 				TTL: dplock.DefaultTTL,
 			},
 		}
@@ -90,11 +90,14 @@ func TestAcquire(t *testing.T) {
 			Resource:      testResource,
 			Client:        clientMock,
 			CloserChannel: make(chan struct{}),
-			Config: dplock.Config{
-				TTL:                    dplock.DefaultTTL,
-				AcquireMinPeriodMillis: 1,
-				AcquireMaxPeriodMillis: 2,
-				AcquireRetryTimeout:    3 * time.Millisecond,
+			Cfg: dplock.Config{
+				TTL:                           dplock.DefaultTTL,
+				AcquireMinPeriodMillis:        1,
+				AcquireMaxPeriodMillis:        2,
+				AcquireRetryTimeout:           3 * time.Millisecond,
+				MaxCount:                      dplock.DefaultMaxCount,
+				TimeThresholdSinceLastRelease: dplock.DefaultTimeThresholdSinceLastRelease,
+				UsageSleep:                    dplock.DefaultUsageSleep,
 			},
 			Usages: dplock.Usages{},
 		}
@@ -122,7 +125,7 @@ func TestAcquire(t *testing.T) {
 				So(clientMock.XLockCalls()[0].LockID, ShouldEqual, testLockID)
 				So(clientMock.XLockCalls()[0].Ld, ShouldResemble, lock.LockDetails{
 					Owner: testOwner,
-					TTL:   l.Config.TTL,
+					TTL:   l.Cfg.TTL,
 				})
 			})
 
@@ -147,7 +150,7 @@ func TestAcquire(t *testing.T) {
 			l.Usages = dplock.Usages{
 				testResourceName: {
 					testOwner: {
-						Count:    dplock.MaxCount,
+						Count:    dplock.DefaultMaxCount,
 						Released: t0,
 					},
 				},
@@ -166,7 +169,7 @@ func TestAcquire(t *testing.T) {
 
 				Convey("Then we sleep for the expected time period", func() {
 					So(slept, ShouldHaveLength, 1)
-					So(slept[0], ShouldEqual, dplock.UsageSleep)
+					So(slept[0], ShouldEqual, dplock.DefaultUsageSleep)
 				})
 
 				Convey("Then the Usages struct count is reset to 0, then set to 1, and the Released time is not modified", func() {
@@ -265,8 +268,8 @@ func TestAcquire(t *testing.T) {
 
 		Convey("Then closing the closer channel whilst acquire is trying to acquire the lock, results in the operation being aborted", func() {
 			// High period value to prevent race conditions between channel and 'timeout'
-			l.Config.AcquireMinPeriodMillis = 30000
-			l.Config.AcquireMaxPeriodMillis = 30001
+			l.Cfg.AcquireMinPeriodMillis = 30000
+			l.Cfg.AcquireMaxPeriodMillis = 30001
 			var err error
 			wg := &sync.WaitGroup{}
 			wg.Add(1)
@@ -296,11 +299,14 @@ func TestUnlock(t *testing.T) {
 			Resource:      testResource,
 			Client:        clientMock,
 			CloserChannel: make(chan struct{}),
-			Config: dplock.Config{
-				TTL:                   dplock.DefaultTTL,
-				UnlockMinPeriodMillis: 1,
-				UnlockMaxPeriodMillis: 2,
-				UnlockRetryTimeout:    3 * time.Millisecond,
+			Cfg: dplock.Config{
+				TTL:                           dplock.DefaultTTL,
+				UnlockMinPeriodMillis:         1,
+				UnlockMaxPeriodMillis:         2,
+				UnlockRetryTimeout:            3 * time.Millisecond,
+				MaxCount:                      dplock.DefaultMaxCount,
+				TimeThresholdSinceLastRelease: dplock.DefaultTimeThresholdSinceLastRelease,
+				UsageSleep:                    dplock.DefaultUsageSleep,
 			},
 			Usages: dplock.Usages{
 				testResourceName: {
@@ -386,8 +392,8 @@ func TestUnlock(t *testing.T) {
 
 		Convey("Then closing the closer channel whilst unlock is trying to unlock the lock, results in the operation being aborted and not retrying it", func() {
 			// High period value to prevent race conditions between channel and 'timeout'
-			l.Config.UnlockMinPeriodMillis = 30000
-			l.Config.UnlockMaxPeriodMillis = 30001
+			l.Cfg.UnlockMinPeriodMillis = 30000
+			l.Cfg.UnlockMaxPeriodMillis = 30001
 			wg := &sync.WaitGroup{}
 			wg.Add(1)
 			go func() {
@@ -413,7 +419,7 @@ func TestInit(t *testing.T) {
 
 		Convey("Then initialising the client results in the default config being generated", func() {
 			l.Init(ctx, clientMock, purgerMock, nil)
-			So(l.Config, ShouldResemble, dplock.GetConfig(nil))
+			So(l.Cfg, ShouldResemble, dplock.GetConfig(nil))
 		})
 	})
 }
@@ -428,7 +434,6 @@ func TestClose(t *testing.T) {
 		}
 		l := dplock.Lock{Resource: testResource}
 		l.Init(ctx, clientMock, purgerMock, nil)
-		// TODO test config override
 
 		Convey("Then executing Close result in the closer channel being closed, and the purger go-routine ends", func() {
 			l.Close(ctx)
