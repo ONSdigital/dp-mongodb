@@ -78,8 +78,8 @@ func (l *Lock) Init(ctx context.Context, lockClient Client, lockPurger Purger, c
 	l.Purger = lockPurger
 	l.CloserChannel = make(chan struct{})
 	l.WaitGroup = &sync.WaitGroup{}
-	l.Usages = Usages{}
 	l.Cfg = GetConfig(cfg)
+	l.Usages = NewUsages(&l.Cfg)
 	l.startPurgerLoop(ctx)
 }
 
@@ -91,7 +91,7 @@ func (l *Lock) startPurgerLoop(ctx context.Context) {
 		defer l.WaitGroup.Done()
 		for {
 			l.Purger.Purge()
-			l.Usages.Purge(&l.Cfg)
+			l.Usages.Purge()
 			select {
 			case <-l.CloserChannel:
 				log.Info(ctx, "closing mongo db lock purger go-routine")
@@ -145,7 +145,7 @@ func (l *Lock) Acquire(ctx context.Context, resourceID, owner string) (lockID st
 	}
 
 	// if the same caller has acquired a lock lots of times, we may need to wait to give other callers the opportunity to acquire it.
-	l.Usages.WaitIfNeeded(&l.Cfg, l.GetResourceName(resourceID), owner)
+	l.Usages.WaitIfNeeded(l.GetResourceName(resourceID), owner)
 
 	for {
 		// Try to acquire the lock
@@ -153,7 +153,7 @@ func (l *Lock) Acquire(ctx context.Context, resourceID, owner string) (lockID st
 		if err != lock.ErrAlreadyLocked {
 			logIfNeeded()
 			if err == nil && retries == 0 {
-				l.Usages.SetCount(&l.Cfg, l.GetResourceName(resourceID), owner) // obtained it straight away
+				l.Usages.SetCount(l.GetResourceName(resourceID), owner) // obtained it straight away
 			}
 			return lockID, err // Successful or failed due to some generic error (not ErrAlreadyLocked)
 		}

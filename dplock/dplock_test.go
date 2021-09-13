@@ -86,20 +86,21 @@ func TestAcquire(t *testing.T) {
 
 	// aux func to get a testing Lock for acquire with short times and the provided mock client
 	testLockWithMock := func(clientMock *mock.ClientMock) dplock.Lock {
+		cfg := dplock.Config{
+			TTL:                           dplock.DefaultTTL,
+			AcquireMinPeriodMillis:        1,
+			AcquireMaxPeriodMillis:        2,
+			AcquireRetryTimeout:           3 * time.Millisecond,
+			MaxCount:                      dplock.DefaultMaxCount,
+			TimeThresholdSinceLastRelease: dplock.DefaultTimeThresholdSinceLastRelease,
+			UsageSleep:                    dplock.DefaultUsageSleep,
+		}
 		return dplock.Lock{
 			Resource:      testResource,
 			Client:        clientMock,
 			CloserChannel: make(chan struct{}),
-			Cfg: dplock.Config{
-				TTL:                           dplock.DefaultTTL,
-				AcquireMinPeriodMillis:        1,
-				AcquireMaxPeriodMillis:        2,
-				AcquireRetryTimeout:           3 * time.Millisecond,
-				MaxCount:                      dplock.DefaultMaxCount,
-				TimeThresholdSinceLastRelease: dplock.DefaultTimeThresholdSinceLastRelease,
-				UsageSleep:                    dplock.DefaultUsageSleep,
-			},
-			Usages: dplock.Usages{},
+			Cfg:           cfg,
+			Usages:        dplock.NewUsages(&cfg),
 		}
 	}
 
@@ -130,7 +131,7 @@ func TestAcquire(t *testing.T) {
 			})
 
 			Convey("Then the successful acquire is accounted for in the Usages struct", func() {
-				So(l.Usages, ShouldResemble, dplock.Usages{
+				So(l.Usages.UsagesMap, ShouldResemble, map[string]map[string]*dplock.Usage{
 					testResourceName: {
 						testOwner: {
 							Count: 1,
@@ -147,7 +148,8 @@ func TestAcquire(t *testing.T) {
 			}
 
 			t0 := getUnexpiredTime()
-			l.Usages = dplock.Usages{
+			l.Usages = dplock.NewUsages(cfg)
+			l.Usages.UsagesMap = map[string]map[string]*dplock.Usage{
 				testResourceName: {
 					testOwner: {
 						Count:    dplock.DefaultMaxCount,
@@ -173,7 +175,7 @@ func TestAcquire(t *testing.T) {
 				})
 
 				Convey("Then the Usages struct count is reset to 0, then set to 1, and the Released time is not modified", func() {
-					So(l.Usages, ShouldResemble, dplock.Usages{
+					So(l.Usages.UsagesMap, ShouldResemble, map[string]map[string]*dplock.Usage{
 						testResourceName: {
 							testOwner: {
 								Count:    1,
@@ -211,7 +213,7 @@ func TestAcquire(t *testing.T) {
 			})
 
 			Convey("Then the acquire is not accounted in the Usages struct", func() {
-				So(l.Usages, ShouldResemble, dplock.Usages{})
+				So(l.Usages.UsagesMap, ShouldResemble, map[string]map[string]*dplock.Usage{})
 			})
 		})
 	})
@@ -237,7 +239,7 @@ func TestAcquire(t *testing.T) {
 			})
 
 			Convey("Then the acquire attempt is not accounted in the Usages struct", func() {
-				So(l.Usages, ShouldResemble, dplock.Usages{})
+				So(l.Usages.UsagesMap, ShouldResemble, map[string]map[string]*dplock.Usage{})
 			})
 		})
 	})
@@ -262,7 +264,7 @@ func TestAcquire(t *testing.T) {
 			})
 
 			Convey("Then the acquire attempts are not accounted in the Usages struct", func() {
-				So(l.Usages, ShouldResemble, dplock.Usages{})
+				So(l.Usages.UsagesMap, ShouldResemble, map[string]map[string]*dplock.Usage{})
 			})
 		})
 
@@ -295,24 +297,27 @@ func TestUnlock(t *testing.T) {
 
 	// aux func to get a testing Lock for acquire with short times and the provided mock client
 	testLockWithMock := func(clientMock *mock.ClientMock) dplock.Lock {
+		cfg := dplock.Config{
+			TTL:                           dplock.DefaultTTL,
+			UnlockMinPeriodMillis:         1,
+			UnlockMaxPeriodMillis:         2,
+			UnlockRetryTimeout:            3 * time.Millisecond,
+			MaxCount:                      dplock.DefaultMaxCount,
+			TimeThresholdSinceLastRelease: dplock.DefaultTimeThresholdSinceLastRelease,
+			UsageSleep:                    dplock.DefaultUsageSleep,
+		}
+		u := dplock.NewUsages(&cfg)
+		u.UsagesMap = map[string]map[string]*dplock.Usage{
+			testResourceName: {
+				testOwner: {},
+			},
+		}
 		return dplock.Lock{
 			Resource:      testResource,
 			Client:        clientMock,
 			CloserChannel: make(chan struct{}),
-			Cfg: dplock.Config{
-				TTL:                           dplock.DefaultTTL,
-				UnlockMinPeriodMillis:         1,
-				UnlockMaxPeriodMillis:         2,
-				UnlockRetryTimeout:            3 * time.Millisecond,
-				MaxCount:                      dplock.DefaultMaxCount,
-				TimeThresholdSinceLastRelease: dplock.DefaultTimeThresholdSinceLastRelease,
-				UsageSleep:                    dplock.DefaultUsageSleep,
-			},
-			Usages: dplock.Usages{
-				testResourceName: {
-					testOwner: {},
-				},
-			},
+			Cfg:           cfg,
+			Usages:        u,
 		}
 	}
 
@@ -334,7 +339,7 @@ func TestUnlock(t *testing.T) {
 			})
 
 			Convey("Then the Usages struct Release time is updated", func() {
-				So(l.Usages[testResourceName][testOwner].Released, ShouldHappenOnOrBetween, t0, time.Now())
+				So(l.Usages.UsagesMap[testResourceName][testOwner].Released, ShouldHappenOnOrBetween, t0, time.Now())
 			})
 		})
 	})
@@ -361,7 +366,7 @@ func TestUnlock(t *testing.T) {
 			})
 
 			Convey("Then the Usages struct Release time is updated", func() {
-				So(l.Usages[testResourceName][testOwner].Released, ShouldHappenOnOrBetween, t0, time.Now())
+				So(l.Usages.UsagesMap[testResourceName][testOwner].Released, ShouldHappenOnOrBetween, t0, time.Now())
 			})
 		})
 	})
@@ -382,7 +387,7 @@ func TestUnlock(t *testing.T) {
 			})
 
 			Convey("Then the Usages struct Release time is not updated", func() {
-				So(l.Usages, ShouldResemble, dplock.Usages{
+				So(l.Usages.UsagesMap, ShouldResemble, map[string]map[string]*dplock.Usage{
 					testResourceName: {
 						testOwner: {},
 					},
