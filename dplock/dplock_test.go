@@ -14,11 +14,11 @@ import (
 )
 
 const (
-	testResource     = "image"
-	testResourceID   = "1234"
-	testResourceName = "image-1234"
-	testLockID       = "image-1234-123456789"
-	testOwner        = "testOwner"
+	testResource         = "image"
+	testResourceID       = "1234"
+	testResourceName     = "image-1234"
+	testLockID           = "image-1234-123456789"
+	testUniqueCallerName = "uniqueCallerName"
 )
 
 var (
@@ -48,14 +48,14 @@ func TestLock(t *testing.T) {
 		}
 
 		Convey("Calling Lock performs a lock using the underlying client with the expected resource, id and TTL", func() {
-			lockID, err := l.Lock(testResourceID, testOwner)
+			lockID, err := l.Lock(testResourceID, testUniqueCallerName)
 			So(err, ShouldBeNil)
 			So(lockID, ShouldEqual, testLockID)
 			So(len(clientMock.XLockCalls()), ShouldEqual, 1)
 			So(clientMock.XLockCalls()[0].ResourceName, ShouldEqual, testResourceName)
 			So(clientMock.XLockCalls()[0].LockID, ShouldEqual, testLockID)
 			So(clientMock.XLockCalls()[0].Ld, ShouldResemble, lock.LockDetails{
-				Owner: testOwner,
+				Owner: testUniqueCallerName,
 				TTL:   dplock.DefaultTTL,
 			})
 		})
@@ -73,7 +73,7 @@ func TestLock(t *testing.T) {
 		}
 
 		Convey("Calling Lock fails with the same error", func() {
-			_, err := l.Lock(testResourceID, testOwner)
+			_, err := l.Lock(testResourceID, testUniqueCallerName)
 			So(err, ShouldResemble, lock.ErrAlreadyLocked)
 		})
 	})
@@ -113,7 +113,7 @@ func TestAcquire(t *testing.T) {
 		l := testLockWithMock(clientMock)
 
 		Convey("When Acquire is called", func() {
-			lockID, err := l.Acquire(ctx, testResourceID, testOwner)
+			lockID, err := l.Acquire(ctx, testResourceID, testUniqueCallerName)
 
 			Convey("Then no error is returned", func() {
 				So(err, ShouldBeNil)
@@ -125,7 +125,7 @@ func TestAcquire(t *testing.T) {
 				So(clientMock.XLockCalls()[0].ResourceName, ShouldEqual, testResourceName)
 				So(clientMock.XLockCalls()[0].LockID, ShouldEqual, testLockID)
 				So(clientMock.XLockCalls()[0].Ld, ShouldResemble, lock.LockDetails{
-					Owner: testOwner,
+					Owner: testUniqueCallerName,
 					TTL:   l.Cfg.TTL,
 				})
 			})
@@ -133,7 +133,7 @@ func TestAcquire(t *testing.T) {
 			Convey("Then the successful acquire is accounted for in the Usages struct", func() {
 				So(l.Usages.UsagesMap, ShouldResemble, map[string]map[string]*dplock.Usage{
 					testResourceName: {
-						testOwner: {
+						testUniqueCallerName: {
 							Count: 1,
 						},
 					},
@@ -151,7 +151,7 @@ func TestAcquire(t *testing.T) {
 			l.Usages = dplock.NewUsages(cfg)
 			l.Usages.UsagesMap = map[string]map[string]*dplock.Usage{
 				testResourceName: {
-					testOwner: {
+					testUniqueCallerName: {
 						Count:    dplock.DefaultMaxCount,
 						Released: t0,
 					},
@@ -159,7 +159,7 @@ func TestAcquire(t *testing.T) {
 			}
 
 			Convey("When Acquire is called", func() {
-				_, err := l.Acquire(ctx, testResourceID, testOwner)
+				_, err := l.Acquire(ctx, testResourceID, testUniqueCallerName)
 
 				Convey("Then no error is returned", func() {
 					So(err, ShouldBeNil)
@@ -177,7 +177,7 @@ func TestAcquire(t *testing.T) {
 				Convey("Then the Usages struct count is reset to 0, then set to 1, and the Released time is not modified", func() {
 					So(l.Usages.UsagesMap, ShouldResemble, map[string]map[string]*dplock.Usage{
 						testResourceName: {
-							testOwner: {
+							testUniqueCallerName: {
 								Count:    1,
 								Released: t0,
 							},
@@ -202,7 +202,7 @@ func TestAcquire(t *testing.T) {
 		l := testLockWithMock(clientMock)
 
 		Convey("When Acquire is called", func() {
-			_, err := l.Acquire(ctx, testResourceID, testOwner)
+			_, err := l.Acquire(ctx, testResourceID, testUniqueCallerName)
 
 			Convey("Then no error is returned", func() {
 				So(err, ShouldBeNil)
@@ -228,7 +228,7 @@ func TestAcquire(t *testing.T) {
 		l := testLockWithMock(clientMock)
 
 		Convey("When Acquire is called", func() {
-			_, err := l.Acquire(ctx, testResourceID, testOwner)
+			_, err := l.Acquire(ctx, testResourceID, testUniqueCallerName)
 
 			Convey("Then the expected error is returned", func() {
 				So(err, ShouldResemble, errLock)
@@ -253,7 +253,7 @@ func TestAcquire(t *testing.T) {
 		l := testLockWithMock(clientMock)
 
 		Convey("When Acquire is called", func() {
-			_, err := l.Acquire(ctx, testResourceID, testOwner)
+			_, err := l.Acquire(ctx, testResourceID, testUniqueCallerName)
 
 			Convey("Then 'ErrAcquireTimeout' error is returned", func() {
 				So(err, ShouldResemble, dplock.ErrAcquireTimeout)
@@ -277,7 +277,7 @@ func TestAcquire(t *testing.T) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				_, err = l.Acquire(ctx, testResourceID, testOwner)
+				_, err = l.Acquire(ctx, testResourceID, testUniqueCallerName)
 			}()
 			close(l.CloserChannel)
 			wg.Wait()
@@ -290,7 +290,7 @@ func TestUnlock(t *testing.T) {
 
 	status := []lock.LockStatus{
 		{
-			Owner:    testOwner,
+			Owner:    testUniqueCallerName,
 			Resource: testResourceName,
 		},
 	}
@@ -309,7 +309,7 @@ func TestUnlock(t *testing.T) {
 		u := dplock.NewUsages(&cfg)
 		u.UsagesMap = map[string]map[string]*dplock.Usage{
 			testResourceName: {
-				testOwner: {},
+				testUniqueCallerName: {},
 			},
 		}
 		return dplock.Lock{
@@ -339,7 +339,7 @@ func TestUnlock(t *testing.T) {
 			})
 
 			Convey("Then the Usages struct Release time is updated", func() {
-				So(l.Usages.UsagesMap[testResourceName][testOwner].Released, ShouldHappenOnOrBetween, t0, time.Now())
+				So(l.Usages.UsagesMap[testResourceName][testUniqueCallerName].Released, ShouldHappenOnOrBetween, t0, time.Now())
 			})
 		})
 	})
@@ -366,7 +366,7 @@ func TestUnlock(t *testing.T) {
 			})
 
 			Convey("Then the Usages struct Release time is updated", func() {
-				So(l.Usages.UsagesMap[testResourceName][testOwner].Released, ShouldHappenOnOrBetween, t0, time.Now())
+				So(l.Usages.UsagesMap[testResourceName][testUniqueCallerName].Released, ShouldHappenOnOrBetween, t0, time.Now())
 			})
 		})
 	})
@@ -389,7 +389,7 @@ func TestUnlock(t *testing.T) {
 			Convey("Then the Usages struct Release time is not updated", func() {
 				So(l.Usages.UsagesMap, ShouldResemble, map[string]map[string]*dplock.Usage{
 					testResourceName: {
-						testOwner: {},
+						testUniqueCallerName: {},
 					},
 				})
 			})

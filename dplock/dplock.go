@@ -105,13 +105,15 @@ func (l *Lock) startPurgerLoop(ctx context.Context) {
 
 // Lock acquires an exclusive mongoDB lock with the provided id, with the default TTL value.
 // If the resource is already locked, an error will be returned.
-func (l *Lock) Lock(resourceID, owner string) (lockID string, err error) {
+// - resourceID should be the mongo ID of the resource we want to lock (e.g. image, instance, ...)
+// - uniqueCallerName must be a unique string representing a caller, e.g. http request traceID
+func (l *Lock) Lock(resourceID, uniqueCallerName string) (lockID string, err error) {
 	lockID = fmt.Sprintf("%s-%s-%d", l.Resource, resourceID, GenerateTimeID())
 	return lockID, l.Client.XLock(
 		l.GetResourceName(resourceID),
 		lockID,
 		lock.LockDetails{
-			Owner: owner,
+			Owner: uniqueCallerName,
 			TTL:   l.Cfg.TTL,
 		},
 	)
@@ -125,7 +127,9 @@ func (l *Lock) GetResourceName(resourceID string) string {
 // Acquire tries to lock the provided resourceID.
 // If the resource is already locked, this function will block until the existing lock is released,
 // at which point we acquire the lock and return.
-func (l *Lock) Acquire(ctx context.Context, resourceID, owner string) (lockID string, err error) {
+// - resourceID should be the mongo ID of the resource we want to lock (e.g. image, instance, ...)
+// - uniqueCallerName must be a unique string representing a caller, e.g. http request traceID
+func (l *Lock) Acquire(ctx context.Context, resourceID, uniqueCallerName string) (lockID string, err error) {
 	retries := 0
 	var t0 time.Time
 
@@ -145,15 +149,16 @@ func (l *Lock) Acquire(ctx context.Context, resourceID, owner string) (lockID st
 	}
 
 	// if the same caller has acquired a lock lots of times, we may need to wait to give other callers the opportunity to acquire it.
-	l.Usages.WaitIfNeeded(l.GetResourceName(resourceID), owner)
+	// if the lock was not acquired and released recently, this method will do nothing.
+	l.Usages.WaitIfNeeded(l.GetResourceName(resourceID), uniqueCallerName)
 
 	for {
 		// Try to acquire the lock
-		lockID, err = l.Lock(resourceID, owner)
+		lockID, err = l.Lock(resourceID, uniqueCallerName)
 		if err != lock.ErrAlreadyLocked {
 			logIfNeeded()
 			if err == nil && retries == 0 {
-				l.Usages.SetCount(l.GetResourceName(resourceID), owner) // obtained it straight away
+				l.Usages.SetCount(l.GetResourceName(resourceID), uniqueCallerName) // obtained it straight away -> keep track of the count (if it's the first time, the Usage will be created)
 			}
 			return lockID, err // Successful or failed due to some generic error (not ErrAlreadyLocked)
 		}
@@ -181,6 +186,7 @@ func (l *Lock) Acquire(ctx context.Context, resourceID, owner string) (lockID st
 }
 
 // Unlock releases an exclusive mongoDB lock for the provided id (if it exists)
+// - lockID must be the value that was returned by a successful Acquire or Lock call.
 func (l *Lock) Unlock(lockID string) {
 	retries := 0
 	var t0 time.Time
@@ -207,7 +213,7 @@ func (l *Lock) Unlock(lockID string) {
 		log.Event(ctx, "========= DEBUG == Unlock ok", log.INFO, log.Data{"status": status})
 		if err == nil {
 			if len(status) > 0 {
-				l.Usages.SetReleased(status[0].Resource, status[0].Owner, time.Now())
+				l.Usages.SetReleased(status[0].Resource, status[0].Owner, time.Now()) // If we are keeping track of lock, we need to set the release time
 				log.Event(ctx, "+++++++++++ DEBUG after SetReleased", log.INFO, log.Data{"usages": l.Usages})
 			}
 			logIfNeeded()
