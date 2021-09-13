@@ -61,26 +61,32 @@ var GenerateTimeID = func() int {
 }
 
 // New creates a new mongoDB lock for the provided session, db, collection and resource
-func New(ctx context.Context, session *mgo.Session, db, resource string, cfg *ConfigOverride) *Lock {
+func New(ctx context.Context, session *mgo.Session, db, resource string, cfg *ConfigOverride) (*Lock, error) {
 	lockClient := lock.NewClient(session, db, fmt.Sprintf("%s_locks", resource))
 	lockClient.CreateIndexes()
 	lockPurger := lock.NewPurger(lockClient)
 	lck := &Lock{
 		Resource: resource,
 	}
-	lck.Init(ctx, lockClient, lockPurger, cfg)
-	return lck
+	if err := lck.Init(ctx, lockClient, lockPurger, cfg); err != nil {
+		return nil, err
+	}
+	return lck, nil
 }
 
 // Init initialises a lock with the provided client, purger and config, and starts the purger loop
-func (l *Lock) Init(ctx context.Context, lockClient Client, lockPurger Purger, cfg *ConfigOverride) {
+func (l *Lock) Init(ctx context.Context, lockClient Client, lockPurger Purger, cfg *ConfigOverride) error {
 	l.Client = lockClient
 	l.Purger = lockPurger
 	l.CloserChannel = make(chan struct{})
 	l.WaitGroup = &sync.WaitGroup{}
 	l.Cfg = GetConfig(cfg)
+	if err := l.Cfg.Validate(); err != nil {
+		return err
+	}
 	l.Usages = NewUsages(&l.Cfg)
 	l.startPurgerLoop(ctx)
+	return nil
 }
 
 // startPurgerLoop creates a go-routine which periodically performs a lock Purge, which removes expired locks
@@ -210,11 +216,9 @@ func (l *Lock) Unlock(lockID string) {
 	for {
 		// Try to unlock the lock
 		status, err := l.Client.Unlock(lockID)
-		log.Event(ctx, "========= DEBUG == Unlock ok", log.INFO, log.Data{"status": status})
 		if err == nil {
 			if len(status) > 0 {
 				l.Usages.SetReleased(status[0].Resource, status[0].Owner, time.Now()) // If we are keeping track of lock, we need to set the release time
-				log.Event(ctx, "+++++++++++ DEBUG after SetReleased", log.INFO, log.Data{"usages": l.Usages})
 			}
 			logIfNeeded()
 			return // Successful unlock

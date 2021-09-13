@@ -422,9 +422,20 @@ func TestInit(t *testing.T) {
 		}
 		l := dplock.Lock{Resource: testResource}
 
-		Convey("Then initialising the client results in the default config being generated", func() {
-			l.Init(ctx, clientMock, purgerMock, nil)
+		Convey("Then init the client with nil config results in the default config being generated", func() {
+			err := l.Init(ctx, clientMock, purgerMock, nil)
+			So(err, ShouldBeNil)
 			So(l.Cfg, ShouldResemble, dplock.GetConfig(nil))
+		})
+
+		Convey("Then init the client with an invalid config override results in the config validation error being returned", func() {
+			var max uint = 10
+			var min uint = 100
+			err := l.Init(ctx, clientMock, purgerMock, &dplock.ConfigOverride{
+				AcquireMaxPeriodMillis: &max,
+				AcquireMinPeriodMillis: &min,
+			})
+			So(err, ShouldResemble, errors.New("acquire max period must be greater than acquire min period"))
 		})
 	})
 }
