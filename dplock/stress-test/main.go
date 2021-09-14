@@ -29,25 +29,26 @@ const (
 	dimensionOptionsCollection = "dimension.options"
 )
 
-// Testing parameters
-const (
-	NumCallers                 = 2                     // Number of concurent go-routines that try to acquire and release the lock
-	WorkPerCaller              = 100                   // Number of times each caller needs to acquire and release the lock.
-	SleepTime                  = 20 * time.Millisecond // Amount of time that each worker will sleep after successfully acquiring a lock, before releaseing it
-	SleepTimeBetweenIterations = 20 * time.Millisecond // Amount of time that each worker will sleep after successfully releasing a lock, before the next iteration
-)
+// TestConfig defines the configuration for a particular test
+type TestConfig struct {
+	NumCallers                 int           // Number of concurrent go-routines that try to acquire a lock
+	WorkPerCaller              int           // Number of times each caller needs to acquire and release the lock.
+	SleepTime                  time.Duration // Amount of time that each worker will sleep after successfully acquiring a lock, before releaseing it
+	SleepTimeBetweenIterations time.Duration // Amount of time that each worker will sleep after successfully releasing a lock, before the next iteration
+}
 
-// getConfig is the dplock config override to be able to control the locking algorithm
-func getConfig() *dplock.ConfigOverride {
+// getLockConfig is the dplock config override to be able to control the locking algorithm
+// We can tweak the paramters and validate the tests accordingly
+func getLockConfig() *dplock.ConfigOverride {
 	// th := 3 * time.Second
 	// sl := 5 * time.Second
-	// var maxCount uint = 1000
+	// var maxCount uint = 10
 	// var min uint = 1000
 	// var max uint = 1001
-	tout := 1000 * time.Millisecond
+	// tout := 10 * time.Minute
 	return &dplock.ConfigOverride{
-		AcquireRetryTimeout: &tout,
-		// MaxCount:               &maxCount,
+		// AcquireRetryTimeout: &tout,
+		// MaxCount:            &maxCount,
 		// AcquireMinPeriodMillis: &min,
 		// AcquireMaxPeriodMillis: &max,
 		// TimeThresholdSinceLastRelease: &th,
@@ -57,7 +58,7 @@ func getConfig() *dplock.ConfigOverride {
 
 func getMongoDB(ctx context.Context) (*Mongo, error) {
 	mongodb := &Mongo{URI: MongoURI}
-	if err := mongodb.Init(ctx, getConfig()); err != nil {
+	if err := mongodb.Init(ctx, getLockConfig()); err != nil {
 		return nil, err
 	}
 	log.Info(ctx, "listening to mongo db session", log.Data{"URI": mongodb.URI})
@@ -67,43 +68,124 @@ func getMongoDB(ctx context.Context) (*Mongo, error) {
 func main() {
 	log.Namespace = "dp-mongodb-lock-stress-test"
 	ctx := context.Background()
+	var maxInstances = 6
 
-	m, err := getMongoDB(ctx)
-	if err != nil {
-		log.Error(ctx, "failed to initialise dplock", err)
-		os.Exit(1)
+	// Create an array of connections to MongoDB (of size maxInstances)
+	m := make([]*Mongo, maxInstances)
+	var err error
+	for i := 0; i < maxInstances; i++ {
+		m[i], err = getMongoDB(ctx)
+		if err != nil {
+			log.Error(ctx, "failed to initialise dplock", err)
+			os.Exit(1)
+		}
 	}
 
-	doTest(ctx, m)
-	log.Info(ctx, "testing has finished", log.Data{"usages": m.lockClient.Usages.UsagesMap})
+	// default testCfg to be used as a base config for tests
+	testCfg := &TestConfig{
+		NumCallers:                 2,
+		WorkPerCaller:              10,
+		SleepTime:                  20 * time.Millisecond,
+		SleepTimeBetweenIterations: 20 * time.Millisecond,
+	}
+
+	// 2 callers per instance, 1 instances
+	testCfg.NumCallers = 2
+	log.Info(ctx, "+++ New Test starting +++ 2 callers per instance / 1 instance", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap})
+	runTestInstance(ctx, m[0], testCfg, nil)
+	log.Info(ctx, "=== test [OK] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap})
+	fmt.Print("\n\n\n")
+
+	// 10 callers per instance, 1 instances
+	testCfg.NumCallers = 10
+	log.Info(ctx, "+++ New Test starting +++ 10 callers per instance / 1 instance", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap})
+	runTestInstance(ctx, m[1], testCfg, nil)
+	log.Info(ctx, "=== test [OK] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap})
+	fmt.Print("\n\n\n")
+
+	// 2 callers per instance, 2 instances
+	testCfg.NumCallers = 2
+	log.Info(ctx, "+++ New Test starting +++ 2 callers per instance / 2 instances", log.Data{"test_config": testCfg})
+	runTestInstances(ctx, []*Mongo{m[2], m[3]}, testCfg, nil)
+	log.Info(ctx, "=== test [OK]", log.Data{"test_config": testCfg})
+	fmt.Print("\n\n\n")
+
+	// 10 callers per instance, 2 instances
+	testCfg.NumCallers = 10
+	log.Info(ctx, "+++ New Test starting +++ 10 callers per instance / 2 instances", log.Data{"test_config": testCfg})
+	runTestInstances(ctx, []*Mongo{m[4], m[5]}, testCfg, nil)
+	log.Info(ctx, "=== test [OK]", log.Data{"test_config": testCfg})
+	fmt.Print("\n\n\n")
+
+	// 2 callers per instance, 6 instances
+	testCfg.NumCallers = 2
+	log.Info(ctx, "+++ New Test starting +++ 2 callers per instance / 6 instances", log.Data{"test_config": testCfg})
+	runTestInstances(ctx, m, testCfg, nil)
+	log.Info(ctx, "=== test [OK]", log.Data{"test_config": testCfg})
+	fmt.Print("\n\n\n")
+
+	// 10 callers per instance, 6 instances
+	testCfg.NumCallers = 10
+	log.Info(ctx, "+++ New Test starting +++ 10 callers per instance / 6 instances", log.Data{"test_config": testCfg})
+	runTestInstances(ctx, m, testCfg, nil)
+	log.Info(ctx, "=== test [OK]", log.Data{"test_config": testCfg})
+	fmt.Print("\n\n\n")
 }
 
-func doTest(ctx context.Context, m *Mongo) {
+// runTestInstances runs multiple instances in parallel, each one running a test with multiple callers
+func runTestInstances(ctx context.Context, mongos []*Mongo, cfg *TestConfig, logData log.Data) {
+	if logData == nil {
+		logData = log.Data{}
+	}
+	wg := &sync.WaitGroup{}
+	for i, mongo := range mongos {
+		wg.Add(1)
+		go func(serviceID string, m *Mongo) {
+			defer wg.Done()
+			logData["service_id"] = serviceID
+			runTestInstance(ctx, m, cfg, logData)
+		}(fmt.Sprintf("service-%d", i), mongo)
+	}
+	wg.Wait()
+}
+
+// runTestInstance runs multiple callers in parallel using the provied Mongo struct
+func runTestInstance(ctx context.Context, m *Mongo, cfg *TestConfig, logData log.Data) {
+	if logData == nil {
+		logData = log.Data{}
+	}
 	wg := &sync.WaitGroup{}
 
 	instanceID := "testInstance"
 	t0 := time.Now()
 
-	for i := 0; i < NumCallers; i++ {
+	for i := 0; i < cfg.NumCallers; i++ {
 		wg.Add(1)
 		go func(workerID string) {
 			defer wg.Done()
+			logData["worker_id"] = workerID
 			workDone := 0
 			for {
+				// Acquire lock
 				lockID, err := m.lockClient.Acquire(ctx, instanceID, workerID)
 				if err != nil {
-					log.Error(ctx, "worker failed to acquire lock", err, log.Data{"worker_id": workerID})
+					log.Error(ctx, "worker failed to acquire lock", err, logData)
 					os.Exit(2)
 				}
-				log.Info(ctx, "lock has been acquired", log.Data{"worker_id": workerID, "time": time.Since(t0).Milliseconds()})
-				time.Sleep(SleepTime)
+
+				// log and sleep
+				logData["time"] = time.Since(t0).Milliseconds()
+				log.Info(ctx, "lock has been acquired", logData)
+				time.Sleep(cfg.SleepTime)
+
+				// Unlock
 				m.lockClient.Unlock(lockID)
 				workDone++
-				if workDone == WorkPerCaller {
-					log.Info(ctx, "worker has finished its work", log.Data{"worker_id": workerID})
-					return
+				if workDone == cfg.WorkPerCaller {
+					log.Info(ctx, "worker has finished its work", logData)
+					return // All the work has been done
 				}
-				time.Sleep(SleepTimeBetweenIterations)
+				time.Sleep(cfg.SleepTimeBetweenIterations)
 			}
 		}(fmt.Sprintf("%d", i))
 	}
