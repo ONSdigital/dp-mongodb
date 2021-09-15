@@ -29,6 +29,28 @@ const (
 	dimensionOptionsCollection = "dimension.options"
 )
 
+// Global variables needed by tests
+var (
+	maxInstances         int           = 6
+	globalMaxAcquireTime time.Duration = 0
+	globalMinAcquireTime time.Duration = time.Hour
+	mutex                *sync.RWMutex = &sync.RWMutex{}
+	aborting             bool          = false
+)
+
+// SetMaxTime updates the global maximum acquire time if the provided value is greater than the current max
+// this method is concurrency safe
+func SetMinMaxTime(t time.Duration) {
+	mutex.Lock()
+	defer mutex.Unlock()
+	if t > globalMaxAcquireTime {
+		globalMaxAcquireTime = t
+	}
+	if t < globalMinAcquireTime {
+		globalMinAcquireTime = t
+	}
+}
+
 // TestConfig defines the configuration for a particular test
 type TestConfig struct {
 	NumCallers                 int           // Number of concurrent go-routines that try to acquire a lock
@@ -68,7 +90,6 @@ func getMongoDB(ctx context.Context) (*Mongo, error) {
 func main() {
 	log.Namespace = "dp-mongodb-lock-stress-test"
 	ctx := context.Background()
-	var maxInstances = 6
 
 	// Create an array of connections to MongoDB (of size maxInstances)
 	m := make([]*Mongo, maxInstances)
@@ -80,6 +101,9 @@ func main() {
 			os.Exit(1)
 		}
 	}
+
+	// Purge any existing lock before starting the test
+	m[0].lockClient.Purger.Purge()
 
 	// default testCfg to be used as a base config for tests
 	testCfg := &TestConfig{
@@ -93,6 +117,11 @@ func main() {
 	testCfg.NumCallers = 2
 	log.Info(ctx, "+++ New Test starting +++ 2 callers per instance / 1 instance", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap})
 	runTestInstance(ctx, m[0], testCfg, nil)
+	m[0].lockClient.Purger.Purge()
+	if aborting {
+		log.Info(ctx, "=== test [FAILED] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap})
+		os.Exit(2)
+	}
 	log.Info(ctx, "=== test [OK] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap})
 	fmt.Print("\n\n\n")
 
@@ -100,6 +129,11 @@ func main() {
 	testCfg.NumCallers = 10
 	log.Info(ctx, "+++ New Test starting +++ 10 callers per instance / 1 instance", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap})
 	runTestInstance(ctx, m[1], testCfg, nil)
+	m[0].lockClient.Purger.Purge()
+	if aborting {
+		log.Info(ctx, "=== test [FAILED] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap})
+		os.Exit(2)
+	}
 	log.Info(ctx, "=== test [OK] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap})
 	fmt.Print("\n\n\n")
 
@@ -107,29 +141,45 @@ func main() {
 	testCfg.NumCallers = 2
 	log.Info(ctx, "+++ New Test starting +++ 2 callers per instance / 2 instances", log.Data{"test_config": testCfg})
 	runTestInstances(ctx, []*Mongo{m[2], m[3]}, testCfg, nil)
-	log.Info(ctx, "=== test [OK]", log.Data{"test_config": testCfg})
-	fmt.Print("\n\n\n")
+	m[0].lockClient.Purger.Purge()
+	if aborting {
+		log.Info(ctx, "=== test [FAILED] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap})
+		os.Exit(2)
+	}
+	log.Info(ctx, "=== test [OK] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap})
 
 	// 10 callers per instance, 2 instances
 	testCfg.NumCallers = 10
 	log.Info(ctx, "+++ New Test starting +++ 10 callers per instance / 2 instances", log.Data{"test_config": testCfg})
 	runTestInstances(ctx, []*Mongo{m[4], m[5]}, testCfg, nil)
-	log.Info(ctx, "=== test [OK]", log.Data{"test_config": testCfg})
-	fmt.Print("\n\n\n")
+	m[0].lockClient.Purger.Purge()
+	if aborting {
+		log.Info(ctx, "=== test [FAILED] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap})
+		os.Exit(2)
+	}
+	log.Info(ctx, "=== test [OK] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap})
 
 	// 2 callers per instance, 6 instances
 	testCfg.NumCallers = 2
 	log.Info(ctx, "+++ New Test starting +++ 2 callers per instance / 6 instances", log.Data{"test_config": testCfg})
 	runTestInstances(ctx, m, testCfg, nil)
-	log.Info(ctx, "=== test [OK]", log.Data{"test_config": testCfg})
-	fmt.Print("\n\n\n")
+	m[0].lockClient.Purger.Purge()
+	if aborting {
+		log.Info(ctx, "=== test [FAILED] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap})
+		os.Exit(2)
+	}
+	log.Info(ctx, "=== test [OK] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap})
 
 	// 10 callers per instance, 6 instances
 	testCfg.NumCallers = 10
 	log.Info(ctx, "+++ New Test starting +++ 10 callers per instance / 6 instances", log.Data{"test_config": testCfg})
 	runTestInstances(ctx, m, testCfg, nil)
-	log.Info(ctx, "=== test [OK]", log.Data{"test_config": testCfg})
-	fmt.Print("\n\n\n")
+	m[0].lockClient.Purger.Purge()
+	if aborting {
+		log.Info(ctx, "=== test [FAILED] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap})
+		os.Exit(2)
+	}
+	log.Info(ctx, "=== test [OK] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap})
 }
 
 // runTestInstances runs multiple instances in parallel, each one running a test with multiple callers
@@ -157,7 +207,6 @@ func runTestInstance(ctx context.Context, m *Mongo, cfg *TestConfig, logData log
 	wg := &sync.WaitGroup{}
 
 	instanceID := "testInstance"
-	t0 := time.Now()
 
 	for i := 0; i < cfg.NumCallers; i++ {
 		wg.Add(1)
@@ -166,15 +215,27 @@ func runTestInstance(ctx context.Context, m *Mongo, cfg *TestConfig, logData log
 			logData["worker_id"] = workerID
 			workDone := 0
 			for {
-				// Acquire lock
-				lockID, err := m.lockClient.Acquire(ctx, instanceID, workerID)
-				if err != nil {
-					log.Error(ctx, "worker failed to acquire lock", err, logData)
-					os.Exit(2)
+				// Check if we need to abort test (due to some other go-routine having failed)
+				if aborting {
+					log.Info(ctx, "exiting go-routine because the test is being aborted ...", logData)
+					return
 				}
 
-				// log and sleep
-				logData["time"] = time.Since(t0).Milliseconds()
+				// Acquire lock
+				t0 := time.Now()
+				lockID, err := m.lockClient.Acquire(ctx, instanceID, workerID)
+				if err != nil {
+					log.Error(ctx, "worker failed to acquire lock - aborting test ...", err, logData)
+					aborting = true
+					return
+				}
+
+				// Log time it took to acquire (refreshing global min and max), and sleep
+				t1 := time.Since(t0)
+				SetMinMaxTime(t1)
+				logData["time"] = t1.Milliseconds()
+				logData["global_max_time"] = globalMaxAcquireTime.Milliseconds()
+				logData["global_min_time"] = globalMinAcquireTime.Milliseconds()
 				log.Info(ctx, "lock has been acquired", logData)
 				time.Sleep(cfg.SleepTime)
 
@@ -183,8 +244,10 @@ func runTestInstance(ctx context.Context, m *Mongo, cfg *TestConfig, logData log
 				workDone++
 				if workDone == cfg.WorkPerCaller {
 					log.Info(ctx, "worker has finished its work", logData)
-					return // All the work has been done
+					return // Success - All the work has been done
 				}
+
+				// Sleep before next iteration
 				time.Sleep(cfg.SleepTimeBetweenIterations)
 			}
 		}(fmt.Sprintf("%d", i))
