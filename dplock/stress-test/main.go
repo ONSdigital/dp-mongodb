@@ -264,9 +264,9 @@ func runTestInstance(ctx context.Context, m *Mongo, cfg *TestConfig, serviceID s
 				log.Info(ctx, "lock has been released", log.Data{
 					"service_id":                    serviceID,
 					"worker_id":                     workerID,
-					"time_owning_lock":              owningLock,
-					"total_time_waiting_to_acquire": totalTimeAcquire,
-					"total_time_owning_a_lock":      totalTimeOwningLock,
+					"time_owning_lock":              owningLock.Milliseconds(),
+					"total_time_waiting_to_acquire": totalTimeAcquire.Milliseconds(),
+					"total_time_owning_a_lock":      totalTimeOwningLock.Milliseconds(),
 				})
 
 				workDone++
