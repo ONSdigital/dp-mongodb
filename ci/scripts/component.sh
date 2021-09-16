@@ -2,6 +2,6 @@
 
 cwd=$(pwd)
 
-pushd $cwd/dp-mongodb/mongodb
+pushd $cwd/dp-mongodb
   make test-component
 popd
