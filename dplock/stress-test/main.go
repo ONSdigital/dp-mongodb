@@ -121,10 +121,10 @@ func main() {
 	t1 := time.Since(t0)
 	m[0].lockClient.Purger.Purge()
 	if aborting {
-		log.Info(ctx, "=== test [FAILED] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap})
+		log.Info(ctx, "=== test 1. [FAILED] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap})
 		os.Exit(2)
 	}
-	log.Info(ctx, "=== test [OK] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap, "test_time": t1.Milliseconds()})
+	log.Info(ctx, "=== test 1. [OK] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap, "test_time": t1.Milliseconds()})
 	fmt.Print("\n\n\n")
 
 	// 10 callers per instance, 1 instances
@@ -135,10 +135,10 @@ func main() {
 	t1 = time.Since(t0)
 	m[0].lockClient.Purger.Purge()
 	if aborting {
-		log.Info(ctx, "=== test [FAILED] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap})
+		log.Info(ctx, "=== test 2. [FAILED] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap})
 		os.Exit(2)
 	}
-	log.Info(ctx, "=== test [OK] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap, "test_time": t1.Milliseconds()})
+	log.Info(ctx, "=== test 2. [OK] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap, "test_time": t1.Milliseconds()})
 	fmt.Print("\n\n\n")
 
 	// 2 callers per instance, 2 instances
@@ -149,10 +149,10 @@ func main() {
 	t1 = time.Since(t0)
 	m[0].lockClient.Purger.Purge()
 	if aborting {
-		log.Info(ctx, "=== test [FAILED] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap})
+		log.Info(ctx, "=== test 3. [FAILED] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap})
 		os.Exit(2)
 	}
-	log.Info(ctx, "=== test [OK] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap, "test_time": t1.Milliseconds()})
+	log.Info(ctx, "=== test 3. [OK] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap, "test_time": t1.Milliseconds()})
 	fmt.Print("\n\n\n")
 
 	// 10 callers per instance, 2 instances
@@ -163,10 +163,10 @@ func main() {
 	t1 = time.Since(t0)
 	m[0].lockClient.Purger.Purge()
 	if aborting {
-		log.Info(ctx, "=== test [FAILED] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap})
+		log.Info(ctx, "=== test 4. [FAILED] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap})
 		os.Exit(2)
 	}
-	log.Info(ctx, "=== test [OK] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap, "test_time": t1.Milliseconds()})
+	log.Info(ctx, "=== test 4. [OK] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap, "test_time": t1.Milliseconds()})
 	fmt.Print("\n\n\n")
 
 	// 2 callers per instance, 6 instances
@@ -177,10 +177,10 @@ func main() {
 	t1 = time.Since(t0)
 	m[0].lockClient.Purger.Purge()
 	if aborting {
-		log.Info(ctx, "=== test [FAILED] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap})
+		log.Info(ctx, "=== test 5. [FAILED] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap})
 		os.Exit(2)
 	}
-	log.Info(ctx, "=== test [OK] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap, "test_time": t1.Milliseconds()})
+	log.Info(ctx, "=== test 5. [OK] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap, "test_time": t1.Milliseconds()})
 	fmt.Print("\n\n\n")
 
 	// 10 callers per instance, 6 instances
@@ -191,10 +191,10 @@ func main() {
 	t1 = time.Since(t0)
 	m[0].lockClient.Purger.Purge()
 	if aborting {
-		log.Info(ctx, "=== test [FAILED] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap})
+		log.Info(ctx, "=== test 6. [FAILED] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap})
 		os.Exit(2)
 	}
-	log.Info(ctx, "=== test [OK] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap, "test_time": t1.Milliseconds()})
+	log.Info(ctx, "=== test 6. [OK] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap, "test_time": t1.Milliseconds()})
 }
 
 // runTestInstances runs multiple instances in parallel, each one running a test with multiple callers
