@@ -115,74 +115,86 @@ func main() {
 
 	// 2 callers per instance, 1 instances
 	testCfg.NumCallers = 2
-	log.Info(ctx, "+++ New Test starting +++ 2 callers per instance / 1 instance", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap})
+	log.Info(ctx, "+++ 1. New Test starting +++ 2 callers per instance / 1 instance", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap})
+	t0 := time.Now()
 	runTestInstance(ctx, m[0], testCfg, "0")
+	t1 := time.Since(t0)
 	m[0].lockClient.Purger.Purge()
 	if aborting {
-		log.Info(ctx, "=== test [FAILED] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap})
+		log.Info(ctx, "=== test 1. [FAILED] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap})
 		os.Exit(2)
 	}
-	log.Info(ctx, "=== test [OK] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap})
+	log.Info(ctx, "=== test 1. [OK] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap, "test_time": t1.Milliseconds()})
 	fmt.Print("\n\n\n")
 
 	// 10 callers per instance, 1 instances
 	testCfg.NumCallers = 10
-	log.Info(ctx, "+++ New Test starting +++ 10 callers per instance / 1 instance", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap})
+	log.Info(ctx, "+++ 2. New Test starting +++ 10 callers per instance / 1 instance", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap})
+	t0 = time.Now()
 	runTestInstance(ctx, m[1], testCfg, "0")
+	t1 = time.Since(t0)
 	m[0].lockClient.Purger.Purge()
 	if aborting {
-		log.Info(ctx, "=== test [FAILED] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap})
+		log.Info(ctx, "=== test 2. [FAILED] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap})
 		os.Exit(2)
 	}
-	log.Info(ctx, "=== test [OK] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap})
+	log.Info(ctx, "=== test 2. [OK] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap, "test_time": t1.Milliseconds()})
 	fmt.Print("\n\n\n")
 
 	// 2 callers per instance, 2 instances
 	testCfg.NumCallers = 2
-	log.Info(ctx, "+++ New Test starting +++ 2 callers per instance / 2 instances", log.Data{"test_config": testCfg})
+	log.Info(ctx, "+++ 3. New Test starting +++ 2 callers per instance / 2 instances", log.Data{"test_config": testCfg})
+	t0 = time.Now()
 	runTestInstances(ctx, []*Mongo{m[2], m[3]}, testCfg)
+	t1 = time.Since(t0)
 	m[0].lockClient.Purger.Purge()
 	if aborting {
-		log.Info(ctx, "=== test [FAILED] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap})
+		log.Info(ctx, "=== test 3. [FAILED] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap})
 		os.Exit(2)
 	}
-	log.Info(ctx, "=== test [OK] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap})
+	log.Info(ctx, "=== test 3. [OK] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap, "test_time": t1.Milliseconds()})
 	fmt.Print("\n\n\n")
 
 	// 10 callers per instance, 2 instances
 	testCfg.NumCallers = 10
-	log.Info(ctx, "+++ New Test starting +++ 10 callers per instance / 2 instances", log.Data{"test_config": testCfg})
+	log.Info(ctx, "+++ 4. New Test starting +++ 10 callers per instance / 2 instances", log.Data{"test_config": testCfg})
+	t0 = time.Now()
 	runTestInstances(ctx, []*Mongo{m[4], m[5]}, testCfg)
+	t1 = time.Since(t0)
 	m[0].lockClient.Purger.Purge()
 	if aborting {
-		log.Info(ctx, "=== test [FAILED] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap})
+		log.Info(ctx, "=== test 4. [FAILED] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap})
 		os.Exit(2)
 	}
-	log.Info(ctx, "=== test [OK] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap})
+	log.Info(ctx, "=== test 4. [OK] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap, "test_time": t1.Milliseconds()})
 	fmt.Print("\n\n\n")
 
 	// 2 callers per instance, 6 instances
 	testCfg.NumCallers = 2
-	log.Info(ctx, "+++ New Test starting +++ 2 callers per instance / 6 instances", log.Data{"test_config": testCfg})
+	log.Info(ctx, "+++ 5. New Test starting +++ 2 callers per instance / 6 instances", log.Data{"test_config": testCfg})
+	t0 = time.Now()
 	runTestInstances(ctx, m, testCfg)
+	t1 = time.Since(t0)
 	m[0].lockClient.Purger.Purge()
 	if aborting {
-		log.Info(ctx, "=== test [FAILED] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap})
+		log.Info(ctx, "=== test 5. [FAILED] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap})
 		os.Exit(2)
 	}
-	log.Info(ctx, "=== test [OK] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap})
+	log.Info(ctx, "=== test 5. [OK] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap, "test_time": t1.Milliseconds()})
 	fmt.Print("\n\n\n")
 
 	// 10 callers per instance, 6 instances
 	testCfg.NumCallers = 10
-	log.Info(ctx, "+++ New Test starting +++ 10 callers per instance / 6 instances", log.Data{"test_config": testCfg})
+	log.Info(ctx, "+++ 6. New Test starting +++ 10 callers per instance / 6 instances", log.Data{"test_config": testCfg})
+	t0 = time.Now()
 	runTestInstances(ctx, m, testCfg)
+	t1 = time.Since(t0)
 	m[0].lockClient.Purger.Purge()
 	if aborting {
-		log.Info(ctx, "=== test [FAILED] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap})
+		log.Info(ctx, "=== test 6. [FAILED] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap})
 		os.Exit(2)
 	}
-	log.Info(ctx, "=== test [OK] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap})
+	log.Info(ctx, "=== test 6. [OK] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap, "test_time": t1.Milliseconds()})
 }
 
 // runTestInstances runs multiple instances in parallel, each one running a test with multiple callers
