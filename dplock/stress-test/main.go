@@ -220,33 +220,39 @@ func runTestInstance(ctx context.Context, m *Mongo, cfg *TestConfig, serviceID s
 				t0 := time.Now()
 				lockID, err := m.lockClient.Acquire(ctx, instanceID, workerID)
 				if err != nil {
-					log.Error(ctx, "worker failed to acquire lock - aborting test ...", err, logData)
 					aborting = true
+					log.Error(ctx, "worker failed to acquire lock - aborting test ...", err, logData)
 					return
 				}
 
 				// Log time it took to acquire (refreshing global min and max), and sleep
 				t1 := time.Since(t0)
 				SetMinMaxTime(t1)
-				log.Info(ctx, "lock has been acquired", log.Data{
-					"service_id":      serviceID,
-					"worker_id":       workerID,
-					"time":            t1.Milliseconds(),
-					"global_max_time": globalMaxAcquireTime.Milliseconds(),
-					"global_min_time": globalMinAcquireTime.Milliseconds(),
-				})
-				time.Sleep(cfg.SleepTime)
+				if !aborting {
+					log.Info(ctx, "lock has been acquired", log.Data{
+						"service_id":      serviceID,
+						"worker_id":       workerID,
+						"time":            t1.Milliseconds(),
+						"global_max_time": globalMaxAcquireTime.Milliseconds(),
+						"global_min_time": globalMinAcquireTime.Milliseconds(),
+					})
+					time.Sleep(cfg.SleepTime)
+				}
 
 				// Unlock
 				m.lockClient.Unlock(lockID)
 				workDone++
 				if workDone == cfg.WorkPerCaller {
-					log.Info(ctx, "worker has finished its work", logData)
+					if !aborting {
+						log.Info(ctx, "worker has finished its work", logData)
+					}
 					return // Success - All the work has been done
 				}
 
-				// Sleep before next iteration
-				time.Sleep(cfg.SleepTimeBetweenIterations)
+				if !aborting {
+					// Sleep before next iteration
+					time.Sleep(cfg.SleepTimeBetweenIterations)
+				}
 			}
 		}(fmt.Sprintf("%d", i))
 	}
