@@ -9,6 +9,7 @@ import (
 	"github.com/cucumber/godog"
 	"github.com/stretchr/testify/assert"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
@@ -24,7 +25,7 @@ type MongoV2Component struct {
 	rawClient       mongo.Client
 	testClient      *mongoDriver.MongoConnection
 	find            *mongoDriver.Find
-	insertResult    *mongoDriver.CollectionInsertResult
+	insertResult    *mongoDriver.CollectionInsertManyResult
 	updateResult    *mongoDriver.CollectionUpdateResult
 	deleteResult    *mongoDriver.CollectionDeleteResult
 	mustErrorResult error
@@ -46,8 +47,9 @@ func (m *MongoV2Component) RegisterSteps(ctx *godog.ScenarioContext) {
 	ctx.Step(`^I upsert this record with id (\d+)$`, m.upsertRecord)
 	ctx.Step(`^I updateById this record with id (\d+)$`, m.updateRecordById)
 	ctx.Step(`^I update this record with id (\d+)$`, m.updateRecord)
-	ctx.Step(`^I removeById a record with id (\d+)$`, m.removeRecordById)
-	ctx.Step(`^I remove a record with id (\d+)$`, m.removeRecord)
+	ctx.Step(`^I deleteById a record with id (\d+)$`, m.deleteRecordById)
+	ctx.Step(`^I delete a record with id (\d+)$`, m.deleteRecord)
+	ctx.Step(`^I delete a record with name like (\w+)$`, m.deleteRecordByName)
 	ctx.Step(`^I insert these records$`, m.insertRecords)
 	ctx.Step(`^there are (\d+) matched, (\d+) modified, (\d+) upserted records, with upsert Id of (\d+)$`, m.modifiedCountWithid)
 	ctx.Step(`^there are (\d+) matched, (\d+) modified, (\d+) upserted records$`, m.modifiedCount)
@@ -60,8 +62,9 @@ func (m *MongoV2Component) RegisterSteps(ctx *godog.ScenarioContext) {
 	ctx.Step(`^Must did not return an error$`, m.testMustDidNotReturnError)
 	ctx.Step(`^I Must update this record with id (\d+)$`, m.mustUpdateRecord)
 	ctx.Step(`^I Must updateById this record with id (\d+)$`, m.mustUpdateId)
-	ctx.Step(`^I Must removeById a record with id (\d+)$`, m.mustRemoveRecordById)
-	ctx.Step(`^I Must remove a record with id (\d+)$`, m.mustRemoveRecord)
+	ctx.Step(`^I Must deleteById a record with id (\d+)$`, m.mustDeleteRecordById)
+	ctx.Step(`^I Must delete a record with id (\d+)$`, m.mustDeleteRecord)
+	ctx.Step(`^I Must delete records with name like (\w+)$`, m.mustDeleteRecordsByName)
 }
 
 func newMongoV2Component(database string, collection string, rawClient mongo.Client) *MongoV2Component {
@@ -210,7 +213,7 @@ func (m *MongoV2Component) upsertRecordById(id int, recordAsString *godog.DocStr
 
 	upsert := bson.D{{Key: "$set", Value: bson.D{{Key: "name", Value: record.Name}, {Key: "age", Value: record.Age}}}}
 
-	m.updateResult, err = m.testClient.C(m.collection).UpsertId(context.Background(), id, upsert)
+	m.updateResult, err = m.testClient.C(m.collection).UpsertById(context.Background(), id, upsert)
 
 	return err
 }
@@ -242,7 +245,7 @@ func (m *MongoV2Component) updateRecordById(id int, recordAsString *godog.DocStr
 
 	update := bson.D{{Key: "$set", Value: bson.D{{Key: "name", Value: record.Name}, {Key: "age", Value: record.Age}}}}
 
-	m.updateResult, err = m.testClient.C(m.collection).UpdateId(context.Background(), id, update)
+	m.updateResult, err = m.testClient.C(m.collection).UpdateById(context.Background(), id, update)
 
 	return err
 }
@@ -264,20 +267,30 @@ func (m *MongoV2Component) updateRecord(id int, recordAsString *godog.DocString)
 	return err
 }
 
-func (m *MongoV2Component) removeRecordById(id int) error {
+func (m *MongoV2Component) deleteRecordById(id int) error {
 	var err error
 
-	m.deleteResult, err = m.testClient.C(m.collection).RemoveId(context.Background(), id)
+	m.deleteResult, err = m.testClient.C(m.collection).DeleteById(context.Background(), id)
 
 	return err
 }
 
-func (m *MongoV2Component) removeRecord(id int) error {
+func (m *MongoV2Component) deleteRecord(id int) error {
 	var err error
 
 	idQuery := bson.D{{Key: "_id", Value: id}}
 
-	m.deleteResult, err = m.testClient.C(m.collection).Remove(context.Background(), idQuery)
+	m.deleteResult, err = m.testClient.C(m.collection).Delete(context.Background(), idQuery)
+
+	return err
+}
+
+func (m *MongoV2Component) deleteRecordByName(name string) error {
+	var err error
+
+	selector := bson.D{{Key: "name", Value: primitive.Regex{Pattern: ".*" + name + ".*"}}}
+
+	m.deleteResult, err = m.testClient.C(m.collection).DeleteMany(context.Background(), selector)
 
 	return err
 }
@@ -328,7 +341,7 @@ func (m *MongoV2Component) insertRecords(recordsJson *godog.DocString) error {
 
 	testRecords := []interface{}{records[0], records[1]}
 
-	m.insertResult, err = m.testClient.C(m.collection).Insert(context.Background(), testRecords)
+	m.insertResult, err = m.testClient.C(m.collection).InsertMany(context.Background(), testRecords)
 	if err != nil {
 		return err
 	}
@@ -394,7 +407,7 @@ func (m *MongoV2Component) mustUpdateId(id int, recordAsString *godog.DocString)
 
 	update := bson.D{{Key: "$set", Value: bson.D{{Key: "name", Value: record.Name}, {Key: "age", Value: record.Age}}}}
 
-	m.updateResult, m.mustErrorResult = m.testClient.C(m.collection).Must().UpdateId(context.Background(), id, update)
+	m.updateResult, m.mustErrorResult = m.testClient.C(m.collection).Must().UpdateById(context.Background(), id, update)
 
 	return nil
 }
@@ -427,16 +440,24 @@ func (m *MongoV2Component) testMustDidNotReturnError() error {
 	return m.ErrorFeature.StepError()
 }
 
-func (m *MongoV2Component) mustRemoveRecordById(id int) error {
-	m.deleteResult, m.mustErrorResult = m.testClient.C(m.collection).Must().RemoveId(context.Background(), id)
+func (m *MongoV2Component) mustDeleteRecordById(id int) error {
+	m.deleteResult, m.mustErrorResult = m.testClient.C(m.collection).Must().DeleteById(context.Background(), id)
 
 	return nil
 }
 
-func (m *MongoV2Component) mustRemoveRecord(id int) error {
+func (m *MongoV2Component) mustDeleteRecord(id int) error {
 	idQuery := bson.D{{Key: "_id", Value: id}}
 
-	m.deleteResult, m.mustErrorResult = m.testClient.C(m.collection).Must().Remove(context.Background(), idQuery)
+	m.deleteResult, m.mustErrorResult = m.testClient.C(m.collection).Must().Delete(context.Background(), idQuery)
+
+	return nil
+}
+
+func (m *MongoV2Component) mustDeleteRecordsByName(name string) error {
+	selector := bson.D{{Key: "name", Value: primitive.Regex{Pattern: ".*" + name + ".*"}}}
+
+	m.deleteResult, m.mustErrorResult = m.testClient.C(m.collection).Must().DeleteMany(context.Background(), selector)
 
 	return nil
 }
