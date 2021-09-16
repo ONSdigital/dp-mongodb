@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"sync"
 	"time"
@@ -61,26 +62,33 @@ type TestConfig struct {
 
 // getLockConfig is the dplock config override to be able to control the locking algorithm
 // We can tweak the paramters and validate the tests accordingly
-func getLockConfig() *dplock.ConfigOverride {
-	// th := 3 * time.Second
-	// sl := 5 * time.Second
-	// var maxCount uint = 10
-	// var min uint = 1000
-	// var max uint = 1001
-	// tout := 10 * time.Minute
-	return &dplock.ConfigOverride{
-		// AcquireRetryTimeout: &tout,
-		// MaxCount:            &maxCount,
-		// AcquireMinPeriodMillis: &min,
-		// AcquireMaxPeriodMillis: &max,
-		// TimeThresholdSinceLastRelease: &th,
-		// UsageSleep:                    &sl,
+func getLockConfig(oldBehavior bool) *dplock.ConfigOverride {
+	if oldBehavior {
+		var (
+			maxCount               uint          = math.MaxUint32          // this will prevent the 'sleep after maxCount successful acquires' to not be triggered
+			acquireMinPeriodMillis uint          = 250                     // old AcquirePeriod = 250 * time.Millisecond
+			acquireMaxPeriodMillis uint          = 251                     // old AcquirePeriod = 250 * time.Millisecond
+			acquireRetryTimeout    time.Duration = 2500 * time.Millisecond // old: 10 retryes * 250 ms between retries (effectively 2.5s)
+			unlockMinPeriodMillis  uint          = 5                       // old var UnlockPeriod = 5 * time.Millisecond
+			unlockMaxPeriodMillis  uint          = 6                       // old var UnlockPeriod = 5 * time.Millisecond
+		)
+		return &dplock.ConfigOverride{
+			MaxCount:               &maxCount,
+			AcquireMinPeriodMillis: &acquireMinPeriodMillis,
+			AcquireMaxPeriodMillis: &acquireMaxPeriodMillis,
+			AcquireRetryTimeout:    &acquireRetryTimeout,
+			UnlockMinPeriodMillis:  &unlockMinPeriodMillis,
+			UnlockMaxPeriodMillis:  &unlockMaxPeriodMillis,
+		}
 	}
+
+	// New behavior with default values
+	return &dplock.ConfigOverride{}
 }
 
 func getMongoDB(ctx context.Context) (*Mongo, error) {
 	mongodb := &Mongo{URI: MongoURI}
-	if err := mongodb.Init(ctx, getLockConfig()); err != nil {
+	if err := mongodb.Init(ctx, getLockConfig(true)); err != nil {
 		return nil, err
 	}
 	log.Info(ctx, "listening to mongo db session", log.Data{"URI": mongodb.URI})
