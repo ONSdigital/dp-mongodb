@@ -115,7 +115,7 @@ func main() {
 
 	// 2 callers per instance, 1 instances
 	testCfg.NumCallers = 2
-	log.Info(ctx, "+++ New Test starting +++ 2 callers per instance / 1 instance", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap})
+	log.Info(ctx, "+++ 1. New Test starting +++ 2 callers per instance / 1 instance", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap})
 	t0 := time.Now()
 	runTestInstance(ctx, m[0], testCfg, "service-0")
 	t1 := time.Since(t0)
@@ -129,7 +129,7 @@ func main() {
 
 	// 10 callers per instance, 1 instances
 	testCfg.NumCallers = 10
-	log.Info(ctx, "+++ New Test starting +++ 10 callers per instance / 1 instance", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap})
+	log.Info(ctx, "+++ 2. New Test starting +++ 10 callers per instance / 1 instance", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap})
 	t0 = time.Now()
 	runTestInstance(ctx, m[1], testCfg, "service-0")
 	t1 = time.Since(t0)
@@ -143,7 +143,7 @@ func main() {
 
 	// 2 callers per instance, 2 instances
 	testCfg.NumCallers = 2
-	log.Info(ctx, "+++ New Test starting +++ 2 callers per instance / 2 instances", log.Data{"test_config": testCfg})
+	log.Info(ctx, "+++ 3. New Test starting +++ 2 callers per instance / 2 instances", log.Data{"test_config": testCfg})
 	t0 = time.Now()
 	runTestInstances(ctx, []*Mongo{m[2], m[3]}, testCfg)
 	t1 = time.Since(t0)
@@ -157,7 +157,7 @@ func main() {
 
 	// 10 callers per instance, 2 instances
 	testCfg.NumCallers = 10
-	log.Info(ctx, "+++ New Test starting +++ 10 callers per instance / 2 instances", log.Data{"test_config": testCfg})
+	log.Info(ctx, "+++ 4. New Test starting +++ 10 callers per instance / 2 instances", log.Data{"test_config": testCfg})
 	t0 = time.Now()
 	runTestInstances(ctx, []*Mongo{m[4], m[5]}, testCfg)
 	t1 = time.Since(t0)
@@ -171,7 +171,7 @@ func main() {
 
 	// 2 callers per instance, 6 instances
 	testCfg.NumCallers = 2
-	log.Info(ctx, "+++ New Test starting +++ 2 callers per instance / 6 instances", log.Data{"test_config": testCfg})
+	log.Info(ctx, "+++ 5. New Test starting +++ 2 callers per instance / 6 instances", log.Data{"test_config": testCfg})
 	t0 = time.Now()
 	runTestInstances(ctx, m, testCfg)
 	t1 = time.Since(t0)
@@ -185,7 +185,7 @@ func main() {
 
 	// 10 callers per instance, 6 instances
 	testCfg.NumCallers = 10
-	log.Info(ctx, "+++ New Test starting +++ 10 callers per instance / 6 instances", log.Data{"test_config": testCfg})
+	log.Info(ctx, "+++ 6. New Test starting +++ 10 callers per instance / 6 instances", log.Data{"test_config": testCfg})
 	t0 = time.Now()
 	runTestInstances(ctx, m, testCfg)
 	t1 = time.Since(t0)
