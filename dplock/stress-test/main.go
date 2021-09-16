@@ -110,13 +110,13 @@ func main() {
 		NumCallers:                 2,
 		WorkPerCaller:              10,
 		SleepTime:                  20 * time.Millisecond,
-		SleepTimeBetweenIterations: 20 * time.Millisecond,
+		SleepTimeBetweenIterations: 250 * time.Millisecond,
 	}
 
 	// 2 callers per instance, 1 instances
 	testCfg.NumCallers = 2
 	log.Info(ctx, "+++ New Test starting +++ 2 callers per instance / 1 instance", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap})
-	runTestInstance(ctx, m[0], testCfg, "service-0")
+	runTestInstance(ctx, m[0], testCfg, "0")
 	m[0].lockClient.Purger.Purge()
 	if aborting {
 		log.Info(ctx, "=== test [FAILED] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap})
@@ -128,7 +128,7 @@ func main() {
 	// 10 callers per instance, 1 instances
 	testCfg.NumCallers = 10
 	log.Info(ctx, "+++ New Test starting +++ 10 callers per instance / 1 instance", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap})
-	runTestInstance(ctx, m[1], testCfg, "service-0")
+	runTestInstance(ctx, m[1], testCfg, "0")
 	m[0].lockClient.Purger.Purge()
 	if aborting {
 		log.Info(ctx, "=== test [FAILED] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap})
@@ -193,7 +193,7 @@ func runTestInstances(ctx context.Context, mongos []*Mongo, cfg *TestConfig) {
 		go func(serviceID string, m *Mongo) {
 			defer wg.Done()
 			runTestInstance(ctx, m, cfg, serviceID)
-		}(fmt.Sprintf("service-%d", i), mongo)
+		}(fmt.Sprintf("%d", i), mongo)
 	}
 	wg.Wait()
 }
@@ -211,7 +211,11 @@ func runTestInstance(ctx context.Context, m *Mongo, cfg *TestConfig, serviceID s
 				"service_id": serviceID,
 				"worker_id":  workerID,
 			}
-			workDone := 0
+			var (
+				workDone            int           = 0 // iteration count
+				totalTimeAcquire    time.Duration = 0 // accumulation of time delays from lock requesting an acquiring
+				totalTimeOwningLock time.Duration = 0 // accumulation of time that a lock has been owned
+			)
 			for {
 				// Check if we need to abort test (due to some other go-routine having failed)
 				if aborting {
@@ -228,22 +232,43 @@ func runTestInstance(ctx context.Context, m *Mongo, cfg *TestConfig, serviceID s
 					return
 				}
 
-				// Log time it took to acquire (refreshing global min and max), and sleep
-				t1 := time.Since(t0)
-				SetMinMaxTime(t1)
-				if !aborting {
-					log.Info(ctx, "lock has been acquired", log.Data{
-						"service_id":      serviceID,
-						"worker_id":       workerID,
-						"time":            t1.Milliseconds(),
-						"global_max_time": globalMaxAcquireTime.Milliseconds(),
-						"global_min_time": globalMinAcquireTime.Milliseconds(),
-					})
-					time.Sleep(cfg.SleepTime)
+				// Check if we need to abort test (due to some other go-routine having failed)
+				if aborting {
+					log.Info(ctx, "exiting go-routine because the test is being aborted ...", logData)
+					return
 				}
+
+				t1 := time.Now()
+
+				// Log time it took to acquire (refreshing global min and max), and sleep
+				acquireDelay := time.Since(t0)
+				totalTimeAcquire += acquireDelay
+				SetMinMaxTime(acquireDelay)
+				log.Info(ctx, "lock has been acquired", log.Data{
+					"service_id":                 serviceID,
+					"worker_id":                  workerID,
+					"time_to_acquire":            acquireDelay.Milliseconds(),
+					"global_max_time_to_acquire": globalMaxAcquireTime.Milliseconds(),
+					"global_min_time_to_acquire": globalMinAcquireTime.Milliseconds(),
+				})
+				time.Sleep(cfg.SleepTime)
 
 				// Unlock
 				m.lockClient.Unlock(lockID)
+
+				// calculate time that the lock has been owned
+				owningLock := time.Since(t1)
+				totalTimeOwningLock += owningLock
+
+				// log with total times
+				log.Info(ctx, "lock has been released", log.Data{
+					"service_id":                    serviceID,
+					"worker_id":                     workerID,
+					"time_owning_lock":              owningLock,
+					"total_time_waiting_to_acquire": totalTimeAcquire,
+					"total_time_owning_a_lock":      totalTimeOwningLock,
+				})
+
 				workDone++
 				if workDone == cfg.WorkPerCaller {
 					if !aborting {
@@ -252,10 +277,14 @@ func runTestInstance(ctx context.Context, m *Mongo, cfg *TestConfig, serviceID s
 					return // Success - All the work has been done
 				}
 
-				if !aborting {
-					// Sleep before next iteration
-					time.Sleep(cfg.SleepTimeBetweenIterations)
+				// Check if we need to abort test (due to some other go-routine having failed)
+				if aborting {
+					log.Info(ctx, "exiting go-routine because the test is being aborted ...", logData)
+					return
 				}
+
+				// Sleep before next iteration
+				time.Sleep(cfg.SleepTimeBetweenIterations)
 			}
 		}(fmt.Sprintf("%d", i))
 	}
