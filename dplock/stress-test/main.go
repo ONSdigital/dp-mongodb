@@ -147,6 +147,7 @@ func main() {
 		os.Exit(2)
 	}
 	log.Info(ctx, "=== test [OK] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap})
+	fmt.Print("\n\n\n")
 
 	// 10 callers per instance, 2 instances
 	testCfg.NumCallers = 10
@@ -158,6 +159,7 @@ func main() {
 		os.Exit(2)
 	}
 	log.Info(ctx, "=== test [OK] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap})
+	fmt.Print("\n\n\n")
 
 	// 2 callers per instance, 6 instances
 	testCfg.NumCallers = 2
@@ -169,6 +171,7 @@ func main() {
 		os.Exit(2)
 	}
 	log.Info(ctx, "=== test [OK] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap})
+	fmt.Print("\n\n\n")
 
 	// 10 callers per instance, 6 instances
 	testCfg.NumCallers = 10
