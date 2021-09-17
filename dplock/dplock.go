@@ -149,7 +149,10 @@ func (l *Lock) Unlock(lockID string) {
 	retries := 0
 	ctx := context.Background()
 	for {
+		t := time.Now()
 		_, err := l.Client.Unlock(lockID)
+		// TODO remove the timer log, this is added for testing purposes only
+		log.Info(ctx, "=== DEBUG === time to client.unlock", log.Data{"unlock_time": fmt.Sprintf("%v", time.Since(t))})
 		if err == nil {
 			if retries > 0 {
 				// This log is temporary, we might want to delete it in the future
