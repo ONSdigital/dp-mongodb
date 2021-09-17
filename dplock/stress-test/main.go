@@ -68,7 +68,7 @@ func getLockConfig(oldBehavior bool) *dplock.ConfigOverride {
 			maxCount               uint          = math.MaxUint32          // this will prevent the 'sleep after maxCount successful acquires' to not be triggered
 			acquireMinPeriodMillis uint          = 250                     // old AcquirePeriod = 250 * time.Millisecond
 			acquireMaxPeriodMillis uint          = 251                     // old AcquirePeriod = 250 * time.Millisecond
-			acquireRetryTimeout    time.Duration = 2500 * time.Millisecond // old: 10 retryes * 250 ms between retries (effectively 2.5s)
+			acquireRetryTimeout    time.Duration = 2500 * time.Millisecond // old: 10 retries * 250 ms between retries (effectively 2.5s)
 			unlockMinPeriodMillis  uint          = 5                       // old var UnlockPeriod = 5 * time.Millisecond
 			unlockMaxPeriodMillis  uint          = 6                       // old var UnlockPeriod = 5 * time.Millisecond
 		)
@@ -138,6 +138,8 @@ func main() {
 	// 10 callers per instance, 1 instances
 	testCfg.NumCallers = 10
 	log.Info(ctx, "+++ 2. New Test starting +++ 10 callers per instance / 1 instance", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap})
+	globalMaxAcquireTime = 0
+	globalMinAcquireTime = time.Hour
 	t0 = time.Now()
 	runTestInstance(ctx, m[1], testCfg, "0")
 	t1 = time.Since(t0)
@@ -152,6 +154,8 @@ func main() {
 	// 2 callers per instance, 2 instances
 	testCfg.NumCallers = 2
 	log.Info(ctx, "+++ 3. New Test starting +++ 2 callers per instance / 2 instances", log.Data{"test_config": testCfg})
+	globalMaxAcquireTime = 0
+	globalMinAcquireTime = time.Hour
 	t0 = time.Now()
 	runTestInstances(ctx, []*Mongo{m[2], m[3]}, testCfg)
 	t1 = time.Since(t0)
@@ -166,6 +170,8 @@ func main() {
 	// 10 callers per instance, 2 instances
 	testCfg.NumCallers = 10
 	log.Info(ctx, "+++ 4. New Test starting +++ 10 callers per instance / 2 instances", log.Data{"test_config": testCfg})
+	globalMaxAcquireTime = 0
+	globalMinAcquireTime = time.Hour
 	t0 = time.Now()
 	runTestInstances(ctx, []*Mongo{m[4], m[5]}, testCfg)
 	t1 = time.Since(t0)
@@ -180,6 +186,8 @@ func main() {
 	// 2 callers per instance, 6 instances
 	testCfg.NumCallers = 2
 	log.Info(ctx, "+++ 5. New Test starting +++ 2 callers per instance / 6 instances", log.Data{"test_config": testCfg})
+	globalMaxAcquireTime = 0
+	globalMinAcquireTime = time.Hour
 	t0 = time.Now()
 	runTestInstances(ctx, m, testCfg)
 	t1 = time.Since(t0)
@@ -194,6 +202,8 @@ func main() {
 	// 10 callers per instance, 6 instances
 	testCfg.NumCallers = 10
 	log.Info(ctx, "+++ 6. New Test starting +++ 10 callers per instance / 6 instances", log.Data{"test_config": testCfg})
+	globalMaxAcquireTime = 0
+	globalMinAcquireTime = time.Hour
 	t0 = time.Now()
 	runTestInstances(ctx, m, testCfg)
 	t1 = time.Since(t0)
@@ -254,6 +264,8 @@ func runTestInstance(ctx context.Context, m *Mongo, cfg *TestConfig, serviceID s
 
 				// Check if we need to abort test (due to some other go-routine having failed)
 				if aborting {
+					// Unlock
+					m.lockClient.Unlock(lockID)
 					log.Info(ctx, "exiting go-routine because the test is being aborted ...", logData)
 					return
 				}
@@ -262,15 +274,6 @@ func runTestInstance(ctx context.Context, m *Mongo, cfg *TestConfig, serviceID s
 
 				// Log time it took to acquire (refreshing global min and max), and sleep
 				acquireDelay := time.Since(t0)
-				totalTimeAcquire += acquireDelay
-				SetMinMaxTime(acquireDelay)
-				log.Info(ctx, "lock has been acquired", log.Data{
-					"service_id":                 serviceID,
-					"worker_id":                  workerID,
-					"time_to_acquire":            acquireDelay.Milliseconds(),
-					"global_max_time_to_acquire": globalMaxAcquireTime.Milliseconds(),
-					"global_min_time_to_acquire": globalMinAcquireTime.Milliseconds(),
-				})
 				time.Sleep(cfg.SleepTime)
 
 				// Unlock
@@ -280,13 +283,16 @@ func runTestInstance(ctx context.Context, m *Mongo, cfg *TestConfig, serviceID s
 				owningLock := time.Since(t1)
 				totalTimeOwningLock += owningLock
 
-				// log with total times
-				log.Info(ctx, "lock has been released", log.Data{
-					"service_id":                    serviceID,
-					"worker_id":                     workerID,
-					"time_owning_lock":              owningLock.Milliseconds(),
-					"total_time_waiting_to_acquire": totalTimeAcquire.Milliseconds(),
-					"total_time_owning_a_lock":      totalTimeOwningLock.Milliseconds(),
+				totalTimeAcquire += acquireDelay
+				SetMinMaxTime(acquireDelay)
+				log.Info(ctx, "lock has been acquired", log.Data{
+					"service_id":                 serviceID,
+					"worker_id":                  workerID,
+					"work_done":                  workDone,
+					"time_to_acquire":            acquireDelay.Milliseconds(),
+					"time_owning_lock":           owningLock.Milliseconds(),
+					"global_max_time_to_acquire": globalMaxAcquireTime.Milliseconds(),
+					"global_min_time_to_acquire": globalMinAcquireTime.Milliseconds(),
 				})
 
 				workDone++
@@ -294,6 +300,13 @@ func runTestInstance(ctx context.Context, m *Mongo, cfg *TestConfig, serviceID s
 					if !aborting {
 						log.Info(ctx, "worker has finished its work", logData)
 					}
+					// log with total times
+					log.Info(ctx, "lock has been released", log.Data{
+						"service_id":                    serviceID,
+						"worker_id":                     workerID,
+						"total_time_waiting_to_acquire": totalTimeAcquire.Milliseconds(),
+						"total_time_owning_a_lock":      totalTimeOwningLock.Milliseconds(),
+					})
 					return // Success - All the work has been done
 				}
 
