@@ -215,7 +215,10 @@ func (l *Lock) Unlock(lockID string) {
 
 	for {
 		// Try to unlock the lock
+		t := time.Now()
 		status, err := l.Client.Unlock(lockID)
+		fmt.Printf("\nTime to client.unlock: %v\n", time.Since(t))
+
 		if err == nil {
 			if len(status) > 0 {
 				l.Usages.SetReleased(status[0].Resource, status[0].Owner, time.Now()) // If we are keeping track of lock, we need to set the release time

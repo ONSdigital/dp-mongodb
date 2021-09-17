@@ -82,13 +82,28 @@ func getLockConfig(oldBehavior bool) *dplock.ConfigOverride {
 		}
 	}
 
-	// New behavior with default values
-	return &dplock.ConfigOverride{}
+	var (
+		maxCount               uint          = math.MaxUint32          // this will prevent the 'sleep after maxCount successful acquires' to not be triggered
+		acquireMinPeriodMillis uint          = 5                       // old AcquirePeriod = 250 * time.Millisecond
+		acquireMaxPeriodMillis uint          = 20                      // old AcquirePeriod = 250 * time.Millisecond
+		acquireRetryTimeout    time.Duration = 2500 * time.Millisecond // old: 10 retries * 250 ms between retries (effectively 2.5s)
+		unlockMinPeriodMillis  uint          = 5
+		unlockMaxPeriodMillis  uint          = 6
+	)
+
+	return &dplock.ConfigOverride{
+		MaxCount:               &maxCount,
+		AcquireMinPeriodMillis: &acquireMinPeriodMillis,
+		AcquireMaxPeriodMillis: &acquireMaxPeriodMillis,
+		AcquireRetryTimeout:    &acquireRetryTimeout,
+		UnlockMinPeriodMillis:  &unlockMinPeriodMillis,
+		UnlockMaxPeriodMillis:  &unlockMaxPeriodMillis,
+	}
 }
 
 func getMongoDB(ctx context.Context) (*Mongo, error) {
 	mongodb := &Mongo{URI: MongoURI}
-	if err := mongodb.Init(ctx, getLockConfig(true)); err != nil {
+	if err := mongodb.Init(ctx, getLockConfig(false)); err != nil {
 		return nil, err
 	}
 	log.Info(ctx, "listening to mongo db session", log.Data{"URI": mongodb.URI})
@@ -115,15 +130,17 @@ func main() {
 
 	// default testCfg to be used as a base config for tests
 	testCfg := &TestConfig{
-		NumCallers:                 2,
-		WorkPerCaller:              10,
+		NumCallers:                 1,
+		WorkPerCaller:              1,
 		SleepTime:                  20 * time.Millisecond,
 		SleepTimeBetweenIterations: 250 * time.Millisecond,
 	}
 
 	// 2 callers per instance, 1 instances
-	testCfg.NumCallers = 2
+	// testCfg.NumCallers = 1
 	log.Info(ctx, "+++ 1. New Test starting +++ 2 callers per instance / 1 instance", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap})
+	globalMaxAcquireTime = 0
+	globalMinAcquireTime = time.Hour
 	t0 := time.Now()
 	runTestInstance(ctx, m[0], testCfg, "0")
 	t1 := time.Since(t0)
@@ -135,84 +152,84 @@ func main() {
 	log.Info(ctx, "=== test 1. [OK] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap, "test_time": t1.Milliseconds()})
 	fmt.Print("\n\n\n")
 
-	// 10 callers per instance, 1 instances
-	testCfg.NumCallers = 10
-	log.Info(ctx, "+++ 2. New Test starting +++ 10 callers per instance / 1 instance", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap})
-	globalMaxAcquireTime = 0
-	globalMinAcquireTime = time.Hour
-	t0 = time.Now()
-	runTestInstance(ctx, m[1], testCfg, "0")
-	t1 = time.Since(t0)
-	m[0].lockClient.Purger.Purge()
-	if aborting {
-		log.Info(ctx, "=== test 2. [FAILED] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap})
-		os.Exit(2)
-	}
-	log.Info(ctx, "=== test 2. [OK] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap, "test_time": t1.Milliseconds()})
-	fmt.Print("\n\n\n")
+	// // 10 callers per instance, 1 instances
+	// testCfg.NumCallers = 10
+	// log.Info(ctx, "+++ 2. New Test starting +++ 10 callers per instance / 1 instance", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap})
+	// globalMaxAcquireTime = 0
+	// globalMinAcquireTime = time.Hour
+	// t0 = time.Now()
+	// runTestInstance(ctx, m[1], testCfg, "0")
+	// t1 = time.Since(t0)
+	// m[0].lockClient.Purger.Purge()
+	// if aborting {
+	// 	log.Info(ctx, "=== test 2. [FAILED] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap})
+	// 	os.Exit(2)
+	// }
+	// log.Info(ctx, "=== test 2. [OK] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap, "test_time": t1.Milliseconds()})
+	// fmt.Print("\n\n\n")
 
-	// 2 callers per instance, 2 instances
-	testCfg.NumCallers = 2
-	log.Info(ctx, "+++ 3. New Test starting +++ 2 callers per instance / 2 instances", log.Data{"test_config": testCfg})
-	globalMaxAcquireTime = 0
-	globalMinAcquireTime = time.Hour
-	t0 = time.Now()
-	runTestInstances(ctx, []*Mongo{m[2], m[3]}, testCfg)
-	t1 = time.Since(t0)
-	m[0].lockClient.Purger.Purge()
-	if aborting {
-		log.Info(ctx, "=== test 3. [FAILED] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap})
-		os.Exit(2)
-	}
-	log.Info(ctx, "=== test 3. [OK] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap, "test_time": t1.Milliseconds()})
-	fmt.Print("\n\n\n")
+	// // 2 callers per instance, 2 instances
+	// testCfg.NumCallers = 2
+	// log.Info(ctx, "+++ 3. New Test starting +++ 2 callers per instance / 2 instances", log.Data{"test_config": testCfg})
+	// globalMaxAcquireTime = 0
+	// globalMinAcquireTime = time.Hour
+	// t0 = time.Now()
+	// runTestInstances(ctx, []*Mongo{m[2], m[3]}, testCfg)
+	// t1 = time.Since(t0)
+	// m[0].lockClient.Purger.Purge()
+	// if aborting {
+	// 	log.Info(ctx, "=== test 3. [FAILED] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap})
+	// 	os.Exit(2)
+	// }
+	// log.Info(ctx, "=== test 3. [OK] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap, "test_time": t1.Milliseconds()})
+	// fmt.Print("\n\n\n")
 
-	// 10 callers per instance, 2 instances
-	testCfg.NumCallers = 10
-	log.Info(ctx, "+++ 4. New Test starting +++ 10 callers per instance / 2 instances", log.Data{"test_config": testCfg})
-	globalMaxAcquireTime = 0
-	globalMinAcquireTime = time.Hour
-	t0 = time.Now()
-	runTestInstances(ctx, []*Mongo{m[4], m[5]}, testCfg)
-	t1 = time.Since(t0)
-	m[0].lockClient.Purger.Purge()
-	if aborting {
-		log.Info(ctx, "=== test 4. [FAILED] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap})
-		os.Exit(2)
-	}
-	log.Info(ctx, "=== test 4. [OK] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap, "test_time": t1.Milliseconds()})
-	fmt.Print("\n\n\n")
+	// // 10 callers per instance, 2 instances
+	// testCfg.NumCallers = 10
+	// log.Info(ctx, "+++ 4. New Test starting +++ 10 callers per instance / 2 instances", log.Data{"test_config": testCfg})
+	// globalMaxAcquireTime = 0
+	// globalMinAcquireTime = time.Hour
+	// t0 = time.Now()
+	// runTestInstances(ctx, []*Mongo{m[4], m[5]}, testCfg)
+	// t1 = time.Since(t0)
+	// m[0].lockClient.Purger.Purge()
+	// if aborting {
+	// 	log.Info(ctx, "=== test 4. [FAILED] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap})
+	// 	os.Exit(2)
+	// }
+	// log.Info(ctx, "=== test 4. [OK] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap, "test_time": t1.Milliseconds()})
+	// fmt.Print("\n\n\n")
 
-	// 2 callers per instance, 6 instances
-	testCfg.NumCallers = 2
-	log.Info(ctx, "+++ 5. New Test starting +++ 2 callers per instance / 6 instances", log.Data{"test_config": testCfg})
-	globalMaxAcquireTime = 0
-	globalMinAcquireTime = time.Hour
-	t0 = time.Now()
-	runTestInstances(ctx, m, testCfg)
-	t1 = time.Since(t0)
-	m[0].lockClient.Purger.Purge()
-	if aborting {
-		log.Info(ctx, "=== test 5. [FAILED] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap})
-		os.Exit(2)
-	}
-	log.Info(ctx, "=== test 5. [OK] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap, "test_time": t1.Milliseconds()})
-	fmt.Print("\n\n\n")
+	// // 2 callers per instance, 6 instances
+	// testCfg.NumCallers = 2
+	// log.Info(ctx, "+++ 5. New Test starting +++ 2 callers per instance / 6 instances", log.Data{"test_config": testCfg})
+	// globalMaxAcquireTime = 0
+	// globalMinAcquireTime = time.Hour
+	// t0 = time.Now()
+	// runTestInstances(ctx, m, testCfg)
+	// t1 = time.Since(t0)
+	// m[0].lockClient.Purger.Purge()
+	// if aborting {
+	// 	log.Info(ctx, "=== test 5. [FAILED] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap})
+	// 	os.Exit(2)
+	// }
+	// log.Info(ctx, "=== test 5. [OK] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap, "test_time": t1.Milliseconds()})
+	// fmt.Print("\n\n\n")
 
-	// 10 callers per instance, 6 instances
-	testCfg.NumCallers = 10
-	log.Info(ctx, "+++ 6. New Test starting +++ 10 callers per instance / 6 instances", log.Data{"test_config": testCfg})
-	globalMaxAcquireTime = 0
-	globalMinAcquireTime = time.Hour
-	t0 = time.Now()
-	runTestInstances(ctx, m, testCfg)
-	t1 = time.Since(t0)
-	m[0].lockClient.Purger.Purge()
-	if aborting {
-		log.Info(ctx, "=== test 6. [FAILED] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap})
-		os.Exit(2)
-	}
-	log.Info(ctx, "=== test 6. [OK] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap, "test_time": t1.Milliseconds()})
+	// // 10 callers per instance, 6 instances
+	// testCfg.NumCallers = 10
+	// log.Info(ctx, "+++ 6. New Test starting +++ 10 callers per instance / 6 instances", log.Data{"test_config": testCfg})
+	// globalMaxAcquireTime = 0
+	// globalMinAcquireTime = time.Hour
+	// t0 = time.Now()
+	// runTestInstances(ctx, m, testCfg)
+	// t1 = time.Since(t0)
+	// m[0].lockClient.Purger.Purge()
+	// if aborting {
+	// 	log.Info(ctx, "=== test 6. [FAILED] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap})
+	// 	os.Exit(2)
+	// }
+	// log.Info(ctx, "=== test 6. [OK] ===", log.Data{"test_config": testCfg, "usages": m[0].lockClient.Usages.UsagesMap, "test_time": t1.Milliseconds()})
 }
 
 // runTestInstances runs multiple instances in parallel, each one running a test with multiple callers
@@ -228,25 +245,119 @@ func runTestInstances(ctx context.Context, mongos []*Mongo, cfg *TestConfig) {
 	wg.Wait()
 }
 
-// runTestInstance runs multiple callers in parallel using the provied Mongo struct
+// // runTestInstance runs multiple callers in parallel using the provied Mongo struct
+// func runTestInstance(ctx context.Context, m *Mongo, cfg *TestConfig, serviceID string) {
+// 	wg := &sync.WaitGroup{}
+// 	instanceID := "testInstance"
+
+// 	for i := 0; i < cfg.NumCallers; i++ {
+// 		wg.Add(1)
+// 		go func(workerID string) {
+// 			defer wg.Done()
+// 			logData := log.Data{
+// 				"service_id": serviceID,
+// 				"worker_id":  workerID,
+// 			}
+// 			var (
+// 				workDone            int           = 0 // iteration count
+// 				totalTimeAcquire    time.Duration = 0 // accumulation of time delays from lock requesting an acquiring
+// 				totalTimeOwningLock time.Duration = 0 // accumulation of time that a lock has been owned
+// 			)
+// 			for {
+// 				// Check if we need to abort test (due to some other go-routine having failed)
+// 				if aborting {
+// 					log.Info(ctx, "exiting go-routine because the test is being aborted ...", logData)
+// 					return
+// 				}
+
+// 				// Acquire lock
+// 				t0 := time.Now()
+// 				lockID, err := m.lockClient.Acquire(ctx, instanceID, workerID)
+// 				if err != nil {
+// 					aborting = true
+// 					log.Error(ctx, "worker failed to acquire lock - aborting test ...", err, logData)
+// 					return
+// 				}
+
+// 				// Check if we need to abort test (due to some other go-routine having failed)
+// 				if aborting {
+// 					// Unlock
+// 					m.lockClient.Unlock(lockID)
+// 					log.Info(ctx, "exiting go-routine because the test is being aborted ...", logData)
+// 					return
+// 				}
+
+// 				t1 := time.Now()
+
+// 				// Log time it took to acquire (refreshing global min and max), and sleep
+// 				acquireDelay := time.Since(t0)
+// 				time.Sleep(cfg.SleepTime)
+
+// 				// Unlock
+// 				m.lockClient.Unlock(lockID)
+
+// 				// calculate time that the lock has been owned
+// 				owningLock := time.Since(t1)
+// 				totalTimeOwningLock += owningLock
+
+// 				totalTimeAcquire += acquireDelay
+// 				SetMinMaxTime(acquireDelay)
+// 				log.Info(ctx, "lock has been acquired and released", log.Data{
+// 					"service_id":                 serviceID,
+// 					"worker_id":                  workerID,
+// 					"work_done":                  workDone,
+// 					"time_to_acquire":            acquireDelay.Milliseconds(),
+// 					"time_owning_lock":           owningLock.Milliseconds(),
+// 					"global_max_time_to_acquire": globalMaxAcquireTime.Milliseconds(),
+// 					"global_min_time_to_acquire": globalMinAcquireTime.Milliseconds(),
+// 				})
+
+// 				workDone++
+// 				if workDone == cfg.WorkPerCaller {
+// 					if !aborting {
+// 						log.Info(ctx, "worker has finished its work", logData)
+// 					}
+// 					// log with total times
+// 					log.Info(ctx, "worker has successfully finished its work. Summary of times:", log.Data{
+// 						"service_id":                    serviceID,
+// 						"worker_id":                     workerID,
+// 						"total_time_waiting_to_acquire": totalTimeAcquire.Milliseconds(),
+// 						"total_time_owning_a_lock":      totalTimeOwningLock.Milliseconds(),
+// 					})
+// 					return // Success - All the work has been done
+// 				}
+
+// 				// Check if we need to abort test (due to some other go-routine having failed)
+// 				if aborting {
+// 					log.Info(ctx, "exiting go-routine because the test is being aborted ...", logData)
+// 					return
+// 				}
+
+// 				// Sleep before next iteration
+// 				time.Sleep(cfg.SleepTimeBetweenIterations)
+// 			}
+// 		}(fmt.Sprintf("%d", i))
+// 	}
+
+// 	wg.Wait()
+// }
+
+// runTestInstance runs multiple callers in parallel, each one does a sing lock and release,
+// once all have finished, a new batch of callers is created, until all the lock+release have been executed
 func runTestInstance(ctx context.Context, m *Mongo, cfg *TestConfig, serviceID string) {
 	wg := &sync.WaitGroup{}
 	instanceID := "testInstance"
 
-	for i := 0; i < cfg.NumCallers; i++ {
-		wg.Add(1)
-		go func(workerID string) {
-			defer wg.Done()
-			logData := log.Data{
-				"service_id": serviceID,
-				"worker_id":  workerID,
-			}
-			var (
-				workDone            int           = 0 // iteration count
-				totalTimeAcquire    time.Duration = 0 // accumulation of time delays from lock requesting an acquiring
-				totalTimeOwningLock time.Duration = 0 // accumulation of time that a lock has been owned
-			)
-			for {
+	for j := 0; j < cfg.WorkPerCaller; j++ {
+		log.Info(ctx, "starting new batch of workers", log.Data{"service_id": serviceID})
+		for i := 0; i < cfg.NumCallers; i++ {
+			wg.Add(1)
+			go func(workerID string) {
+				defer wg.Done()
+				logData := log.Data{
+					"service_id": serviceID,
+					"worker_id":  workerID,
+				}
 				// Check if we need to abort test (due to some other go-routine having failed)
 				if aborting {
 					log.Info(ctx, "exiting go-routine because the test is being aborted ...", logData)
@@ -262,6 +373,10 @@ func runTestInstance(ctx context.Context, m *Mongo, cfg *TestConfig, serviceID s
 					return
 				}
 
+				// Log time it took to acquire (refreshing global min and max), and sleep
+				acquireDelay := time.Since(t0)
+				t1 := time.Now()
+
 				// Check if we need to abort test (due to some other go-routine having failed)
 				if aborting {
 					// Unlock
@@ -270,59 +385,41 @@ func runTestInstance(ctx context.Context, m *Mongo, cfg *TestConfig, serviceID s
 					return
 				}
 
-				t1 := time.Now()
-
-				// Log time it took to acquire (refreshing global min and max), and sleep
-				acquireDelay := time.Since(t0)
+				// Sleep - represents some  work being done by the caller
 				time.Sleep(cfg.SleepTime)
 
 				// Unlock
+				t := time.Now()
 				m.lockClient.Unlock(lockID)
+				fmt.Printf("\nTime to unlock: %v\n", time.Since(t))
 
 				// calculate time that the lock has been owned
 				owningLock := time.Since(t1)
-				totalTimeOwningLock += owningLock
 
-				totalTimeAcquire += acquireDelay
 				SetMinMaxTime(acquireDelay)
-				log.Info(ctx, "lock has been acquired", log.Data{
+				log.Info(ctx, "lock has been acquired and released", log.Data{
 					"service_id":                 serviceID,
 					"worker_id":                  workerID,
-					"work_done":                  workDone,
 					"time_to_acquire":            acquireDelay.Milliseconds(),
 					"time_owning_lock":           owningLock.Milliseconds(),
 					"global_max_time_to_acquire": globalMaxAcquireTime.Milliseconds(),
 					"global_min_time_to_acquire": globalMinAcquireTime.Milliseconds(),
 				})
 
-				workDone++
-				if workDone == cfg.WorkPerCaller {
-					if !aborting {
-						log.Info(ctx, "worker has finished its work", logData)
-					}
-					// log with total times
-					log.Info(ctx, "lock has been released", log.Data{
-						"service_id":                    serviceID,
-						"worker_id":                     workerID,
-						"total_time_waiting_to_acquire": totalTimeAcquire.Milliseconds(),
-						"total_time_owning_a_lock":      totalTimeOwningLock.Milliseconds(),
-					})
-					return // Success - All the work has been done
+				if !aborting {
+					log.Info(ctx, "worker has finished its work", logData)
 				}
-
-				// Check if we need to abort test (due to some other go-routine having failed)
-				if aborting {
-					log.Info(ctx, "exiting go-routine because the test is being aborted ...", logData)
-					return
-				}
-
-				// Sleep before next iteration
+				// Sleep corresponds to other actions performed by this caller
 				time.Sleep(cfg.SleepTimeBetweenIterations)
-			}
-		}(fmt.Sprintf("%d", i))
-	}
 
-	wg.Wait()
+				// Success - All the work has been done
+			}(fmt.Sprintf("%d", i))
+		}
+		wg.Wait() // wait for all callers to finish the current iteration
+		if aborting {
+			return
+		}
+	}
 }
 
 // Mongo represents a simplistic MongoDB configuration.
