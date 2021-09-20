@@ -10,9 +10,9 @@ import (
 const (
 	DefaultTTL                           = 30
 	DefaultPurgerPeriod                  = 5 * time.Minute
-	DefaultAcquireMinPeriodMillis        = 50
-	DefaultAcquireMaxPeriodMillis        = 150
-	DefaultAcquireRetryTimeout           = 10 * time.Second
+	DefaultAcquireMinPeriodMillis        = 20
+	DefaultAcquireMaxPeriodMillis        = 50
+	DefaultAcquireRetryTimeout           = 20 * time.Second
 	DefaultUnlockMinPeriodMillis         = 5
 	DefaultUnlockMaxPeriodMillis         = 10
 	DefaultUnlockRetryTimeout            = 5 * time.Second
