@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand"
 	"sync"
 	"time"
 
@@ -12,34 +13,22 @@ import (
 	lock "github.com/square/mongo-lock"
 )
 
-// TTL is the 'time to live' for a lock in number of seconds
-const TTL = 30
+// AcquireRetryLogThreshold is the period of time after which an acquire retry will be logged
+const AcquireRetryLogThreshold = 500 * time.Millisecond
 
-// PurgerPeriod is the time period between expired lock purges
-const PurgerPeriod = 5 * time.Minute
-
-// AcquirePeriod is the time period between acquire lock retries
-var AcquirePeriod = 250 * time.Millisecond
-
-// UnlockPeriod is the time period between Unlock lock retries
-var UnlockPeriod = 5 * time.Millisecond
-
-// AcquireMaxRetries is the maximum number of locking retries by the Acquire lock, discounting the first attempt
-var AcquireMaxRetries = 10
-
-// UnlockMaxRetries is the maximum number of unlocking retries by the Unlock lock, discounting the first attempt
-var UnlockMaxRetries = 100
+// UnlockRetryLogThreshold is the period of time after which an unlock retry will be logged
+const UnlockRetryLogThreshold = 100 * time.Millisecond
 
 // ErrMongoDbClosing is an error returned because MongoDB is being closed
 var ErrMongoDbClosing = errors.New("mongo db is being closed")
 
-// ErrAcquireMaxRetries is an error returned when acquire fails
-// after retrying to lock a resource 'AcquireMaxRetries' times
-var ErrAcquireMaxRetries = errors.New("cannot acquire lock, maximum number of retries has been reached")
+// ErrAcquireTimeout is an error returned when acquire fails
+// after retrying to lock a resource for a period of time greater or equal than 'AcquireRetryTimeout'
+var ErrAcquireTimeout = errors.New("cannot acquire lock, acquire retry timeout has expired")
 
-// ErrUnlockMaxRetries is an error logged when unlock fails
-// after retrying to unlock a resource 'UnlockMaxRetries' times
-var ErrUnlockMaxRetries = errors.New("cannot unlock, maximum number of retries has been reached")
+// ErrUnlockTimeout is an error logged when unlock fails
+// after retrying to unlock a resource for a period of time greater or equal than 'UnlockRetryTimeout'
+var ErrUnlockTimeout = errors.New("cannot unlock, unlock retry timeout has expired")
 
 //go:generate moq -out mock/client.go -pkg mock . Client
 //go:generate moq -out mock/purger.go -pkg mock . Purger
@@ -62,6 +51,8 @@ type Lock struct {
 	Purger        Purger
 	WaitGroup     *sync.WaitGroup
 	Resource      string
+	Cfg           Config
+	Usages        Usages
 }
 
 // GenerateTimeID returns the current timestamp in nanoseconds
@@ -70,8 +61,7 @@ var GenerateTimeID = func() int {
 }
 
 // New creates a new mongoDB lock for the provided session, db, collection and resource
-func New(ctx context.Context, mongoConnection *mongoDriver.MongoConnection, resource string) *Lock {
-
+func New(ctx context.Context, mongoConnection *mongoDriver.MongoConnection, resource string, cfg *ConfigOverride) (*Lock, error) {
 	collection := mongoConnection.GetMongoCollection().Database().Collection(fmt.Sprintf("%s_locks", resource))
 	lockClient := lock.NewClient(collection)
 	lockClient.CreateIndexes(ctx)
@@ -79,18 +69,25 @@ func New(ctx context.Context, mongoConnection *mongoDriver.MongoConnection, reso
 	lck := &Lock{
 		Resource: resource,
 	}
-	lck.Init(ctx, lockClient, lockPurger)
-
-	return lck
+	if err := lck.Init(ctx, lockClient, lockPurger, cfg); err != nil {
+		return nil, err
+	}
+	return lck, nil
 }
 
-// Init initialises a lock with the provided client and purger, and starts the purger loop
-func (l *Lock) Init(ctx context.Context, lockClient Client, lockPurger Purger) {
+// Init initialises a lock with the provided client, purger and config, and starts the purger loop
+func (l *Lock) Init(ctx context.Context, lockClient Client, lockPurger Purger, cfg *ConfigOverride) error {
 	l.Client = lockClient
 	l.Purger = lockPurger
 	l.CloserChannel = make(chan struct{})
 	l.WaitGroup = &sync.WaitGroup{}
+	l.Cfg = GetConfig(cfg)
+	if err := l.Cfg.Validate(); err != nil {
+		return err
+	}
+	l.Usages = NewUsages(&l.Cfg)
 	l.startPurgerLoop(ctx)
+	return nil
 }
 
 // startPurgerLoop creates a go-routine which periodically performs a lock Purge, which removes expired locks
@@ -101,11 +98,12 @@ func (l *Lock) startPurgerLoop(ctx context.Context) {
 		defer l.WaitGroup.Done()
 		for {
 			l.Purger.Purge(ctx)
+			l.Usages.Purge()
 			select {
 			case <-l.CloserChannel:
 				log.Info(ctx, "closing mongo db lock purger go-routine")
 				return
-			case <-time.After(PurgerPeriod):
+			case <-time.After(l.Cfg.PurgerPeriod):
 				log.Info(ctx, "purging expired mongoDB locks")
 			}
 		}
@@ -114,31 +112,78 @@ func (l *Lock) startPurgerLoop(ctx context.Context) {
 
 // Lock acquires an exclusive mongoDB lock with the provided id, with the default TTL value.
 // If the resource is already locked, an error will be returned.
-func (l *Lock) Lock(ctx context.Context, resourceID string) (lockID string, err error) {
+// - resourceID should be the mongo ID of the resource we want to lock (e.g. image, instance, ...)
+// - uniqueCallerName must be a unique string representing a caller, e.g. http request traceID
+func (l *Lock) Lock(ctx context.Context, resourceID, uniqueCallerName string) (lockID string, err error) {
 	lockID = fmt.Sprintf("%s-%s-%d", l.Resource, resourceID, GenerateTimeID())
 	return lockID, l.Client.XLock(ctx,
-		fmt.Sprintf("%s-%s", l.Resource, resourceID),
+		l.GetResourceName(resourceID),
 		lockID,
-		lock.LockDetails{TTL: TTL},
+		lock.LockDetails{
+			Owner: uniqueCallerName,
+			TTL:   l.Cfg.TTL,
+		},
 	)
 }
 
-// Acquire tries to lock the provided id.
+// GetResourceName generates a resource name by using the lock Resource and the provided resourceID
+func (l *Lock) GetResourceName(resourceID string) string {
+	return fmt.Sprintf("%s-%s", l.Resource, resourceID)
+}
+
+// Acquire tries to lock the provided resourceID.
 // If the resource is already locked, this function will block until the existing lock is released,
 // at which point we acquire the lock and return.
-func (l *Lock) Acquire(ctx context.Context, id string) (lockID string, err error) {
+// - resourceID should be the mongo ID of the resource we want to lock (e.g. image, instance, ...)
+// - uniqueCallerName must be a unique string representing a caller, e.g. http request traceID
+func (l *Lock) Acquire(ctx context.Context, resourceID, uniqueCallerName string) (lockID string, err error) {
 	retries := 0
-	for {
-		lockID, err = l.Lock(ctx, id)
-		if err != lock.ErrAlreadyLocked {
-			return lockID, err // Successful or failed due to some generic error, no retry is attempted
+	var t0 time.Time
+
+	// logIfNeeded is an aux func to log if a successful Acquire took more than AcquireRetryLogThreshold time (after some retries)
+	var logIfNeeded = func() {
+		if err == nil && retries > 0 { // t0 is set after the first attempt only
+			timeSinceFirstAttempt := time.Since(t0)               // time since the first attempt failed
+			if timeSinceFirstAttempt > AcquireRetryLogThreshold { // if the time is greater than a threshold, log it
+				log.Warn(ctx, "successfully acquired a lock after retrying for an unusually long period of time", log.Data{
+					"resource_id":          resourceID,
+					"lock_id":              lockID,
+					"acquire_retry_period": timeSinceFirstAttempt,
+					"num_retries":          retries,
+				})
+			}
 		}
-		if retries >= AcquireMaxRetries {
-			return "", ErrAcquireMaxRetries // Failed too many times
+	}
+
+	// if the same caller has acquired a lock lots of times, we may need to wait to give other callers the opportunity to acquire it.
+	// if the lock was not acquired and released recently, this method will do nothing.
+	l.Usages.WaitIfNeeded(l.GetResourceName(resourceID), uniqueCallerName)
+
+	for {
+		// Try to acquire the lock
+		lockID, err = l.Lock(ctx, resourceID, uniqueCallerName)
+		if err != lock.ErrAlreadyLocked {
+			logIfNeeded()
+			if err == nil && retries == 0 {
+				l.Usages.SetCount(l.GetResourceName(resourceID), uniqueCallerName) // obtained it straight away -> keep track of the count (if it's the first time, the Usage will be created)
+			}
+			return lockID, err // Successful or failed due to some generic error (not ErrAlreadyLocked)
+		}
+
+		// get the time if it's the first attempt, otherwise, check if the timeout has expired
+		if retries == 0 {
+			// Save initial time only after the first attempt has failed due to ErrAlreadyLocked
+			// to prevent degrading performance in the vast majority of cases where the first attempt will be successful
+			t0 = time.Now()
+		} else {
+			if time.Since(t0) >= l.Cfg.AcquireRetryTimeout {
+				return "", ErrAcquireTimeout // Acquire timeout has expired, aborting.
+			}
 		}
 		retries++
+
 		select {
-		case <-time.After(AcquirePeriod):
+		case <-time.After(randomDuration(l.Cfg.AcquireMinPeriodMillis, l.Cfg.AcquireMaxPeriodMillis)):
 			continue // Retry
 		case <-l.CloserChannel:
 			log.Info(ctx, "stop acquiring lock. Mongo db is being closed")
@@ -148,24 +193,52 @@ func (l *Lock) Acquire(ctx context.Context, id string) (lockID string, err error
 }
 
 // Unlock releases an exclusive mongoDB lock for the provided id (if it exists)
+// - lockID must be the value that was returned by a successful Acquire or Lock call.
 func (l *Lock) Unlock(ctx context.Context, lockID string) {
 	retries := 0
-	for {
-		_, err := l.Client.Unlock(ctx, lockID)
-		if err == nil {
-			if retries > 0 {
-				// This log is temporary, we might want to delete it in the future
-				log.Info(ctx, "unlocking succeeded after some retries", log.Data{"retries": retries})
+	var t0 time.Time
+	var err error
+
+	// logIfNeeded is an aux func to log if a successful Acquire took more than AcquireRetryLogThreshold time (after some retries)
+	var logIfNeeded = func() {
+		if err == nil && retries > 0 { // t0 is set after the first attempt only
+			timeSinceFirstAttempt := time.Since(t0)              // time since the first attempt failed
+			if timeSinceFirstAttempt > UnlockRetryLogThreshold { // if the time is greater than a threshold, log it
+				log.Warn(ctx, "successfully unlocked after retrying for an unusually long period of time", log.Data{
+					"lock_id":              lockID,
+					"acquire_retry_period": timeSinceFirstAttempt,
+					"num_retries":          retries,
+				})
 			}
+		}
+	}
+
+	for {
+		// Try to unlock the lock
+		status, err := l.Client.Unlock(ctx, lockID)
+
+		if err == nil {
+			if len(status) > 0 {
+				l.Usages.SetReleased(status[0].Resource, status[0].Owner, time.Now()) // If we are keeping track of lock, we need to set the release time
+			}
+			logIfNeeded()
 			return // Successful unlock
 		}
-		if retries >= UnlockMaxRetries {
-			log.Error(ctx, "error unlocking", ErrUnlockMaxRetries)
-			return // Failed too many times
+
+		// get the time if it's the first attempt, otherwise, check if the timeout has expired
+		if retries == 0 {
+			// Save initial time only after the first attempt has failed
+			// to prevent degrading performance in the vast majority of cases where the first attempt will be successful
+			t0 = time.Now()
+		} else {
+			if time.Since(t0) >= l.Cfg.UnlockRetryTimeout {
+				log.Error(ctx, "error unlocking", ErrUnlockTimeout)
+				return // Unlock timeout has expired, aborting.
+			}
 		}
 		retries++
 		select {
-		case <-time.After(UnlockPeriod):
+		case <-time.After(randomDuration(l.Cfg.UnlockMinPeriodMillis, l.Cfg.UnlockMaxPeriodMillis)):
 			continue // Retry
 		case <-l.CloserChannel:
 			log.Info(ctx, "stop unlocking lock. Mongo db is being closed", log.INFO)
@@ -178,4 +251,11 @@ func (l *Lock) Unlock(ctx context.Context, lockID string) {
 func (l *Lock) Close(ctx context.Context) {
 	close(l.CloserChannel)
 	l.WaitGroup.Wait()
+}
+
+// randomDuration will return a random time.Duration between minMillis [ms] and maxMillis [ms]
+func randomDuration(minMillis, maxMillis uint) time.Duration {
+	rand.Seed(time.Now().Unix())
+	periodMillis := rand.Intn(int(maxMillis-minMillis)) + int(minMillis)
+	return time.Duration(periodMillis) * time.Millisecond
 }
