@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/ONSdigital/dp-healthcheck/healthcheck"
-	"github.com/ONSdigital/dp-mongodb/health"
+	"github.com/ONSdigital/dp-mongodb/v2/health"
 	. "github.com/smartystreets/goconvey/convey"
 )
 
