@@ -1,14 +1,12 @@
 package mongodb_test
 
 import (
-	"context"
 	"net"
 	"strings"
 	"testing"
 	"time"
 
 	mongoDriver "github.com/ONSdigital/dp-mongodb/v2/mongodb"
-	"github.com/ONSdigital/log.go/v2/log"
 	. "github.com/smartystreets/goconvey/convey"
 )
 
@@ -25,7 +23,7 @@ func TestConnectionToMongoDB(t *testing.T) {
 	}
 
 	if err := checkTcpConnection(connectionConfig.ClusterEndpoint); err != nil {
-		log.Error(context.Background(), "mongodb instance not available, skip tests", err)
+		t.Logf("mongodb instance not available, skip tests: %v", err)
 		t.Skip()
 	}
 	Convey("When connection to mongodb is attempted", t, func() {
@@ -55,7 +53,7 @@ func TestConnectionToDocumentDB(t *testing.T) {
 		IsWriteConcernMajorityEnabled: true,
 	}
 	if err := checkTcpConnection(connectionConfig.ClusterEndpoint); err != nil {
-		log.Error(context.Background(), "documentdb instance not available, skip tests", err)
+		t.Logf("documentdb instance not available, skip tests: %v", err)
 		t.Skip()
 	}
 	Convey("When connection to documentdb is attempted", t, func() {
