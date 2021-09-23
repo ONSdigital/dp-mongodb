@@ -260,13 +260,13 @@ func setUpTestData(mongoConnection *mongoDriver.MongoConnection) error {
 
 func getTestData() []bson.M {
 	return []bson.M{
-		bson.M{
+		{
 			"state": "first",
 		},
-		bson.M{
+		{
 			"state": "second",
 		},
-		bson.M{
+		{
 			"state": "third",
 		},
 	}
