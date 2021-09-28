@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	mongoDriver "github.com/ONSdigital/dp-mongodb/v2/mongodb"
+	mongoDriver "github.com/ONSdigital/dp-mongodb/v3/mongodb"
 
 	"github.com/ONSdigital/dp-healthcheck/healthcheck"
 	"github.com/ONSdigital/log.go/v2/log"
