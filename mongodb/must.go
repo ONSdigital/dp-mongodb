@@ -12,9 +12,9 @@ func newMust(collection *Collection) *Must {
 	return &Must{collection}
 }
 
-// UpdateId modifies records located by a provided Id selector, must modifiy one record
-func (m *Must) UpdateId(ctx context.Context, id interface{}, update interface{}) (*CollectionUpdateResult, error) {
-	result, err := m.collection.UpdateId(ctx, id, update)
+// UpdateById modifies records located by a provided Id selector, must modifiy one record
+func (m *Must) UpdateById(ctx context.Context, id interface{}, update interface{}) (*CollectionUpdateResult, error) {
+	result, err := m.collection.UpdateById(ctx, id, update)
 	if err != nil {
 		return nil, err
 	}
@@ -39,29 +39,43 @@ func (m *Must) Update(ctx context.Context, selector interface{}, update interfac
 	return result, nil
 }
 
-// Remove deletes records based on the provided selector, must delete at least one record
-func (m *Must) Remove(ctx context.Context, selector interface{}) (*CollectionDeleteResult, error) {
-	result, err := m.collection.Remove(ctx, selector)
+// Delete deletes a record based on the provided selector, must delete at least one record
+func (m *Must) Delete(ctx context.Context, selector interface{}) (*CollectionDeleteResult, error) {
+	result, err := m.collection.Delete(ctx, selector)
 	if err != nil {
 		return nil, err
 	}
 
 	if result.DeletedCount < 1 {
-		return nil, NewErrNoDocumentFoundError("Must remove, no document deleted", nil)
+		return nil, NewErrNoDocumentFoundError("Must delete, no document deleted", nil)
 	}
 
 	return result, nil
 }
 
-// RemoveId deletes record based on the id selector must delete at least one record
-func (m *Must) RemoveId(ctx context.Context, id interface{}) (*CollectionDeleteResult, error) {
-	result, err := m.collection.RemoveId(ctx, id)
+// DeleteMany deletes records based on the provided selector, must delete at least one record
+func (m *Must) DeleteMany(ctx context.Context, selector interface{}) (*CollectionDeleteResult, error) {
+	result, err := m.collection.DeleteMany(ctx, selector)
 	if err != nil {
 		return nil, err
 	}
 
 	if result.DeletedCount < 1 {
-		return nil, NewErrNoDocumentFoundError("Must remove by id, no document deleted", nil)
+		return nil, NewErrNoDocumentFoundError("Must delete, no document deleted", nil)
+	}
+
+	return result, nil
+}
+
+// DeleteById deletes record based on the id selector must delete at least one record
+func (m *Must) DeleteById(ctx context.Context, id interface{}) (*CollectionDeleteResult, error) {
+	result, err := m.collection.DeleteById(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	if result.DeletedCount < 1 {
+		return nil, NewErrNoDocumentFoundError("Must delete by id, no document deleted", nil)
 	}
 
 	return result, nil

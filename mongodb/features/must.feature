@@ -15,7 +15,7 @@ Feature: Must operation records
                 },
                 {
                     "id": 3,
-                    "name": "TestName3",
+                    "name": "Test 3",
                     "age": "TestAge3"
                 }
             ]
@@ -64,18 +64,26 @@ Feature: Must operation records
         Then I should receive a ErrNoDocumentFound error
 
     Scenario:
-        When I Must removeById a record with id 2
+        When I Must deleteById a record with id 2
         Then there are 1 deleted records
 
     Scenario:
-        When I Must removeById a record with id 20
+        When I Must deleteById a record with id 20
         Then I should receive a ErrNoDocumentFound error
 
     Scenario:
-        When I Must remove a record with id 2
+        When I Must delete a record with id 2
         Then there are 1 deleted records
 
     Scenario:
-        When I Must remove a record with id 20
+        When I Must delete a record with id 20
+        Then I should receive a ErrNoDocumentFound error
+
+    Scenario:
+        When I Must delete records with name like TestName
+        Then there are 2 deleted records
+
+    Scenario:
+        When I Must delete records with name like Other
         Then I should receive a ErrNoDocumentFound error
 

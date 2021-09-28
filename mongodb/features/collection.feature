@@ -15,7 +15,7 @@ Feature: Collection records
                 },
                 {
                     "id": 3,
-                    "name": "TestName3",
+                    "name": "Test3",
                     "age": "TestAge3"
                 }
             ]
@@ -45,7 +45,7 @@ Feature: Collection records
                 },
                 {
                     "id": 3,
-                    "name": "TestName3",
+                    "name": "Test3",
                     "age": "TestAge3"
                 }
             ]
@@ -75,7 +75,7 @@ Feature: Collection records
                 },
                 {
                     "id": 3,
-                    "name": "TestName3",
+                    "name": "Test3",
                     "age": "TestAge3"
                 },
                 {
@@ -110,7 +110,7 @@ Feature: Collection records
                 },
                 {
                     "id": 3,
-                    "name": "TestName3",
+                    "name": "Test3",
                     "age": "TestAge3"
                 }
             ]
@@ -140,7 +140,7 @@ Feature: Collection records
                 },
                 {
                     "id": 3,
-                    "name": "TestName3",
+                    "name": "Test3",
                     "age": "TestAge3"
                 },
                 {
@@ -205,7 +205,7 @@ Feature: Collection records
                     },
                     {
                         "id": 3,
-                        "name": "TestName3",
+                        "name": "Test3",
                         "age": "TestAge3"
                     }
                 ]
@@ -265,13 +265,13 @@ Feature: Collection records
                     },
                     {
                         "id": 3,
-                        "name": "TestName3",
+                        "name": "Test3",
                         "age": "TestAge3"
                     }
                 ]
                 """
      Scenario:
-        Given I removeById a record with id 2
+        Given I deleteById a record with id 2
             When I start a find operation
             Then there are 1 deleted records
             And I should receive these records
@@ -284,13 +284,13 @@ Feature: Collection records
                 },
                 {
                     "id": 3,
-                    "name": "TestName3",
+                    "name": "Test3",
                     "age": "TestAge3"
                 }
             ]
             """
     Scenario:
-        Given I removeById a record with id 4
+        Given I deleteById a record with id 4
             When I start a find operation
             Then there are 0 deleted records
             And I should receive these records
@@ -308,13 +308,13 @@ Feature: Collection records
                 },
                 {
                     "id": 3,
-                    "name": "TestName3",
+                    "name": "Test3",
                     "age": "TestAge3"
                 }
             ]
             """
     Scenario:
-        Given I remove a record with id 1
+        Given I delete a record with id 1
             When I start a find operation
             Then there are 1 deleted records
             And I should receive these records
@@ -327,13 +327,13 @@ Feature: Collection records
                 },
                 {
                     "id": 3,
-                    "name": "TestName3",
+                    "name": "Test3",
                     "age": "TestAge3"
                 }
             ]
             """
     Scenario:
-        Given I remove a record with id 4
+        Given I delete a record with id 4
             When I start a find operation
             Then there are 0 deleted records
             And I should receive these records
@@ -351,7 +351,21 @@ Feature: Collection records
                 },
                 {
                     "id": 3,
-                    "name": "TestName3",
+                    "name": "Test3",
+                    "age": "TestAge3"
+                }
+            ]
+            """
+    Scenario:
+        Given I delete a record with name like TestName
+            When I start a find operation
+            Then there are 2 deleted records
+            And I should receive these records
+            """
+            [
+                {
+                    "id": 3,
+                    "name": "Test3",
                     "age": "TestAge3"
                 }
             ]
@@ -392,7 +406,7 @@ Feature: Collection records
                 },
                 {
                     "id": 3,
-                    "name": "TestName3",
+                    "name": "Test3",
                     "age": "TestAge3"
                 },
                 {

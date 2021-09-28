@@ -8,16 +8,17 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+// Collection is a handle to a MongoDB collection
 type Collection struct {
 	collection *mongo.Collection
 }
 
-// CollectionInsertResult is the result type returned from Insert
-type CollectionInsertResult struct {
+// CollectionInsertManyResult is the result type returned from InsertMany operations.
+type CollectionInsertManyResult struct {
 	InsertedIds []interface{} // inserted Ids
 }
 
-// CollectionUpdateResult is the result type returned from UpdateOne, UpdateMany, and ReplaceOne operations.
+// CollectionUpdateResult is the result type returned from Update, UpdateById, Upsert and UpsertById operations.
 type CollectionUpdateResult struct {
 	MatchedCount  int         // The number of documents matched by the filter.
 	ModifiedCount int         // The number of documents modified by the operation.
@@ -25,19 +26,22 @@ type CollectionUpdateResult struct {
 	UpsertedID    interface{} // The _id field of the upserted document, or nil if no upsert was done.
 }
 
+// CollectionDeleteResult is the result type returned from Delete, DeleteById and DeleteMany operations.
 type CollectionDeleteResult struct {
 	DeletedCount int // The number of records deleted
 }
 
-// CollectionInsertOneResult is the result type return from InsertOne
-type CollectionInsertOneResult struct {
+// CollectionInsertResult is the result type return from Insert
+type CollectionInsertResult struct {
 	InsertedId interface{} // Id of the document inserted
 }
 
+// NewCollection creates a new collection
 func NewCollection(collection *mongo.Collection) *Collection {
 	return &Collection{collection}
 }
 
+// Must creates a new Must for the collection
 func (c *Collection) Must() *Must {
 	return newMust(c)
 }
@@ -47,38 +51,47 @@ func (c *Collection) Find(query interface{}) *Find {
 	return newFind(c.collection, query)
 }
 
+// Insert creates a single record
+func (c *Collection) Insert(ctx context.Context, document interface{}) (*CollectionInsertResult, error) {
+	result, err := c.collection.InsertOne(ctx, document)
+	if err != nil {
+		return nil, wrapMongoError(err)
+	}
+
+	return &CollectionInsertResult{result.InsertedID}, nil
+}
+
 // Insert adds a number of documents
-func (c *Collection) Insert(ctx context.Context, documents []interface{}) (*CollectionInsertResult, error) {
+func (c *Collection) InsertMany(ctx context.Context, documents []interface{}) (*CollectionInsertManyResult, error) {
 	result, err := c.collection.InsertMany(ctx, documents)
 	if err != nil {
 		return nil, wrapMongoError(err)
 	}
 
-	insertResult := &CollectionInsertResult{}
-
+	insertResult := &CollectionInsertManyResult{}
 	insertResult.InsertedIds = result.InsertedIDs
 
 	return insertResult, nil
 }
 
-// Upsert creates or updates records located by a provided selector
+// Upsert creates or updates a record located by a provided selector
 func (c *Collection) Upsert(ctx context.Context, selector interface{}, update interface{}) (*CollectionUpdateResult, error) {
 	return c.updateRecord(ctx, selector, update, true)
 }
 
-// UpsertId creates or updates records located by a provided Id selector
-func (c *Collection) UpsertId(ctx context.Context, id interface{}, update interface{}) (*CollectionUpdateResult, error) {
+// UpsertById creates or updates a record located by a provided Id selector
+func (c *Collection) UpsertById(ctx context.Context, id interface{}, update interface{}) (*CollectionUpdateResult, error) {
 	selector := bson.D{{Key: "_id", Value: id}}
 	return c.updateRecord(ctx, selector, update, true)
 }
 
-// UpdateId modifies records located by a provided Id selector
-func (c *Collection) UpdateId(ctx context.Context, id interface{}, update interface{}) (*CollectionUpdateResult, error) {
+// UpdateById modifies a record located by a provided Id selector
+func (c *Collection) UpdateById(ctx context.Context, id interface{}, update interface{}) (*CollectionUpdateResult, error) {
 	selector := bson.D{{Key: "_id", Value: id}}
 	return c.updateRecord(ctx, selector, update, false)
 }
 
-// Update modifies records located by a provided selector
+// Update modifies a record located by a provided selector
 func (c *Collection) Update(ctx context.Context, selector interface{}, update interface{}) (*CollectionUpdateResult, error) {
 	return c.updateRecord(ctx, selector, update, false)
 }
@@ -103,24 +116,24 @@ func (c *Collection) updateRecord(ctx context.Context, selector interface{}, upd
 	return nil, wrapMongoError(err)
 }
 
-// InsertOne creates a single record
-func (c *Collection) InsertOne(ctx context.Context, document interface{}) (*CollectionInsertOneResult, error) {
-	result, err := c.collection.InsertOne(ctx, document)
-	if err != nil {
-		return nil, wrapMongoError(err)
-	}
-
-	return &CollectionInsertOneResult{result.InsertedID}, nil
-}
-
 // FindOne locates a single document
 func (c *Collection) FindOne(ctx context.Context, filter interface{}, result interface{}) error {
 	err := c.collection.FindOne(ctx, filter).Decode(result)
 	return wrapMongoError(err)
 }
 
-// Remove deletes records based on the provided selector
-func (c *Collection) Remove(ctx context.Context, selector interface{}) (*CollectionDeleteResult, error) {
+// Delete deletes a record based on the provided selector
+func (c *Collection) Delete(ctx context.Context, selector interface{}) (*CollectionDeleteResult, error) {
+	result, err := c.collection.DeleteOne(ctx, selector)
+	if err != nil {
+		return nil, wrapMongoError(err)
+	}
+
+	return &CollectionDeleteResult{int(result.DeletedCount)}, nil
+}
+
+// DeleteMany deletes records based on the provided selector
+func (c *Collection) DeleteMany(ctx context.Context, selector interface{}) (*CollectionDeleteResult, error) {
 	result, err := c.collection.DeleteMany(ctx, selector)
 	if err != nil {
 		return nil, wrapMongoError(err)
@@ -129,13 +142,13 @@ func (c *Collection) Remove(ctx context.Context, selector interface{}) (*Collect
 	return &CollectionDeleteResult{int(result.DeletedCount)}, nil
 }
 
-// RemoveId deletes record based on the id selector
-func (c *Collection) RemoveId(ctx context.Context, id interface{}) (*CollectionDeleteResult, error) {
+// DeleteById deletes a record based on the id selector
+func (c *Collection) DeleteById(ctx context.Context, id interface{}) (*CollectionDeleteResult, error) {
 	selector := bson.M{"_id": id}
-	return c.Remove(ctx, selector)
+	return c.Delete(ctx, selector)
 }
 
-// Aggreate start a pipeline operation
+// Aggreate starts a pipeline operation
 func (c *Collection) Aggregate(pipeline interface{}) *Cursor {
 	return newCursor(newAggregateCursor(c.collection, pipeline, options.Aggregate()))
 }
