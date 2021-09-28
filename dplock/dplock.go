@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	mongoDriver "github.com/ONSdigital/dp-mongodb/v2/mongodb"
+	mongoDriver "github.com/ONSdigital/dp-mongodb/v3/mongodb"
 	"github.com/ONSdigital/log.go/v2/log"
 	lock "github.com/square/mongo-lock"
 )

@@ -1,4 +1,4 @@
-module github.com/ONSdigital/dp-mongodb/v2
+module github.com/ONSdigital/dp-mongodb/v3
 
 go 1.17
 
