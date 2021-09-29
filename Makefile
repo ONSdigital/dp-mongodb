@@ -3,7 +3,7 @@ test:
 .PHONY: test
 
 test-component:
-	go test -race -cover -v ./mongodb/... -component
+	go test -race -cover -v . -component
 .PHONY: test-component
 
 audit:
