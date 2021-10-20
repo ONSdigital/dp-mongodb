@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/ONSdigital/dp-healthcheck/healthcheck"
+	"github.com/ONSdigital/dp-healthcheck/v2/healthcheck"
 	"github.com/ONSdigital/dp-mongodb/v3/health"
 	. "github.com/smartystreets/goconvey/convey"
 )

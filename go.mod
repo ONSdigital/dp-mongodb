@@ -4,8 +4,8 @@ go 1.17
 
 require (
 	github.com/ONSdigital/dp-component-test v0.6.0
-	github.com/ONSdigital/dp-healthcheck v1.0.5
-	github.com/ONSdigital/log.go/v2 v2.0.6
+	github.com/ONSdigital/dp-healthcheck/v2 v2.0.0-beta
+	github.com/ONSdigital/log.go/v2 v2.0.9
 	github.com/cucumber/godog v0.10.0
 	github.com/smartystreets/goconvey v1.6.4
 	github.com/square/mongo-lock v0.0.0-20201208161834-4db518ed7fb2
@@ -14,14 +14,11 @@ require (
 )
 
 require (
-	github.com/ONSdigital/dp-api-clients-go v1.34.3 // indirect
 	github.com/ONSdigital/dp-mongodb-in-memory v1.0.0 // indirect
-	github.com/ONSdigital/dp-net v1.0.12 // indirect
-	github.com/ONSdigital/log.go v1.0.1 // indirect
 	github.com/cucumber/gherkin-go/v11 v11.0.0 // indirect
 	github.com/cucumber/messages-go/v10 v10.0.3 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/fatih/color v1.10.0 // indirect
+	github.com/fatih/color v1.12.0 // indirect
 	github.com/go-stack/stack v1.8.0 // indirect
 	github.com/gofrs/uuid v3.2.0+incompatible // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
@@ -44,9 +41,9 @@ require (
 	github.com/xdg-go/scram v1.0.2 // indirect
 	github.com/xdg-go/stringprep v1.0.2 // indirect
 	github.com/youmark/pkcs8 v0.0.0-20181117223130-1be2e3e5546d // indirect
-	golang.org/x/crypto v0.0.0-20201002170205-7f63de1d35b0 // indirect
+	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519 // indirect
 	golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9 // indirect
-	golang.org/x/sys v0.0.0-20210414055047-fe65e336abe0 // indirect
+	golang.org/x/sys v0.0.0-20210615035016-665e8c7367d1 // indirect
 	golang.org/x/text v0.3.5 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c // indirect
 )
