@@ -35,10 +35,10 @@ const (
 // name of the server as attested by the server's x509 certificate. So in the above example of a connection via ssh
 // this would be the value of `remotehost`
 type TLSConnectionConfig struct {
-	IsSSL              bool
-	VerifyCert         bool
-	CACertChain        string
-	RealHostnameForSSH string
+	IsSSL              bool   `envconfig:"MONGODB_IS_SSL"`
+	VerifyCert         bool   `envconfig:"MONGODB_VERIFY_CERT"`
+	CACertChain        string `envconfig:"MONGODB_CERT_CHAIN"`
+	RealHostnameForSSH string `envconfig:"MONGODB_REAL_HOSTNAME"`
 }
 
 var (
@@ -79,17 +79,17 @@ func (m TLSConnectionConfig) GetTLSConfig() (*tls.Config, error) {
 }
 
 type MongoConnectionConfig struct {
-	Username                      string
-	Password                      string
-	ClusterEndpoint               string
-	Database                      string
-	Collection                    string
-	ReplicaSet                    string
-	IsStrongReadConcernEnabled    bool
-	IsWriteConcernMajorityEnabled bool
+	Username                      string `envconfig:"MONGODB_USERNAME"    json:"-"`
+	Password                      string `envconfig:"MONGODB_PASSWORD"    json:"-"`
+	ClusterEndpoint               string `envconfig:"MONGODB_BIND_ADDR"   json:"-"`
+	Database                      string `envconfig:"MONGODB_DATABASE"`
+	Collection                    string `envconfig:"MONGODB_COLLECTION"`
+	ReplicaSet                    string `envconfig:"MONGODB_REPLICA_SET"`
+	IsStrongReadConcernEnabled    bool   `envconfig:"MONGODB_ENABLE_READ_CONCERN"`
+	IsWriteConcernMajorityEnabled bool   `envconfig:"MONGODB_ENABLE_WRITE_CONCERN"`
 
-	ConnectTimeoutInSeconds time.Duration
-	QueryTimeoutInSeconds   time.Duration
+	ConnectTimeoutInSeconds time.Duration `envconfig:"MONGODB_CONNECT_TIMEOUT"`
+	QueryTimeoutInSeconds   time.Duration `envconfig:"MONGODB_QUERY_TIMEOUT"`
 
 	TLSConnectionConfig
 }
