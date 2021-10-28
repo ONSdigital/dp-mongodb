@@ -42,7 +42,10 @@ func (m *MongoDBComponentTest) InitializeScenario(ctx *godog.ScenarioContext) {
 	m.MongoV2Component.RegisterSteps(ctx)
 }
 
-func TestMain(t *testing.T) {
+func TestMain(m *testing.M) {
+	var status int
+
+	flag.Parse()
 	if *componentFlag {
 		var opts = godog.Options{
 			Output: colors.Colored(os.Stdout),
@@ -52,18 +55,13 @@ func TestMain(t *testing.T) {
 
 		mongoDBTest := &MongoDBComponentTest{}
 
-		status := godog.TestSuite{
+		status = godog.TestSuite{
 			Name:                 "component_tests",
 			TestSuiteInitializer: mongoDBTest.InitializeTestSuite,
 			ScenarioInitializer:  mongoDBTest.InitializeScenario,
 			Options:              &opts,
 		}.Run()
-
-		if status > 0 {
-			t.Fail()
-		}
-
-	} else {
-		t.Skip()
 	}
+
+	os.Exit(status)
 }
