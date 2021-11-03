@@ -42,7 +42,7 @@ func (m *MongoDBComponentTest) InitializeScenario(ctx *godog.ScenarioContext) {
 	m.MongoV2Component.RegisterSteps(ctx)
 }
 
-func TestMain(t *testing.T) {
+func TestComponent(t *testing.T) {
 	if *componentFlag {
 		var opts = godog.Options{
 			Output: colors.Colored(os.Stdout),
@@ -60,10 +60,10 @@ func TestMain(t *testing.T) {
 		}.Run()
 
 		if status > 0 {
-			t.Fail()
+			t.Errorf("component testing from godog test suite failed with status %d", status)
 		}
 
 	} else {
-		t.Skip()
+		t.Skip("skipping component testing")
 	}
 }

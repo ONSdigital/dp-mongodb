@@ -2,20 +2,19 @@ package mongodb
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
+	"errors"
 	"fmt"
+	"os"
 	"strconv"
-	"strings"
-
-	"go.mongodb.org/mongo-driver/mongo/readconcern"
-	"go.mongodb.org/mongo-driver/mongo/readpref"
-	"go.mongodb.org/mongo-driver/mongo/writeconcern"
+	"time"
 
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
-
-	"crypto/tls"
-	"errors"
-	"time"
+	"go.mongodb.org/mongo-driver/mongo/readconcern"
+	"go.mongodb.org/mongo-driver/mongo/readpref"
+	"go.mongodb.org/mongo-driver/mongo/writeconcern"
 
 	"github.com/ONSdigital/log.go/v2/log"
 )
@@ -26,11 +25,60 @@ const (
 	int64Size                            = 64
 )
 
-type MongoConnectionConfig struct {
-	IsSSL                   bool
-	ConnectTimeoutInSeconds time.Duration
-	QueryTimeoutInSeconds   time.Duration
+// TLSConnectionConfig supplies the options for setting up a TLS based connection to the Mongo DB server
+// If the Mongo server certificate is to be validated (a major security breach not doing so), the VerifyCert
+// should be true, and the chain of CA certificates for the validation must be supplied -  in a file specified
+// by the absolute path given in the CACertChain attribute.
+// If the connection to the server is being made with an IP address, or via an SSH proxy
+// (such as with `dp ssh develop publishing 1 -p local-port:remote-host:remote-port`)
+// the real hostname should be supplied in the RealHostnameForSSH attribute. The real hostname is the
+// name of the server as attested by the server's x509 certificate. So in the above example of a connection via ssh
+// this would be the value of `remotehost`
+type TLSConnectionConfig struct {
+	IsSSL              bool
+	VerifyCert         bool
+	CACertChain        string
+	RealHostnameForSSH string
+}
 
+var (
+	NoCACertChain      = errors.New("no CA certificate chain supplied, or chain cannot be read")
+	InvalidCACertChain = errors.New("cannot parse CA certificate chain - invalid or corrupt")
+)
+
+func (m TLSConnectionConfig) GetTLSConfig() (*tls.Config, error) {
+	if !m.IsSSL {
+		return nil, nil
+	}
+
+	if !m.VerifyCert {
+		return &tls.Config{InsecureSkipVerify: true}, nil
+	}
+
+	if m.CACertChain == "" {
+		return nil, NoCACertChain
+	}
+
+	certChain, e := os.ReadFile(m.CACertChain)
+	if e != nil {
+		return nil, NoCACertChain
+	}
+
+	tlsConfig := &tls.Config{}
+	tlsConfig.RootCAs = x509.NewCertPool()
+	ok := tlsConfig.RootCAs.AppendCertsFromPEM(certChain)
+	if !ok {
+		return nil, InvalidCACertChain
+	}
+
+	if m.RealHostnameForSSH != "" {
+		tlsConfig.ServerName = m.RealHostnameForSSH
+	}
+
+	return tlsConfig, nil
+}
+
+type MongoConnectionConfig struct {
 	Username                      string
 	Password                      string
 	ClusterEndpoint               string
@@ -39,21 +87,20 @@ type MongoConnectionConfig struct {
 	ReplicaSet                    string
 	IsStrongReadConcernEnabled    bool
 	IsWriteConcernMajorityEnabled bool
+
+	ConnectTimeoutInSeconds time.Duration
+	QueryTimeoutInSeconds   time.Duration
+
+	TLSConnectionConfig
 }
 
-func (m *MongoConnectionConfig) GetConnectionURI(isSSL bool) string {
+func (m *MongoConnectionConfig) GetConnectionURI() string {
 	var connectionString string
 
 	if len(m.Password) > 0 && len(m.Username) > 0 {
 		connectionString = fmt.Sprintf(connectionStringTemplate, m.Username, m.Password, m.ClusterEndpoint, m.Database)
 	} else {
 		connectionString = fmt.Sprintf(connectionStringTemplateWithoutCreds, m.ClusterEndpoint, m.Database)
-	}
-
-	if isSSL {
-		connectionString = strings.Join([]string{connectionString, "ssl=true"}, "?")
-		connectionString = strings.Join([]string{connectionString, "connect=direct"}, "&")
-		connectionString = strings.Join([]string{connectionString, "sslInsecure=true"}, "&")
 	}
 
 	return connectionString
@@ -64,26 +111,23 @@ func Open(m *MongoConnectionConfig) (*MongoConnection, error) {
 		return nil, errors.New("cannot use dp-mongodb library when default int size is less than 64 bits")
 	}
 
-	var tlsConfig *tls.Config
-	var err error
-	if m.IsSSL {
-		tlsConfig, err = getCustomTLSConfig(true)
-		if err != nil {
-			errMessage := fmt.Sprintf("Failed getting TLS configuration: %v", err)
-			log.Error(context.Background(), errMessage, err)
-			return nil, errors.New(errMessage)
-		}
+	tlsConfig, err := m.GetTLSConfig()
+	if err != nil {
+		errMessage := fmt.Sprintf("Failed getting TLS configuration: %v", err)
+		log.Error(context.Background(), errMessage, err)
+		return nil, err
 	}
 
-	uri := m.GetConnectionURI(m.IsSSL)
 	mongoClientOptions := options.Client().
-		ApplyURI(uri).
+		ApplyURI(m.GetConnectionURI()).
 		SetTLSConfig(tlsConfig).
 		SetReadPreference(readpref.SecondaryPreferred()).
 		SetRetryWrites(false)
 
-	if len(m.ReplicaSet) > 0 {
+	if m.ReplicaSet != "" {
 		mongoClientOptions = mongoClientOptions.SetReplicaSet(m.ReplicaSet)
+	} else {
+		mongoClientOptions = mongoClientOptions.SetDirect(true)
 	}
 
 	if m.IsStrongReadConcernEnabled {
@@ -125,13 +169,4 @@ func Open(m *MongoConnectionConfig) (*MongoConnection, error) {
 	}
 
 	return NewMongoConnection(client, m.Database, m.Collection), nil
-}
-
-func getCustomTLSConfig(skipCertVerification bool) (*tls.Config, error) {
-	tlsConfig := new(tls.Config)
-	if skipCertVerification {
-		tlsConfig.InsecureSkipVerify = true
-	}
-
-	return tlsConfig, nil
 }
