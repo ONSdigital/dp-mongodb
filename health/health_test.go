@@ -1,4 +1,4 @@
-package health_test
+package health
 
 import (
 	"context"
@@ -6,13 +6,11 @@ import (
 	"testing"
 
 	"github.com/ONSdigital/dp-healthcheck/healthcheck"
-	"github.com/ONSdigital/dp-mongodb/v3/health"
 	. "github.com/smartystreets/goconvey/convey"
 )
 
 var (
-	errUnableToConnect       = errors.New("failed to connect")
-	errCollectionsDoNotExist = errors.New("can't find collection")
+	errUnableToConnect = errors.New("failed to connect")
 )
 
 func TestClient_GetOutput(t *testing.T) {
@@ -20,14 +18,12 @@ func TestClient_GetOutput(t *testing.T) {
 	ctx := context.Background()
 
 	Convey("Given a CheckMongoClient without collections", t, func() {
-		c := &health.CheckMongoClient{
-			Client: *health.NewClient(nil),
-		}
+		c := NewClient(nil)
 		// CheckState for test validation
 		checkState := healthcheck.NewCheckState("test-mongodb")
 
 		Convey("When that health endpoint returns 'Success'", func() {
-			c.Healthcheck = healthSuccess
+			c.healthcheck = healthSuccess
 			Convey("Then Checker updates the CheckState to an OK status", func() {
 				c.Checker(ctx, checkState)
 				So(checkState.Status(), ShouldEqual, healthcheck.StatusOK)
@@ -37,7 +33,7 @@ func TestClient_GetOutput(t *testing.T) {
 		})
 
 		Convey("When that health endpoint returns 'Failure'", func() {
-			c.Healthcheck = healthFailure
+			c.healthcheck = healthFailure
 			Convey("Then Checker updates the CheckState to a CRITICAL status", func() {
 				c.Checker(ctx, checkState)
 				So(checkState.Status(), ShouldEqual, healthcheck.StatusCritical)
@@ -48,18 +44,17 @@ func TestClient_GetOutput(t *testing.T) {
 	})
 
 	Convey("Given a CheckMongoClient with collections", t, func() {
-		collections := map[health.Database][]health.Collection{"db": {"col1", "col2"}}
-		c := &health.CheckMongoClient{
-			Client: *health.NewClientWithCollections(nil, collections),
-		}
+		collections := map[Database][]Collection{"db": {"col1", "col2"}}
+		c := NewClientWithCollections(nil, collections)
+
 		// CheckState for test validation
 		checkState := healthcheck.NewCheckState("test-mongodb")
 
 		Convey("When that health endpoint is successful", func() {
-			c.Healthcheck = healthSuccess
+			c.healthcheck = healthSuccess
 
 			Convey("And the collections exist", func() {
-				c.CheckCollections = func(context.Context) error {
+				c.checkCollections = func(context.Context) error {
 					return nil
 				}
 				Convey("Then Checker updates the CheckState to an OK status", func() {
@@ -71,7 +66,8 @@ func TestClient_GetOutput(t *testing.T) {
 			})
 
 			Convey("And the collections do not exist", func() {
-				c.CheckCollections = func(context.Context) error {
+				errCollectionsDoNotExist := errors.New("can't find collection")
+				c.checkCollections = func(context.Context) error {
 					return errCollectionsDoNotExist
 				}
 				Convey("Then Checker updates the CheckState to a CRITICAL status", func() {
@@ -84,7 +80,7 @@ func TestClient_GetOutput(t *testing.T) {
 		})
 
 		Convey("When that health endpoint returns an error", func() {
-			c.Healthcheck = healthFailure
+			c.healthcheck = healthFailure
 			Convey("Then Checker updates the CheckState to a CRITICAL status", func() {
 				c.Checker(ctx, checkState)
 				So(checkState.Status(), ShouldEqual, healthcheck.StatusCritical)
