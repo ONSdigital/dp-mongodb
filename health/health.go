@@ -113,7 +113,7 @@ func (c *CheckMongoClient) Checker(ctx context.Context, state *healthcheck.Check
 	}
 	msg := healthyMessage
 
-	if c.databaseCollection != nil {
+	if c.databaseCollection != nil && len(c.databaseCollection) > 0 {
 		err = c.checkCollections(ctx)
 		if err != nil {
 			log.Error(ctx, "Error checking collections in mongo", err)
