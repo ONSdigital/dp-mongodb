@@ -24,7 +24,7 @@ func TestClient_GetOutput(t *testing.T) {
 			Client: *health.NewClient(nil),
 		}
 		// CheckState for test validation
-		checkState := healthcheck.NewCheckState(health.ServiceName)
+		checkState := healthcheck.NewCheckState("test-mongodb")
 
 		Convey("When that health endpoint returns 'Success'", func() {
 			c.Healthcheck = healthSuccess
@@ -53,9 +53,9 @@ func TestClient_GetOutput(t *testing.T) {
 			Client: *health.NewClientWithCollections(nil, collections),
 		}
 		// CheckState for test validation
-		checkState := healthcheck.NewCheckState(health.ServiceName)
+		checkState := healthcheck.NewCheckState("test-mongodb")
 
-		Convey("When that health endpoint returns 'Success'", func() {
+		Convey("When that health endpoint is successful", func() {
 			c.Healthcheck = healthSuccess
 
 			Convey("And the collections exist", func() {
@@ -83,7 +83,7 @@ func TestClient_GetOutput(t *testing.T) {
 			})
 		})
 
-		Convey("When that health endpoint returns 'Failure'", func() {
+		Convey("When that health endpoint returns an error", func() {
 			c.Healthcheck = healthFailure
 			Convey("Then Checker updates the CheckState to a CRITICAL status", func() {
 				c.Checker(ctx, checkState)
@@ -96,11 +96,11 @@ func TestClient_GetOutput(t *testing.T) {
 }
 
 var (
-	healthSuccess = func(context.Context) (string, error) {
-		return "Success", nil
+	healthSuccess = func(context.Context) error {
+		return nil
 	}
 
-	healthFailure = func(context.Context) (string, error) {
-		return "Failure", errUnableToConnect
+	healthFailure = func(context.Context) error {
+		return errUnableToConnect
 	}
 )

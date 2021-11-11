@@ -10,9 +10,6 @@ import (
 	"github.com/ONSdigital/log.go/v2/log"
 )
 
-// ServiceName mongodb
-const ServiceName = "mongodb"
-
 const timeOutInSeconds = 5
 
 var (
@@ -30,7 +27,7 @@ var (
 
 type CheckMongoClient struct {
 	Client           Client
-	Healthcheck      func(context.Context) (string, error)
+	Healthcheck      func(context.Context) error
 	CheckCollections func(context.Context) error
 }
 
@@ -44,7 +41,6 @@ type (
 // Client provides a healthcheck.Client implementation for health checking the service
 type Client struct {
 	mongoConnection    *mongoDriver.MongoConnection
-	serviceName        string
 	databaseCollection map[Database][]Collection
 }
 
@@ -57,7 +53,6 @@ func NewClient(mongoConnection *mongoDriver.MongoConnection) *Client {
 func NewClientWithCollections(mongoConnection *mongoDriver.MongoConnection, clientDatabaseCollection map[Database][]Collection) *Client {
 	return &Client{
 		mongoConnection:    mongoConnection,
-		serviceName:        ServiceName,
 		databaseCollection: clientDatabaseCollection,
 	}
 }
@@ -93,20 +88,19 @@ func find(slice []string, val string) bool {
 }
 
 // Healthcheck calls service to check its health status
-func (m *Client) Healthcheck(ctx context.Context) (res string, err error) {
-	res = m.serviceName
-	err = m.mongoConnection.Ping(ctx, timeOutInSeconds)
+func (m *Client) Healthcheck(ctx context.Context) error {
+	err := m.mongoConnection.Ping(ctx, timeOutInSeconds)
 	if err != nil {
 		log.Error(ctx, "Ping mongo", err)
-		return
+		return err
 	}
 
-	return
+	return nil
 }
 
 // Checker calls an api health endpoint and  updates the provided CheckState accordingly
 func (c *CheckMongoClient) Checker(ctx context.Context, state *healthcheck.CheckState) error {
-	_, err := c.Healthcheck(ctx)
+	err := c.Healthcheck(ctx)
 	if err != nil {
 		state.Update(healthcheck.StatusCritical, err.Error(), 0)
 		return nil
