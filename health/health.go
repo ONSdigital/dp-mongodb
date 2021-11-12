@@ -10,29 +10,26 @@ import (
 	"github.com/ONSdigital/log.go/v2/log"
 )
 
-// ServiceName mongodb
-const ServiceName = "mongodb"
-
 const timeOutInSeconds = 5
 
 var (
-	// HealthyMessage is the message that will be used in healthcheck when mongo is Healthy and all the collections exist
-	HealthyMessage = "mongodb is OK and all expected collections exist"
+	// healthyMessage is the message that will be used in healthcheck when mongo is healthy
+	healthyMessage = "mongodb is OK"
+	// healthyCollectionsMessage is the message that will be appended in healthcheck when all the collections exist
+	healthyCollectionsMessage = " and all expected collections exist"
 )
 
 //List of errors
 var (
-	ErrorCollectionDoesNotExist = errors.New("collection not found in database")
-	ErrorWithMongoDBConnection  = errors.New("unable to connect with MongoDB")
+	errorCollectionDoesNotExist = errors.New("collection not found in database")
+	errorWithMongoDBConnection  = errors.New("unable to connect with MongoDB")
 )
 
-// Healthcheck health check function
-type Healthcheck = func(context.Context) (string, error)
-
-// CheckMongoClient is an implementation of the mongo client with a healthcheck
+// CheckMongoClient provides a healthcheck.Client implementation for health checking the service
 type CheckMongoClient struct {
-	Client      Client
-	Healthcheck Healthcheck
+	client
+	healthcheck      func(context.Context) error
+	checkCollections func(context.Context) error
 }
 
 type (
@@ -42,43 +39,45 @@ type (
 	Collection string
 )
 
-// Client provides a healthcheck.Client implementation for health checking the service
-type Client struct {
+// client provides a healthcheck.Client implementation for health checking the service
+type client struct {
 	mongoConnection    *mongoDriver.MongoConnection
-	serviceName        string
 	databaseCollection map[Database][]Collection
 }
 
 // NewClient returns a new health check client using the given service
-func NewClient(mongoConnection *mongoDriver.MongoConnection) *Client {
+func NewClient(mongoConnection *mongoDriver.MongoConnection) *CheckMongoClient {
 	return NewClientWithCollections(mongoConnection, nil)
 }
 
 // NewClientWithCollections returns a new health check client containing the collections using the given service
-func NewClientWithCollections(mongoConnection *mongoDriver.MongoConnection, clientDatabaseCollection map[Database][]Collection) *Client {
-	return &Client{
+func NewClientWithCollections(mongoConnection *mongoDriver.MongoConnection, clientDatabaseCollection map[Database][]Collection) *CheckMongoClient {
+	c := client{
 		mongoConnection:    mongoConnection,
-		serviceName:        ServiceName,
 		databaseCollection: clientDatabaseCollection,
+	}
+	return &CheckMongoClient{
+		client:           c,
+		healthcheck:      c.healthcheck,
+		checkCollections: c.checkCollections,
 	}
 }
 
-func checkCollections(ctx context.Context, mongoConnection *mongoDriver.MongoConnection, databaseCollectionMap map[Database][]Collection) (err error) {
-
-	for databaseToCheck, collectionsToCheck := range databaseCollectionMap {
+func (m *client) checkCollections(ctx context.Context) (err error) {
+	for databaseToCheck, collectionsToCheck := range m.databaseCollection {
 
 		logData := log.Data{"Database": string(databaseToCheck)}
-		collectionsInDb, err := mongoConnection.ListCollectionsFor(ctx, string(databaseToCheck))
+		collectionsInDb, err := m.mongoConnection.ListCollectionsFor(ctx, string(databaseToCheck))
 		if err != nil {
 			log.Error(ctx, "Failed to connect to mongoDB to get the collections", err, logData)
-			return ErrorWithMongoDBConnection
+			return errorWithMongoDBConnection
 		}
 
 		for _, collectionToCheck := range collectionsToCheck {
 			if found := find(collectionsInDb, string(collectionToCheck)); !found {
 				logData["Collection"] = string(collectionToCheck)
-				log.Error(ctx, "Collection does not exist in the database", ErrorCollectionDoesNotExist, logData)
-				return ErrorCollectionDoesNotExist
+				log.Error(ctx, "Collection does not exist in the database", errorCollectionDoesNotExist, logData)
+				return errorCollectionDoesNotExist
 			}
 		}
 	}
@@ -95,32 +94,35 @@ func find(slice []string, val string) bool {
 }
 
 // Healthcheck calls service to check its health status
-func (m *Client) Healthcheck(ctx context.Context) (res string, err error) {
-	res = m.serviceName
-	err = m.mongoConnection.Ping(ctx, timeOutInSeconds)
+func (m *client) healthcheck(ctx context.Context) error {
+	err := m.mongoConnection.Ping(ctx, timeOutInSeconds)
 	if err != nil {
 		log.Error(ctx, "Ping mongo", err)
-		return
+		return err
 	}
 
-	if m.databaseCollection != nil {
-		err = checkCollections(ctx, m.mongoConnection, m.databaseCollection)
-		if err != nil {
-			log.Error(ctx, "Error checking collections in mongo", err)
-			return
-		}
-	}
-
-	return
+	return nil
 }
 
 // Checker calls an api health endpoint and  updates the provided CheckState accordingly
 func (c *CheckMongoClient) Checker(ctx context.Context, state *healthcheck.CheckState) error {
-	_, err := c.Healthcheck(ctx)
+	err := c.healthcheck(ctx)
 	if err != nil {
 		state.Update(healthcheck.StatusCritical, err.Error(), 0)
 		return nil
 	}
-	state.Update(healthcheck.StatusOK, HealthyMessage, 0)
+	msg := healthyMessage
+
+	if c.databaseCollection != nil && len(c.databaseCollection) > 0 {
+		err = c.checkCollections(ctx)
+		if err != nil {
+			log.Error(ctx, "Error checking collections in mongo", err)
+			state.Update(healthcheck.StatusCritical, err.Error(), 0)
+			return nil
+		}
+		msg += healthyCollectionsMessage
+	}
+
+	state.Update(healthcheck.StatusOK, msg, 0)
 	return nil
 }
