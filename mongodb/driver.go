@@ -101,7 +101,10 @@ func (m *MongoConnectionConfig) GetConnectionURI() (string, error) {
 	var connectionString string
 	endpoint := m.ClusterEndpoint
 
-	matches, _ := regexp.MatchString(endpointRegex, endpoint)
+	matches, err := regexp.MatchString(endpointRegex, endpoint)
+	if err != nil {
+		return "", err
+	}
 	if !matches {
 		return "", fmt.Errorf("Invalid mongodb address: %s", endpoint)
 	}
