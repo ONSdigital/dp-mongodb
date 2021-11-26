@@ -7,7 +7,9 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	"go.mongodb.org/mongo-driver/mongo"
@@ -23,6 +25,7 @@ const (
 	connectionStringTemplate             = "mongodb://%s:%s@%s/%s"
 	connectionStringTemplateWithoutCreds = "mongodb://%s/%s"
 	int64Size                            = 64
+	endpointRegex                        = "^(mongodb://)?[^:/]+(:\\d+)?$"
 )
 
 // TLSConnectionConfig supplies the options for setting up a TLS based connection to the Mongo DB server
@@ -94,16 +97,24 @@ type MongoConnectionConfig struct {
 	TLSConnectionConfig
 }
 
-func (m *MongoConnectionConfig) GetConnectionURI() string {
+func (m *MongoConnectionConfig) GetConnectionURI() (string, error) {
 	var connectionString string
+	endpoint := m.ClusterEndpoint
 
-	if len(m.Password) > 0 && len(m.Username) > 0 {
-		connectionString = fmt.Sprintf(connectionStringTemplate, m.Username, m.Password, m.ClusterEndpoint, m.Database)
-	} else {
-		connectionString = fmt.Sprintf(connectionStringTemplateWithoutCreds, m.ClusterEndpoint, m.Database)
+	matches, _ := regexp.MatchString(endpointRegex, endpoint)
+	if !matches {
+		return "", fmt.Errorf("Invalid mongodb address: %s", endpoint)
 	}
 
-	return connectionString
+	endpoint = strings.TrimPrefix(endpoint, "mongodb://")
+
+	if len(m.Password) > 0 && len(m.Username) > 0 {
+		connectionString = fmt.Sprintf(connectionStringTemplate, m.Username, m.Password, endpoint, m.Database)
+	} else {
+		connectionString = fmt.Sprintf(connectionStringTemplateWithoutCreds, endpoint, m.Database)
+	}
+
+	return connectionString, nil
 }
 
 func Open(m *MongoConnectionConfig) (*MongoConnection, error) {
@@ -118,8 +129,13 @@ func Open(m *MongoConnectionConfig) (*MongoConnection, error) {
 		return nil, err
 	}
 
+	connectionUri, err := m.GetConnectionURI()
+	if err != nil {
+		return nil, err
+	}
+
 	mongoClientOptions := options.Client().
-		ApplyURI(m.GetConnectionURI()).
+		ApplyURI(connectionUri).
 		SetTLSConfig(tlsConfig).
 		SetReadPreference(readpref.SecondaryPreferred()).
 		SetRetryWrites(false)

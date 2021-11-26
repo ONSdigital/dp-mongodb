@@ -53,37 +53,70 @@ func ExampleOpen() {
 }
 
 func TestOpenConnectionToMongoDB_NoSSL(t *testing.T) {
-	var (
-		mongoVersion = "4.4.8"
-		db           = "test-db"
-		user         = "test-user"
-		password     = "test-password"
-	)
+	Convey("Given a mongodb server is running", t, func() {
 
-	mongoServer, err := mim.Start(mongoVersion)
-	if err != nil {
-		t.Fatalf("failed to start mongo server: %v", err)
-	}
-	defer mongoServer.Stop()
+		var (
+			mongoVersion = "4.4.8"
+			db           = "test-db"
+			user         = "test-user"
+			password     = "test-password"
+		)
 
-	setupMongoConnectionTest(t, mongoServer, db, user, password)
-	connectionConfig := &mongoDriver.MongoConnectionConfig{
-		ConnectTimeoutInSeconds: 5,
-		QueryTimeoutInSeconds:   5,
+		mongoServer, err := mim.Start(mongoVersion)
+		if err != nil {
+			t.Fatalf("failed to start mongo server: %v", err)
+		}
+		defer mongoServer.Stop()
 
-		Username:        user,
-		Password:        password,
-		ClusterEndpoint: fmt.Sprintf("localhost:%d", mongoServer.Port()),
-		Database:        db,
-		Collection:      "testCollection",
-	}
+		setupMongoConnectionTest(t, mongoServer, db, user, password)
 
-	Convey("When a connection to mongodb is attempted", t, func() {
+		connectionConfig := &mongoDriver.MongoConnectionConfig{
+			ConnectTimeoutInSeconds: 5,
+			QueryTimeoutInSeconds:   5,
 
-		_, err := mongoDriver.Open(connectionConfig)
+			Username:        user,
+			Password:        password,
+			ClusterEndpoint: fmt.Sprintf("localhost:%d", mongoServer.Port()),
+			Database:        db,
+			Collection:      "testCollection",
+		}
 
-		Convey("Then a valid connection (and ping) should be made without error", func() {
-			So(err, ShouldBeNil)
+		Convey("When a connection is attempted", func() {
+			conn, err := mongoDriver.Open(connectionConfig)
+
+			Convey("Then a valid connection should be made without error", func() {
+				So(err, ShouldBeNil)
+				So(conn, ShouldNotBeNil)
+				Convey("And it pings", func() {
+					pingErr := conn.Ping(context.Background(), 2*time.Second)
+					So(pingErr, ShouldBeNil)
+				})
+			})
+		})
+
+		Convey("When a connection is attempted using the mongodb:// schema for the endpoint", func() {
+			connectionConfig.ClusterEndpoint = fmt.Sprintf("mongodb://localhost:%d", mongoServer.Port())
+			conn, err := mongoDriver.Open(connectionConfig)
+
+			Convey("Then a valid connection should be made without error", func() {
+				So(err, ShouldBeNil)
+				So(conn, ShouldNotBeNil)
+
+				Convey("And it pings", func() {
+					pingErr := conn.Ping(context.Background(), 2*time.Second)
+					So(pingErr, ShouldBeNil)
+				})
+			})
+		})
+
+		Convey("When a connection is attempted using an invalid endpoint", func() {
+			connectionConfig.ClusterEndpoint = fmt.Sprintf("mysql://localhost:%d", mongoServer.Port())
+			_, err := mongoDriver.Open(connectionConfig)
+
+			Convey("Then an error is returned", func() {
+				So(err, ShouldNotBeNil)
+				So(err.Error(), ShouldEqual, fmt.Sprintf("Invalid mongodb address: %s", connectionConfig.ClusterEndpoint))
+			})
 		})
 	})
 }
@@ -162,21 +195,72 @@ func TestMongoTLSConnectionConfig(t *testing.T) {
 }
 
 func TestMongoConnectionConfig_GetConnectionURIWhen(t *testing.T) {
-	connectionConfig := &mongoDriver.MongoConnectionConfig{
-		ClusterEndpoint: "localhost:27017",
-		Database:        "test-db",
-	}
+	Convey("Given a MongoConnectionConfig", t, func() {
+		connectionConfig := &mongoDriver.MongoConnectionConfig{
+			Database: "test-db",
+		}
 
-	Convey("When Credentials Are Present", t, func() {
-		connectionConfig.Username = "test-user"
-		connectionConfig.Password = "test-pass"
-		So(connectionConfig.GetConnectionURI(), ShouldEqual, "mongodb://test-user:test-pass@localhost:27017/test-db")
-	})
+		Convey("When the endpoint does not include a scheme", func() {
+			connectionConfig.ClusterEndpoint = "localhost:27017"
 
-	Convey("When Credentials Are Not Configured", t, func() {
-		connectionConfig.Username = ""
-		connectionConfig.Password = ""
-		So(connectionConfig.GetConnectionURI(), ShouldEqual, "mongodb://localhost:27017/test-db")
+			Convey("And credentials are present", func() {
+				connectionConfig.Username = "test-user"
+				connectionConfig.Password = "test-pass"
+
+				Convey("The connection URI is created correctly", func() {
+					uri, err := connectionConfig.GetConnectionURI()
+					So(err, ShouldBeNil)
+					So(uri, ShouldEqual, "mongodb://test-user:test-pass@localhost:27017/test-db")
+				})
+			})
+
+			Convey("And credentials are not configured", func() {
+				connectionConfig.Username = ""
+				connectionConfig.Password = ""
+
+				Convey("The connection URI is created correctly", func() {
+					uri, err := connectionConfig.GetConnectionURI()
+					So(err, ShouldBeNil)
+					So(uri, ShouldEqual, "mongodb://localhost:27017/test-db")
+				})
+			})
+		})
+
+		Convey("When the endpoint does include the mongodb scheme", func() {
+			connectionConfig.ClusterEndpoint = "mongodb://localhost:27017"
+
+			Convey("And credentials are present", func() {
+				connectionConfig.Username = "test-user"
+				connectionConfig.Password = "test-pass"
+
+				Convey("The connection URI is created correctly", func() {
+					uri, err := connectionConfig.GetConnectionURI()
+					So(err, ShouldBeNil)
+					So(uri, ShouldEqual, "mongodb://test-user:test-pass@localhost:27017/test-db")
+				})
+			})
+
+			Convey("And credentials are not configured", func() {
+				connectionConfig.Username = ""
+				connectionConfig.Password = ""
+
+				Convey("The connection URI is created correctly", func() {
+					uri, err := connectionConfig.GetConnectionURI()
+					So(err, ShouldBeNil)
+					So(uri, ShouldEqual, "mongodb://localhost:27017/test-db")
+				})
+			})
+		})
+
+		Convey("When the endpoint uses an invalid scheme", func() {
+			connectionConfig.ClusterEndpoint = "mysql://localhost:27017"
+			Convey("The connection URI returns an error", func() {
+				_, err := connectionConfig.GetConnectionURI()
+				So(err, ShouldNotBeNil)
+				So(err.Error(), ShouldEqual, "Invalid mongodb address: mysql://localhost:27017")
+			})
+
+		})
 	})
 }
 
