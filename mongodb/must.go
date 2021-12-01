@@ -19,8 +19,8 @@ func (m *Must) UpdateById(ctx context.Context, id interface{}, update interface{
 		return nil, err
 	}
 
-	if !HasUpdatedOrUpserted(result) {
-		return nil, NewErrNoDocumentFoundError("Must update by Id, no document modified", nil)
+	if result.MatchedCount == 0 {
+		return nil, NewErrNoDocumentFoundError("Must update by Id, no document matched", nil)
 	}
 
 	return result, nil
@@ -33,9 +33,10 @@ func (m *Must) Update(ctx context.Context, selector interface{}, update interfac
 		return nil, err
 	}
 
-	if !HasUpdatedOrUpserted(result) {
-		return nil, NewErrNoDocumentFoundError("Must update, no document modified", nil)
+	if result.MatchedCount == 0 {
+		return nil, NewErrNoDocumentFoundError("Must update, no document matched", nil)
 	}
+
 	return result, nil
 }
 

@@ -14,26 +14,23 @@ Follow instructions from mongo db [manual](https://docs.mongodb.com/manual/tutor
 
 ### health package
 
-Using mongo checker function currently pings a mongo client, further work to check mongo queries based on an applications requirements (level of access and to which databases and collections).
+The mongo checker function currently pings the mongo client, and checks that all collections given when the checker was created, actually exist.
 
 Read the [Health Check Specification](https://github.com/ONSdigital/dp/blob/master/standards/HEALTH_CHECK_SPECIFICATION.md) for details.
 
 Instantiate a mongo health checker
 ```
 import mongoHealth "github.com/ONSdigital/dp-mongo/health"
+import mongoDriver "github.com/ONSdigital/dp-mongo/mongodb"
 
 ...
 
-    mongoClient := mongoHealth.NewClient(<mgo session>)
+    healthClient := mongoHealth.NewClientWithCollections(<mongoDriver.MongoConnection>, <map[mongoDriver.Database][]mongoDriver.Collection>)
 
-    mongoHealth := mongoHealth.CheckClient{
-        client: mongoClient,
-        healthcheck: mongoHealth.Healthcheck,
-    }
 ...
 ```
 
-Call mongo health checker with `mongoHealth.Checker(context.Background())` and this will return a check object like so:
+Calling mongo health checker: `healthClient.Checker(context.Context, *healthcheck.CheckState)` and fill out the check object like so:
 
 ```json
 {
@@ -48,7 +45,7 @@ Call mongo health checker with `mongoHealth.Checker(context.Background())` and t
 
 ### Configuration
 
-Configuration of the health check takes place via arguments passed to the `.Create()` function
+Configuration of the health check takes place via arguments passed to the `NewClient() or NewClientWithCollections()` functions
 
 ### Contributing
 

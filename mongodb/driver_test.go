@@ -210,7 +210,7 @@ func TestMongoConnectionConfig_GetConnectionURIWhen(t *testing.T) {
 				Convey("The connection URI is created correctly", func() {
 					uri, err := connectionConfig.GetConnectionURI()
 					So(err, ShouldBeNil)
-					So(uri, ShouldEqual, "mongodb://test-user:test-pass@localhost:27017/test-db")
+					So(uri, ShouldEqual, "mongodb://test-user:test-pass@localhost:27017/test-db?directConnection=true")
 				})
 			})
 
@@ -221,7 +221,7 @@ func TestMongoConnectionConfig_GetConnectionURIWhen(t *testing.T) {
 				Convey("The connection URI is created correctly", func() {
 					uri, err := connectionConfig.GetConnectionURI()
 					So(err, ShouldBeNil)
-					So(uri, ShouldEqual, "mongodb://localhost:27017/test-db")
+					So(uri, ShouldEqual, "mongodb://localhost:27017/test-db?directConnection=true")
 				})
 			})
 		})
@@ -233,10 +233,14 @@ func TestMongoConnectionConfig_GetConnectionURIWhen(t *testing.T) {
 				connectionConfig.Username = "test-user"
 				connectionConfig.Password = "test-pass"
 
-				Convey("The connection URI is created correctly", func() {
-					uri, err := connectionConfig.GetConnectionURI()
-					So(err, ShouldBeNil)
-					So(uri, ShouldEqual, "mongodb://test-user:test-pass@localhost:27017/test-db")
+				Convey("And a replica set is configured ", func() {
+					connectionConfig.ReplicaSet = "repl0"
+
+					Convey("The connection URI is created correctly", func() {
+						uri, err := connectionConfig.GetConnectionURI()
+						So(err, ShouldBeNil)
+						So(uri, ShouldEqual, "mongodb://test-user:test-pass@localhost:27017/test-db?replicaSet=repl0")
+					})
 				})
 			})
 
@@ -244,10 +248,13 @@ func TestMongoConnectionConfig_GetConnectionURIWhen(t *testing.T) {
 				connectionConfig.Username = ""
 				connectionConfig.Password = ""
 
-				Convey("The connection URI is created correctly", func() {
-					uri, err := connectionConfig.GetConnectionURI()
-					So(err, ShouldBeNil)
-					So(uri, ShouldEqual, "mongodb://localhost:27017/test-db")
+				Convey("And a replica set is not set", func() {
+
+					Convey("The connection URI is created correctly", func() {
+						uri, err := connectionConfig.GetConnectionURI()
+						So(err, ShouldBeNil)
+						So(uri, ShouldEqual, "mongodb://localhost:27017/test-db?directConnection=true")
+					})
 				})
 			})
 		})

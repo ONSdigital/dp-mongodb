@@ -1,4 +1,4 @@
-package mongodb_test
+package testcomponent
 
 import (
 	"context"
@@ -6,6 +6,7 @@ import (
 
 	componenttest "github.com/ONSdigital/dp-component-test"
 	mongoDriver "github.com/ONSdigital/dp-mongodb/v3/mongodb"
+
 	"github.com/cucumber/godog"
 	"github.com/stretchr/testify/assert"
 	"go.mongodb.org/mongo-driver/bson"
@@ -14,7 +15,7 @@ import (
 )
 
 type dataModel struct {
-	Id   int `bson:"_id" json:"id"`
+	Id   int `bson:"_id,omitempty" json:"id,omitempty"`
 	Name string
 	Age  string
 }
@@ -405,8 +406,7 @@ func (m *MongoV2Component) mustUpdateId(id int, recordAsString *godog.DocString)
 		return err
 	}
 
-	update := bson.D{{Key: "$set", Value: bson.D{{Key: "name", Value: record.Name}, {Key: "age", Value: record.Age}}}}
-
+	update := bson.M{"$set": record}
 	m.updateResult, m.mustErrorResult = m.testClient.C(m.collection).Must().UpdateById(context.Background(), id, update)
 
 	return nil
@@ -420,10 +420,8 @@ func (m *MongoV2Component) mustUpdateRecord(id int, recordAsString *godog.DocStr
 		return err
 	}
 
-	idQuery := bson.D{{Key: "_id", Value: id}}
-
-	update := bson.D{{Key: "$set", Value: bson.D{{Key: "name", Value: record.Name}, {Key: "age", Value: record.Age}}}}
-
+	idQuery := bson.M{"_id": id}
+	update := bson.M{"$set": record}
 	m.updateResult, m.mustErrorResult = m.testClient.C(m.collection).Must().Update(context.Background(), idQuery, update)
 
 	return nil

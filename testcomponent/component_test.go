@@ -1,4 +1,4 @@
-package mongodb_test
+package testcomponent
 
 import (
 	"flag"
@@ -6,12 +6,12 @@ import (
 	"testing"
 
 	componentTest "github.com/ONSdigital/dp-component-test"
+
 	"github.com/cucumber/godog"
 	"github.com/cucumber/godog/colors"
 )
 
 const MongoVersion = "4.4.8"
-const MongoPort = 27017
 const DatabaseName = "testing"
 const CollectionName = "testCollection"
 

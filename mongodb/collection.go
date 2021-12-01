@@ -61,7 +61,7 @@ func (c *Collection) Insert(ctx context.Context, document interface{}) (*Collect
 	return &CollectionInsertResult{result.InsertedID}, nil
 }
 
-// Insert adds a number of documents
+// InsertMany adds a number of documents
 func (c *Collection) InsertMany(ctx context.Context, documents []interface{}) (*CollectionInsertManyResult, error) {
 	result, err := c.collection.InsertMany(ctx, documents)
 	if err != nil {
@@ -148,7 +148,11 @@ func (c *Collection) DeleteById(ctx context.Context, id interface{}) (*Collectio
 	return c.Delete(ctx, selector)
 }
 
-// Aggreate starts a pipeline operation
+// Aggregate starts a pipeline operation
 func (c *Collection) Aggregate(pipeline interface{}) *Cursor {
 	return newCursor(newAggregateCursor(c.collection, pipeline, options.Aggregate()))
+}
+
+func (c *Collection) GetMongoCollection() *mongo.Collection {
+	return c.collection
 }

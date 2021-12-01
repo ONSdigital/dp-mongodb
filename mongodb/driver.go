@@ -26,6 +26,8 @@ const (
 	connectionStringTemplateWithoutCreds = "mongodb://%s/%s"
 	int64Size                            = 64
 	endpointRegex                        = "^(mongodb://)?[^:/]+(:\\d+)?$"
+	replicaSet                           = "replicaSet"
+	directConn                           = "directConnection"
 )
 
 // TLSConnectionConfig supplies the options for setting up a TLS based connection to the Mongo DB server
@@ -117,6 +119,12 @@ func (m *MongoConnectionConfig) GetConnectionURI() (string, error) {
 		connectionString = fmt.Sprintf(connectionStringTemplateWithoutCreds, endpoint, m.Database)
 	}
 
+	if m.ReplicaSet != "" {
+		connectionString += fmt.Sprintf("?%s=%s", replicaSet, m.ReplicaSet)
+	} else {
+		connectionString += fmt.Sprintf("?%s=true", directConn)
+	}
+
 	return connectionString, nil
 }
 
@@ -142,12 +150,6 @@ func Open(m *MongoConnectionConfig) (*MongoConnection, error) {
 		SetTLSConfig(tlsConfig).
 		SetReadPreference(readpref.SecondaryPreferred()).
 		SetRetryWrites(false)
-
-	if m.ReplicaSet != "" {
-		mongoClientOptions = mongoClientOptions.SetReplicaSet(m.ReplicaSet)
-	} else {
-		mongoClientOptions = mongoClientOptions.SetDirect(true)
-	}
 
 	if m.IsStrongReadConcernEnabled {
 		// For ensuring strong consistency
