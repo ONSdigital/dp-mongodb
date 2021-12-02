@@ -25,12 +25,12 @@ import mongoDriver "github.com/ONSdigital/dp-mongo/mongodb"
 
 ...
 
-    healthClient := mongoHealth.NewClientWithCollections(<mongoDriver.MongoConnection>, <map[mongoDriver.Database][]mongoDriver.Collection>)
+    healthClient := mongoHealth.NewClientWithCollections(<mongoDriver.MongoConnection>, <map[mongoHealth.Database][]mongoHealth.Collection>)
 
 ...
 ```
 
-Calling mongo health checker: `healthClient.Checker(context.Context, *healthcheck.CheckState)` and fill out the check object like so:
+Calling mongo health checker: `healthClient.Checker(context.Context, *healthcheck.CheckState)` will fill out the check object like so:
 
 ```json
 {

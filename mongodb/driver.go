@@ -26,8 +26,6 @@ const (
 	connectionStringTemplateWithoutCreds = "mongodb://%s/%s"
 	int64Size                            = 64
 	endpointRegex                        = "^(mongodb://)?[^:/]+(:\\d+)?$"
-	replicaSet                           = "replicaSet"
-	directConn                           = "directConnection"
 )
 
 // TLSConnectionConfig supplies the options for setting up a TLS based connection to the Mongo DB server
@@ -120,9 +118,9 @@ func (m *MongoConnectionConfig) GetConnectionURI() (string, error) {
 	}
 
 	if m.ReplicaSet != "" {
-		connectionString += fmt.Sprintf("?%s=%s", replicaSet, m.ReplicaSet)
+		connectionString += fmt.Sprintf("?replicaSet=%s", m.ReplicaSet)
 	} else {
-		connectionString += fmt.Sprintf("?%s=true", directConn)
+		connectionString += "?directConnection=true"
 	}
 
 	return connectionString, nil

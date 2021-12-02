@@ -302,12 +302,6 @@ func (m *MongoV2Component) modifiedCountWithid(matched, modified, upserted, upse
 	assert.Equal(&m.ErrorFeature, upserted, m.updateResult.UpsertedCount)
 	assert.EqualValues(&m.ErrorFeature, upsertId, m.updateResult.UpsertedID)
 
-	if modified != 0 || upserted != 0 {
-		assert.True(&m.ErrorFeature, mongoDriver.HasUpdatedOrUpserted(m.updateResult))
-	} else {
-		assert.False(&m.ErrorFeature, mongoDriver.HasUpdatedOrUpserted(m.updateResult))
-	}
-
 	return m.ErrorFeature.StepError()
 }
 
@@ -316,12 +310,6 @@ func (m *MongoV2Component) modifiedCount(matched, modified, upserted int) error 
 	assert.Equal(&m.ErrorFeature, modified, m.updateResult.ModifiedCount)
 	assert.Equal(&m.ErrorFeature, upserted, m.updateResult.UpsertedCount)
 	assert.Empty(&m.ErrorFeature, m.updateResult.UpsertedID)
-
-	if modified != 0 || upserted != 0 {
-		assert.True(&m.ErrorFeature, mongoDriver.HasUpdatedOrUpserted(m.updateResult))
-	} else {
-		assert.False(&m.ErrorFeature, mongoDriver.HasUpdatedOrUpserted(m.updateResult))
-	}
 
 	return m.ErrorFeature.StepError()
 }

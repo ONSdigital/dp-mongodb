@@ -152,7 +152,3 @@ func (c *Collection) DeleteById(ctx context.Context, id interface{}) (*Collectio
 func (c *Collection) Aggregate(pipeline interface{}) *Cursor {
 	return newCursor(newAggregateCursor(c.collection, pipeline, options.Aggregate()))
 }
-
-func (c *Collection) GetMongoCollection() *mongo.Collection {
-	return c.collection
-}
