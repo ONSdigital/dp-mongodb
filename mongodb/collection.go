@@ -3,6 +3,7 @@ package mongodb
 import (
 	"context"
 
+	lock "github.com/square/mongo-lock"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -151,4 +152,9 @@ func (c *Collection) DeleteById(ctx context.Context, id interface{}) (*Collectio
 // Aggregate starts a pipeline operation
 func (c *Collection) Aggregate(pipeline interface{}) *Cursor {
 	return newCursor(newAggregateCursor(c.collection, pipeline, options.Aggregate()))
+}
+
+// NewLockClient creates a new Lock Client
+func (c *Collection) NewLockClient() *lock.Client {
+	return lock.NewClient(c.collection)
 }

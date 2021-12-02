@@ -22,7 +22,6 @@ type MongoConnector interface {
 	Close(ctx context.Context) error
 	GetCollectionsFor(ctx context.Context, database string) ([]string, error)
 	GetConfiguredCollection() *Collection
-	GetMongoCollection() *mongo.Collection
 	DropDatabase(ctx context.Context) error
 }
 
@@ -33,8 +32,7 @@ type MongoConnection struct {
 }
 
 func NewMongoConnection(client *mongo.Client, database string, collection string) *MongoConnection {
-	m := &MongoConnection{client: client, database: database, collection: collection}
-	return m
+	return &MongoConnection{client: client, database: database, collection: collection}
 }
 
 // Close represents mongo session closing within the context deadline
@@ -67,7 +65,7 @@ func (ms *MongoConnection) Close(ctx context.Context) error {
 }
 
 func (ms *MongoConnection) GetConfiguredCollection() *Collection {
-	return NewCollection(ms.GetMongoCollection())
+	return ms.C(ms.collection)
 }
 
 func (ms *MongoConnection) Ping(ctx context.Context, timeoutInSeconds time.Duration) error {
@@ -92,10 +90,6 @@ func (ms *MongoConnection) ListCollectionsFor(ctx context.Context, database stri
 	}
 
 	return collectionNames, nil
-}
-
-func (ms *MongoConnection) GetMongoCollection() *mongo.Collection {
-	return ms.client.Database(ms.database).Collection(ms.collection)
 }
 
 func (ms *MongoConnection) C(collection string) *Collection {

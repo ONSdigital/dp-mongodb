@@ -7,21 +7,26 @@ import (
 	"testing"
 	"time"
 
+	mim "github.com/ONSdigital/dp-mongodb-in-memory"
 	"github.com/ONSdigital/dp-mongodb/v3/dplock"
 	mock "github.com/ONSdigital/dp-mongodb/v3/dplock/mock"
+	mongoDriver "github.com/ONSdigital/dp-mongodb/v3/mongodb"
 	. "github.com/smartystreets/goconvey/convey"
 	lock "github.com/square/mongo-lock"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 var ctx = context.Background()
 
-func TestLock(t *testing.T) {
-
+func init() {
 	// consistent time ID for testing
 	dplock.GenerateTimeID = func() int {
 		return 123456789
 	}
+}
 
+func TestLock(t *testing.T) {
 	Convey("Given a lock with a client that can successfully lock", t, func() {
 		clientMock := &mock.ClientMock{
 			XLockFunc: func(ctx context.Context, resourceName string, lockID string, ld lock.LockDetails) error {
@@ -64,10 +69,7 @@ func TestLock(t *testing.T) {
 
 func TestAcquire(t *testing.T) {
 
-	// consistent time ID and low acquire period for testing
-	dplock.GenerateTimeID = func() int {
-		return 123456789
-	}
+	// consistent low acquire period for testing
 	dplock.AcquirePeriod = 1 * time.Nanosecond
 	dplock.AcquireMaxRetries = 5
 
@@ -258,6 +260,56 @@ func TestLifecycleAndPurger(t *testing.T) {
 			l.Close(ctx)
 			l.WaitGroup.Wait()
 			So(len(purgerMock.PurgeCalls()), ShouldEqual, 1)
+		})
+	})
+}
+
+func TestNew(t *testing.T) {
+	Convey("Given a mongo connection", t, func() {
+		server, err := mim.Start("4.4.8")
+		if err != nil {
+			t.Fatalf("failed to start mongo server: %v", err)
+		}
+		defer server.Stop()
+
+		client, err := mongo.Connect(context.Background(), options.Client().ApplyURI(server.URI()))
+		if err != nil {
+			t.Fatalf("failed to connect to mongo server: %v", err)
+		}
+
+		mongoConnection := mongoDriver.NewMongoConnection(client, "database", "collection")
+		Convey("When the New method is called for a resource", func() {
+			resource := "image"
+			lock := dplock.New(ctx, mongoConnection, resource)
+
+			Convey("Then it returns a valid lock object", func() {
+				So(lock, ShouldNotBeNil)
+				So(lock.Resource, ShouldEqual, resource)
+				So(lock.Client, ShouldNotBeNil)
+				So(lock.Purger, ShouldNotBeNil)
+				So(lock.CloserChannel, ShouldNotBeNil)
+				So(lock.CloserChannel, ShouldBeEmpty)
+				Convey("And the resource can be locked", func() {
+					id := "id"
+					lockID, err := lock.Lock(ctx, id)
+					defer lock.Unlock(ctx, lockID)
+					So(err, ShouldBeNil)
+					So(lockID, ShouldEqual, "image-id-123456789")
+
+					_, err = lock.Lock(ctx, id)
+					So(err, ShouldNotBeNil)
+					So(err.Error(), ShouldEqual, "unable to acquire lock (resource is already locked)")
+
+					Convey("And it can be unlocked", func() {
+						lock.Unlock(ctx, lockID)
+
+						lockID, err := lock.Lock(ctx, id)
+						defer lock.Unlock(ctx, lockID)
+						So(err, ShouldBeNil)
+						So(lockID, ShouldEqual, "image-id-123456789")
+					})
+				})
+			})
 		})
 	})
 }
