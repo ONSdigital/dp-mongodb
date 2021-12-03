@@ -109,9 +109,5 @@ func (ms *MongoConnection) DropDatabase(ctx context.Context) error {
 // This is provided for tests only and no values are returned
 func (ms *MongoConnection) RunCommand(ctx context.Context, runCommand interface{}) error {
 	res := ms.d().RunCommand(ctx, runCommand)
-
-	if res.Err() != nil || res.Err() == mongo.ErrNoDocuments {
-		return res.Err()
-	}
-	return nil
+	return res.Err()
 }
