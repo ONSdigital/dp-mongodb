@@ -283,7 +283,7 @@ func setupMongoConnectionTest(t *testing.T, mongoServer *mim.Server, db, user, p
 
 	ctx, cancel = context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
-	err = client.Database(db).RunCommand(ctx, bson.D{{"createUser", user}, {"pwd", password}, {"roles", []bson.M{}}}).Err()
+	err = client.Database(db).RunCommand(ctx, bson.D{{Key: "createUser", Value: user}, {Key: "pwd", Value: password}, {Key: "roles", Value: []bson.M{}}}).Err()
 	if err != nil {
 		t.Fatalf("couldn't set up test: %v", err)
 	}

@@ -2,9 +2,11 @@ package mongodb_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
+	mim "github.com/ONSdigital/dp-mongodb-in-memory"
 	mongoDriver "github.com/ONSdigital/dp-mongodb/v3/mongodb"
 	. "github.com/smartystreets/goconvey/convey"
 	"go.mongodb.org/mongo-driver/bson"
@@ -81,6 +83,47 @@ func TestSuccessfulMongoDatesViaDocumentDB(t *testing.T) {
 	if err := cleanupTestData(documentDBConnection); err != nil {
 		t.Logf("failed to delete test data: %v", err)
 	}
+}
+
+func TestRunCommand(t *testing.T) {
+	Convey("Given a connection to a mongodb server", t, func() {
+		mongoServer, err := mim.Start("4.4.8")
+		if err != nil {
+			t.Fatalf("failed to start mongo server: %v", err)
+		}
+		defer mongoServer.Stop()
+
+		database := "testdb"
+
+		connectionConfig := &mongoDriver.MongoConnectionConfig{
+			ConnectTimeoutInSeconds: 5,
+			QueryTimeoutInSeconds:   5,
+			ClusterEndpoint:         fmt.Sprintf("localhost:%d", mongoServer.Port()),
+			Database:                database,
+			Collection:              "testCollection",
+		}
+
+		conn, err := mongoDriver.Open(connectionConfig)
+		So(err, ShouldBeNil)
+		So(conn, ShouldNotBeNil)
+
+		Convey("When we run a valid command", func() {
+			err = conn.RunCommand(context.Background(), bson.D{
+				{Key: "createUser", Value: "test-user"},
+				{Key: "pwd", Value: "password"},
+				{Key: "roles", Value: []bson.M{}}})
+			Convey("Then there are no errors", func() {
+				So(err, ShouldBeNil)
+			})
+		})
+
+		Convey("When we run an invalid command", func() {
+			err = conn.RunCommand(context.Background(), bson.D{{Key: "createUser", Value: "test-user"}})
+			Convey("Then there is an error", func() {
+				So(err, ShouldNotBeNil)
+			})
+		})
+	})
 }
 
 func executeMongoDatesTestSuite(t *testing.T, dataStoreConnection *mongoDriver.MongoConnection) {

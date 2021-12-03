@@ -23,6 +23,7 @@ type MongoConnector interface {
 	GetCollectionsFor(ctx context.Context, database string) ([]string, error)
 	GetConfiguredCollection() *Collection
 	DropDatabase(ctx context.Context) error
+	RunCommand(ctx context.Context, runCommand interface{}) error
 }
 
 type MongoConnection struct {
@@ -84,7 +85,7 @@ func (ms *MongoConnection) ListCollectionsFor(ctx context.Context, database stri
 	collectionNames, err := ms.
 		client.
 		Database(database).
-		ListCollectionNames(ctx, bson.D{{"name", bson.D{{"$ne", ""}}}})
+		ListCollectionNames(ctx, bson.D{{Key: "name", Value: bson.D{{Key: "$ne", Value: ""}}}})
 	if err != nil {
 		return nil, err
 	}
@@ -92,10 +93,25 @@ func (ms *MongoConnection) ListCollectionsFor(ctx context.Context, database stri
 	return collectionNames, nil
 }
 
+func (ms *MongoConnection) d() *mongo.Database {
+	return ms.client.Database(ms.database)
+}
+
 func (ms *MongoConnection) C(collection string) *Collection {
-	return NewCollection(ms.client.Database(ms.database).Collection(collection))
+	return NewCollection(ms.d().Collection(collection))
 }
 
 func (ms *MongoConnection) DropDatabase(ctx context.Context) error {
-	return ms.client.Database(ms.database).Drop(ctx)
+	return ms.d().Drop(ctx)
+}
+
+// RunCommand executes the given command against the configured database.
+// This is provided for tests only and no values are returned
+func (ms *MongoConnection) RunCommand(ctx context.Context, runCommand interface{}) error {
+	res := ms.d().RunCommand(ctx, runCommand)
+
+	if res.Err() != nil || res.Err() == mongo.ErrNoDocuments {
+		return res.Err()
+	}
+	return nil
 }
