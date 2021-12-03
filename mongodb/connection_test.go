@@ -32,60 +32,7 @@ type testNamespacedModel struct {
 	Nixed   Times  `bson:"nixed,omitempty"`
 }
 
-func TestSuccessfulMongoDatesViaMongo(t *testing.T) {
-	var err error
-	var mongoConnection *mongoDriver.MongoConnection
-	connectionConfig := getMongoConnectionConfig()
-	if err := checkTcpConnection(connectionConfig.ClusterEndpoint); err != nil {
-		t.Logf("mongo db instance not available, skip tests: %v", err)
-		t.Skip()
-	}
-
-	if mongoConnection, err = mongoDriver.Open(connectionConfig); err != nil {
-		t.Logf("mongo instance not available, skip timestamp tests: %v", err)
-		return
-	}
-
-	if err := setUpTestData(mongoConnection); err != nil {
-		t.Logf("failed to insert test data, skipping tests: %v", err)
-		t.FailNow()
-	}
-
-	executeMongoDatesTestSuite(t, mongoConnection)
-	executeMongoQueryTestSuite(t, mongoConnection)
-
-	if err := cleanupTestData(mongoConnection); err != nil {
-		t.Logf("failed to delete test data: %v", err)
-	}
-}
-
-func TestSuccessfulMongoDatesViaDocumentDB(t *testing.T) {
-	var err error
-	var documentDBConnection *mongoDriver.MongoConnection
-	connectionConfig := getDocumentDbConnectionConfig()
-	if err := checkTcpConnection(connectionConfig.ClusterEndpoint); err != nil {
-		t.Logf("documentdb instance not available, skip tests: %v", err)
-		t.Skip()
-	}
-	if documentDBConnection, err = mongoDriver.Open(connectionConfig); err != nil {
-		t.Logf("documentdb instance not available, skip timestamp tests: %v", err)
-		return
-	}
-
-	if err := setUpTestData(documentDBConnection); err != nil {
-		t.Logf("failed to insert test data, skipping tests: %v", err)
-		t.FailNow()
-	}
-
-	executeMongoDatesTestSuite(t, documentDBConnection)
-	executeMongoQueryTestSuite(t, documentDBConnection)
-
-	if err := cleanupTestData(documentDBConnection); err != nil {
-		t.Logf("failed to delete test data: %v", err)
-	}
-}
-
-func TestRunCommand(t *testing.T) {
+func TestSuite(t *testing.T) {
 	Convey("Given a connection to a mongodb server", t, func() {
 		mongoServer, err := mim.Start("4.4.8")
 		if err != nil {
@@ -93,19 +40,136 @@ func TestRunCommand(t *testing.T) {
 		}
 		defer mongoServer.Stop()
 
-		database := "testdb"
-
-		connectionConfig := &mongoDriver.MongoConnectionConfig{
-			ConnectTimeoutInSeconds: 5,
-			QueryTimeoutInSeconds:   5,
-			ClusterEndpoint:         fmt.Sprintf("localhost:%d", mongoServer.Port()),
-			Database:                database,
-			Collection:              "testCollection",
-		}
-
+		connectionConfig := getMongoConnectionConfig(mongoServer)
 		conn, err := mongoDriver.Open(connectionConfig)
 		So(err, ShouldBeNil)
 		So(conn, ShouldNotBeNil)
+
+		Convey("With some test data", func() {
+			if err := setUpTestData(conn); err != nil {
+				t.Fatalf("failed to insert test data, skipping tests: %v", err)
+			}
+
+			Convey("check data in original state", func() {
+				res := TestModel{}
+
+				err := queryMongo(conn, bson.M{"_id": 1}, &res)
+				So(err, ShouldBeNil)
+				So(res.State, ShouldEqual, "first")
+			})
+
+			Convey("check data after plain Update", func() {
+				res := TestModel{}
+				_, err := conn.GetConfiguredCollection().UpdateById(context.Background(), 1, bson.M{"$set": bson.M{"new_key": 123}})
+				So(err, ShouldBeNil)
+
+				err = queryMongo(conn, bson.M{"_id": 1}, &res)
+				So(err, ShouldBeNil)
+				So(res.State, ShouldEqual, "first")
+				So(res.NewKey, ShouldEqual, 123)
+			})
+
+			Convey("check data with Update with new dates", func() {
+				testStartTime := time.Now().Truncate(time.Second)
+				res := TestModel{}
+
+				update := bson.M{"$set": bson.M{"new_key": 321}}
+				updateWithTimestamps, err := mongoDriver.WithUpdates(update)
+				So(err, ShouldBeNil)
+				So(updateWithTimestamps, ShouldResemble, bson.M{"$currentDate": bson.M{"last_updated": true, "unique_timestamp": bson.M{"$type": "timestamp"}}, "$set": bson.M{"new_key": 321}})
+
+				_, err = conn.GetConfiguredCollection().UpdateById(context.Background(), 1, updateWithTimestamps)
+				So(err, ShouldBeNil)
+
+				err = queryMongo(conn, bson.M{"_id": 1}, &res)
+				So(err, ShouldBeNil)
+				So(res.State, ShouldEqual, "first")
+				So(res.NewKey, ShouldEqual, 321)
+				So(res.LastUpdated, ShouldHappenOnOrAfter, testStartTime)
+				// extract time part
+				So(time.Unix(int64(res.UniqueTimestamp.T), 0), ShouldHappenOnOrAfter, testStartTime)
+			})
+
+			Convey("check data with Update with new Namespaced dates", func() {
+				// ensure this testStartTime is greater than last
+				time.Sleep(1010 * time.Millisecond)
+				testStartTime := time.Now().Truncate(time.Second)
+				res := testNamespacedModel{}
+
+				update := bson.M{"$set": bson.M{"new_key": 1234}}
+				updateWithTimestamps, err := mongoDriver.WithNamespacedUpdates(update, []string{"nixed.", "currant."})
+				So(err, ShouldBeNil)
+				So(updateWithTimestamps, ShouldResemble, bson.M{
+					"$currentDate": bson.M{
+						"currant.last_updated":     true,
+						"currant.unique_timestamp": bson.M{"$type": "timestamp"},
+						"nixed.last_updated":       true,
+						"nixed.unique_timestamp":   bson.M{"$type": "timestamp"},
+					},
+					"$set": bson.M{"new_key": 1234},
+				})
+
+				_, err = conn.GetConfiguredCollection().UpdateById(context.Background(), 1, updateWithTimestamps)
+				So(err, ShouldBeNil)
+
+				err = queryMongo(conn, bson.M{"_id": 1}, &res)
+				So(err, ShouldBeNil)
+				So(res.State, ShouldEqual, "first")
+				So(res.NewKey, ShouldEqual, 1234)
+				So(res.Currant.LastUpdated, ShouldHappenOnOrAfter, testStartTime)
+				So(res.Nixed.LastUpdated, ShouldHappenOnOrAfter, testStartTime)
+				// extract time part
+
+				So(time.Unix(int64(res.Currant.UniqueTimestamp.T), 0), ShouldHappenOnOrAfter, testStartTime)
+				So(time.Unix(int64(res.Nixed.UniqueTimestamp.T), 0), ShouldHappenOnOrAfter, testStartTime)
+			})
+
+			Convey("UpsertId should insert if not exists", func() {
+				_, err := conn.
+					GetConfiguredCollection().
+					UpsertById(context.Background(), 4, bson.M{"$set": bson.M{"new_key": 456}})
+				So(err, ShouldBeNil)
+
+				res := TestModel{}
+
+				err = queryMongo(conn, bson.M{"_id": 4}, &res)
+				So(err, ShouldBeNil)
+				So(res.NewKey, ShouldEqual, 456)
+			})
+
+			Convey("UpsertId should update if  exists", func() {
+				_, err := conn.
+					GetConfiguredCollection().
+					UpsertById(context.Background(), 3, bson.M{"$set": bson.M{"new_key": 789}})
+				So(err, ShouldBeNil)
+
+				res := TestModel{}
+				err = queryMongo(conn, bson.M{"_id": 3}, &res)
+				So(err, ShouldBeNil)
+				So(res.NewKey, ShouldEqual, 789)
+			})
+
+			Convey("UpdateId should update data if document exists", func() {
+				_, err := conn.GetConfiguredCollection().UpdateById(context.Background(), 3, bson.M{"$set": bson.M{"new_key": 7892}})
+				So(err, ShouldBeNil)
+
+				res := TestModel{}
+
+				err = queryMongo(conn, bson.M{"_id": 3}, &res)
+				So(err, ShouldBeNil)
+				So(res.NewKey, ShouldEqual, 7892)
+			})
+
+			Convey("FindOne should find data if document exists", func() {
+				res := TestModel{}
+				err := conn.
+					GetConfiguredCollection().
+					FindOne(context.Background(), bson.M{"_id": 3}, &res)
+				So(err, ShouldBeNil)
+
+				So(res.State, ShouldEqual, "third")
+			})
+		})
 
 		Convey("When we run a valid command", func() {
 			err = conn.RunCommand(context.Background(), bson.D{
@@ -126,166 +190,13 @@ func TestRunCommand(t *testing.T) {
 	})
 }
 
-func executeMongoDatesTestSuite(t *testing.T, dataStoreConnection *mongoDriver.MongoConnection) {
-	Convey("WithUpdates adds both fields", t, func() {
-
-		Convey("check data in original state", func() {
-
-			res := TestModel{}
-
-			err := queryMongo(dataStoreConnection, bson.M{"_id": 1}, &res)
-			So(err, ShouldBeNil)
-			So(res.State, ShouldEqual, "first")
-		})
-
-		Convey("check data after plain Update", func() {
-			res := TestModel{}
-			_, err := dataStoreConnection.GetConfiguredCollection().UpdateById(context.Background(), 1, bson.M{"$set": bson.M{"new_key": 123}})
-			So(err, ShouldBeNil)
-
-			err = queryMongo(dataStoreConnection, bson.M{"_id": 1}, &res)
-			So(err, ShouldBeNil)
-			So(res.State, ShouldEqual, "first")
-			So(res.NewKey, ShouldEqual, 123)
-		})
-
-		Convey("check data with Update with new dates", func() {
-
-			testStartTime := time.Now().Truncate(time.Second)
-			res := TestModel{}
-
-			update := bson.M{"$set": bson.M{"new_key": 321}}
-			updateWithTimestamps, err := mongoDriver.WithUpdates(update)
-			So(err, ShouldBeNil)
-			So(updateWithTimestamps, ShouldResemble, bson.M{"$currentDate": bson.M{"last_updated": true, "unique_timestamp": bson.M{"$type": "timestamp"}}, "$set": bson.M{"new_key": 321}})
-
-			_, err = dataStoreConnection.GetConfiguredCollection().UpdateById(context.Background(), 1, updateWithTimestamps)
-			So(err, ShouldBeNil)
-
-			err = queryMongo(dataStoreConnection, bson.M{"_id": 1}, &res)
-			So(err, ShouldBeNil)
-			So(res.State, ShouldEqual, "first")
-			So(res.NewKey, ShouldEqual, 321)
-			So(res.LastUpdated, ShouldHappenOnOrAfter, testStartTime)
-			// extract time part
-			So(time.Unix(int64(res.UniqueTimestamp.T), 0), ShouldHappenOnOrAfter, testStartTime)
-		})
-
-		Convey("check data with Update with new Namespaced dates", func() {
-
-			// ensure this testStartTime is greater than last
-			time.Sleep(1010 * time.Millisecond)
-			testStartTime := time.Now().Truncate(time.Second)
-			res := testNamespacedModel{}
-
-			update := bson.M{"$set": bson.M{"new_key": 1234}}
-			updateWithTimestamps, err := mongoDriver.WithNamespacedUpdates(update, []string{"nixed.", "currant."})
-			So(err, ShouldBeNil)
-			So(updateWithTimestamps, ShouldResemble, bson.M{
-				"$currentDate": bson.M{
-					"currant.last_updated":     true,
-					"currant.unique_timestamp": bson.M{"$type": "timestamp"},
-					"nixed.last_updated":       true,
-					"nixed.unique_timestamp":   bson.M{"$type": "timestamp"},
-				},
-				"$set": bson.M{"new_key": 1234},
-			})
-
-			_, err = dataStoreConnection.GetConfiguredCollection().UpdateById(context.Background(), 1, updateWithTimestamps)
-			So(err, ShouldBeNil)
-
-			err = queryMongo(dataStoreConnection, bson.M{"_id": 1}, &res)
-			So(err, ShouldBeNil)
-			So(res.State, ShouldEqual, "first")
-			So(res.NewKey, ShouldEqual, 1234)
-			So(res.Currant.LastUpdated, ShouldHappenOnOrAfter, testStartTime)
-			So(res.Nixed.LastUpdated, ShouldHappenOnOrAfter, testStartTime)
-			// extract time part
-
-			So(time.Unix(int64(res.Currant.UniqueTimestamp.T), 0), ShouldHappenOnOrAfter, testStartTime)
-			So(time.Unix(int64(res.Nixed.UniqueTimestamp.T), 0), ShouldHappenOnOrAfter, testStartTime)
-
-		})
-
-	})
-}
-
-func executeMongoQueryTestSuite(t *testing.T, dataStoreConnection *mongoDriver.MongoConnection) {
-
-	Convey("UpsertId should insert if not exists", t, func() {
-		_, err := dataStoreConnection.
-			GetConfiguredCollection().
-			UpsertById(context.Background(), 4, bson.M{"$set": bson.M{"new_key": 456}})
-		So(err, ShouldBeNil)
-
-		res := TestModel{}
-
-		err = queryMongo(dataStoreConnection, bson.M{"_id": 4}, &res)
-		So(err, ShouldBeNil)
-		So(res.NewKey, ShouldEqual, 456)
-
-	})
-	Convey("UpsertId should update if  exists", t, func() {
-		_, err := dataStoreConnection.
-			GetConfiguredCollection().
-			UpsertById(context.Background(), 3, bson.M{"$set": bson.M{"new_key": 789}})
-		So(err, ShouldBeNil)
-
-		res := TestModel{}
-		err = queryMongo(dataStoreConnection, bson.M{"_id": 3}, &res)
-		So(err, ShouldBeNil)
-		So(res.NewKey, ShouldEqual, 789)
-	})
-
-	Convey("UpdateId should update data if document exists", t, func() {
-		_, err := dataStoreConnection.GetConfiguredCollection().UpdateById(context.Background(), 3, bson.M{"$set": bson.M{"new_key": 7892}})
-		So(err, ShouldBeNil)
-
-		res := TestModel{}
-
-		err = queryMongo(dataStoreConnection, bson.M{"_id": 3}, &res)
-		So(err, ShouldBeNil)
-		So(res.NewKey, ShouldEqual, 7892)
-	})
-
-	Convey("FindOne should find data if document exists", t, func() {
-		res := TestModel{}
-		err := dataStoreConnection.
-			GetConfiguredCollection().
-			FindOne(context.Background(), bson.M{"_id": 3}, &res)
-		So(err, ShouldBeNil)
-
-		So(res.State, ShouldEqual, "third")
-	})
-
-}
-func getMongoConnectionConfig() *mongoDriver.MongoConnectionConfig {
+func getMongoConnectionConfig(mongoServer *mim.Server) *mongoDriver.MongoConnectionConfig {
 	return &mongoDriver.MongoConnectionConfig{
 		ConnectTimeoutInSeconds: 5,
 		QueryTimeoutInSeconds:   5,
-
-		Username:                      "test",
-		Password:                      "test",
-		ClusterEndpoint:               "localhost:27017",
-		Database:                      "testDb",
-		Collection:                    "testCollection",
-		IsStrongReadConcernEnabled:    true,
-		IsWriteConcernMajorityEnabled: true,
-	}
-}
-
-func getDocumentDbConnectionConfig() *mongoDriver.MongoConnectionConfig {
-	return &mongoDriver.MongoConnectionConfig{
-		ConnectTimeoutInSeconds: 5,
-		QueryTimeoutInSeconds:   5,
-
-		Username:                      "test",
-		Password:                      "test",
-		ClusterEndpoint:               "localhost:27017",
-		Database:                      "recipes",
-		Collection:                    "recipes",
-		IsStrongReadConcernEnabled:    true,
-		IsWriteConcernMajorityEnabled: true,
+		ClusterEndpoint:         fmt.Sprintf("localhost:%d", mongoServer.Port()),
+		Database:                "testDb",
+		Collection:              "testCollection",
 	}
 }
 
@@ -322,9 +233,5 @@ func queryMongo(mongoConnection *mongoDriver.MongoConnection, query bson.M, res 
 		return err
 	}
 
-	return nil
-}
-
-func cleanupTestData(connection *mongoDriver.MongoConnection) error {
 	return nil
 }
