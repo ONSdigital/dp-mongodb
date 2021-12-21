@@ -80,7 +80,6 @@ type MongoConnectionConfig struct {
 	Password                      string `envconfig:"MONGODB_PASSWORD"    json:"-"`
 	ClusterEndpoint               string `envconfig:"MONGODB_BIND_ADDR"   json:"-"`
 	Database                      string `envconfig:"MONGODB_DATABASE"`
-	Collection                    string `envconfig:"MONGODB_COLLECTION"`
 	ReplicaSet                    string `envconfig:"MONGODB_REPLICA_SET"`
 	IsStrongReadConcernEnabled    bool   `envconfig:"MONGODB_ENABLE_READ_CONCERN"`
 	IsWriteConcernMajorityEnabled bool   `envconfig:"MONGODB_ENABLE_WRITE_CONCERN"`
@@ -100,7 +99,7 @@ func (m *MongoConnectionConfig) GetConnectionURI() (string, error) {
 		return "", err
 	}
 	if !matches {
-		return "", fmt.Errorf("Invalid mongodb address: %s", endpoint)
+		return "", fmt.Errorf("invalid mongodb address: %s", endpoint)
 	}
 
 	endpoint = strings.TrimPrefix(endpoint, "mongodb://")

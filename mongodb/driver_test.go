@@ -23,7 +23,6 @@ func ExampleOpen() {
 	connectionConfig := &mongoDriver.MongoConnectionConfig{
 		ClusterEndpoint: "localhost:27017",
 		Database:        "recipes",
-		Collection:      "recipes",
 		Username:        "XXX- username for recipe-api for authentication",
 		Password:        "XXX - the password for the above username",
 
@@ -47,7 +46,7 @@ func ExampleOpen() {
 	// Can now work with the mongo db
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
-	_, _ = mongoDB.Collection(connectionConfig.Collection).Insert(ctx, bson.M{"recipe field": "field value"})
+	_, _ = mongoDB.Collection("recipes").Insert(ctx, bson.M{"recipe field": "field value"})
 }
 
 func TestOpenConnectionToMongoDB_NoSSL(t *testing.T) {
@@ -76,7 +75,6 @@ func TestOpenConnectionToMongoDB_NoSSL(t *testing.T) {
 			Password:        password,
 			ClusterEndpoint: fmt.Sprintf("localhost:%d", mongoServer.Port()),
 			Database:        db,
-			Collection:      "testCollection",
 		}
 
 		Convey("When a connection is attempted", func() {
@@ -113,7 +111,7 @@ func TestOpenConnectionToMongoDB_NoSSL(t *testing.T) {
 
 			Convey("Then an error is returned", func() {
 				So(err, ShouldNotBeNil)
-				So(err.Error(), ShouldEqual, fmt.Sprintf("Invalid mongodb address: %s", connectionConfig.ClusterEndpoint))
+				So(err.Error(), ShouldEqual, fmt.Sprintf("invalid mongodb address: %s", connectionConfig.ClusterEndpoint))
 			})
 		})
 	})
@@ -251,7 +249,7 @@ func TestMongoConnectionConfig_GetConnectionURIWhen(t *testing.T) {
 			Convey("The connection URI returns an error", func() {
 				_, err := connectionConfig.GetConnectionURI()
 				So(err, ShouldNotBeNil)
-				So(err.Error(), ShouldEqual, "Invalid mongodb address: mysql://localhost:27017")
+				So(err.Error(), ShouldEqual, "invalid mongodb address: mysql://localhost:27017")
 			})
 
 		})
