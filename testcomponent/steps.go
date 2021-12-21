@@ -3,6 +3,7 @@ package testcomponent
 import (
 	"context"
 	"encoding/json"
+	"errors"
 
 	componenttest "github.com/ONSdigital/dp-component-test"
 	mongoDriver "github.com/ONSdigital/dp-mongodb/v3/mongodb"
@@ -381,7 +382,7 @@ func (m *MongoV2Component) testFindOneError() error {
 
 	err := m.find.One(context.Background(), &result)
 
-	assert.True(&m.ErrorFeature, mongoDriver.IsErrNoDocumentFound(err))
+	assert.True(&m.ErrorFeature, errors.Is(err, mongoDriver.ErrNoDocumentFound))
 
 	return m.ErrorFeature.StepError()
 }
@@ -416,7 +417,7 @@ func (m *MongoV2Component) mustUpdateRecord(id int, recordAsString *godog.DocStr
 }
 
 func (m *MongoV2Component) testRecieveErrNoDocumentFoundError() error {
-	assert.True(&m.ErrorFeature, mongoDriver.IsErrNoDocumentFound(m.mustErrorResult))
+	assert.True(&m.ErrorFeature, errors.Is(m.mustErrorResult, mongoDriver.ErrNoDocumentFound))
 
 	return m.ErrorFeature.StepError()
 }

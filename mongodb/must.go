@@ -20,7 +20,7 @@ func (m *Must) UpdateById(ctx context.Context, id interface{}, update interface{
 	}
 
 	if result.MatchedCount == 0 {
-		return nil, NewErrNoDocumentFoundError("Must update by Id, no document matched", nil)
+		return nil, ErrNoDocumentFound
 	}
 
 	return result, nil
@@ -34,7 +34,7 @@ func (m *Must) Update(ctx context.Context, selector interface{}, update interfac
 	}
 
 	if result.MatchedCount == 0 {
-		return nil, NewErrNoDocumentFoundError("Must update, no document matched", nil)
+		return nil, ErrNoDocumentFound
 	}
 
 	return result, nil
@@ -48,7 +48,7 @@ func (m *Must) Delete(ctx context.Context, selector interface{}) (*CollectionDel
 	}
 
 	if result.DeletedCount < 1 {
-		return nil, NewErrNoDocumentFoundError("Must delete, no document deleted", nil)
+		return nil, ErrNoDocumentFound
 	}
 
 	return result, nil
@@ -62,7 +62,7 @@ func (m *Must) DeleteMany(ctx context.Context, selector interface{}) (*Collectio
 	}
 
 	if result.DeletedCount < 1 {
-		return nil, NewErrNoDocumentFoundError("Must delete, no document deleted", nil)
+		return nil, ErrNoDocumentFound
 	}
 
 	return result, nil
@@ -76,7 +76,7 @@ func (m *Must) DeleteById(ctx context.Context, id interface{}) (*CollectionDelet
 	}
 
 	if result.DeletedCount < 1 {
-		return nil, NewErrNoDocumentFoundError("Must delete by id, no document deleted", nil)
+		return nil, ErrNoDocumentFound
 	}
 
 	return result, nil
