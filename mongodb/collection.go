@@ -150,8 +150,17 @@ func (c *Collection) DeleteById(ctx context.Context, id interface{}) (*Collectio
 }
 
 // Aggregate starts a pipeline operation
-func (c *Collection) Aggregate(pipeline interface{}) *Cursor {
-	return newCursor(newAggregateCursor(c.collection, pipeline, options.Aggregate()))
+func (c *Collection) Aggregate(ctx context.Context, pipeline, results interface{}) error {
+	cursor, err := c.collection.Aggregate(ctx, pipeline)
+	if err != nil {
+		return wrapMongoError(err)
+	}
+
+	if err = cursor.All(ctx, results); err != nil {
+		return wrapMongoError(err)
+	}
+
+	return nil
 }
 
 // NewLockClient creates a new Lock Client

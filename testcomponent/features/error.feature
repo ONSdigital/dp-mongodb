@@ -1,11 +1,11 @@
 Feature: Error Steps
     Scenario:
         When I start a find operation
-        Then Itr All should fail with a wrapped error if an incorrect result param is provided
+        Then All should fail with a wrapped error if an incorrect result param is provided
 
 Scenario:
         When I start a find operation
-        Then Find Itr All should fail with a wrapped error if an incorrect result param is provided
+        Then Find All should fail with a wrapped error if an incorrect result param is provided
 
 Scenario:
         When I start a find operation

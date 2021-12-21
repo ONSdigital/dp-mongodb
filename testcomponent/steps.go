@@ -57,8 +57,8 @@ func (m *MongoV2Component) RegisterSteps(ctx *godog.ScenarioContext) {
 	ctx.Step(`^there are (\d+) matched, (\d+) modified, (\d+) upserted records$`, m.modifiedCount)
 	ctx.Step(`^there are (\d+) deleted records$`, m.deletedRecords)
 	ctx.Step(`^this is the inserted records result$`, m.insertedRecords)
-	ctx.Step(`^Itr All should fail with a wrapped error if an incorrect result param is provided$`, m.testErrorItrAll)
-	ctx.Step(`^Find Itr All should fail with a wrapped error if an incorrect result param is provided$`, m.testFindErrorItrAll)
+	ctx.Step(`^All should fail with a wrapped error if an incorrect result param is provided$`, m.testErrorAll)
+	ctx.Step(`^Find All should fail with a wrapped error if an incorrect result param is provided$`, m.testFindErrorAll)
 	ctx.Step(`^Find One should fail with an ErrNoDocumentFound error$`, m.testFindOneError)
 	ctx.Step(`^I should receive a ErrNoDocumentFound error$`, m.testRecieveErrNoDocumentFoundError)
 	ctx.Step(`^Must did not return an error$`, m.testMustDidNotReturnError)
@@ -128,7 +128,7 @@ func (m *MongoV2Component) findRecords() error {
 func (m *MongoV2Component) shouldReceiveTheseRecords(recordsJson *godog.DocString) error {
 	actualRecords := make([]dataModel, 0)
 
-	err := m.find.Iter().All(context.Background(), &actualRecords)
+	err := m.find.All(context.Background(), &actualRecords)
 	if err != nil {
 		return err
 	}
@@ -357,20 +357,20 @@ func (m *MongoV2Component) insertedRecords(recordsJson *godog.DocString) error {
 	return m.ErrorFeature.StepError()
 }
 
-func (m *MongoV2Component) testErrorItrAll() error {
+func (m *MongoV2Component) testErrorAll() error {
 	badResult := 1
 
-	err := m.find.Iter().All(context.Background(), &badResult)
+	err := m.find.All(context.Background(), &badResult)
 
 	assert.True(&m.ErrorFeature, mongoDriver.IsServerErr(err))
 
 	return m.ErrorFeature.StepError()
 }
 
-func (m *MongoV2Component) testFindErrorItrAll() error {
+func (m *MongoV2Component) testFindErrorAll() error {
 	badResult := 1
 
-	err := m.find.IterAll(context.Background(), &badResult)
+	err := m.find.All(context.Background(), &badResult)
 
 	assert.True(&m.ErrorFeature, mongoDriver.IsServerErr(err))
 

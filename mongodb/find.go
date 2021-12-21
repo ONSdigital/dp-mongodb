@@ -66,7 +66,7 @@ func (find *Find) Count(ctx context.Context) (int, error) {
 	return int(docCount), wrapMongoError(err)
 }
 
-// Find a record which matches the find criteria
+// One finds a record which matches the find criteria
 // Current FindOptions are limited to what is used: Sort, Skip, Projection
 // Other exhaustive list of options are: AllowPartialResults,BatchSize,Collation,
 // Comment,CursorType,Hint,Max, MaxAwaitTime, MaxTime ,Min,
@@ -93,13 +93,11 @@ func (find *Find) One(ctx context.Context, val interface{}) error {
 		return wrapMongoError(result.Err())
 	}
 
-	result.Decode(val)
-
-	return nil
+	return wrapMongoError(result.Decode(val))
 }
 
-// Iter return a cursor to iterate through the results
-func (find *Find) Iter() *Cursor {
+// All return all the results for this query, you do not need to close the cursor after this call
+func (find *Find) All(ctx context.Context, results interface{}) error {
 	findOptions := options.Find()
 
 	if find.skip != 0 {
@@ -118,13 +116,10 @@ func (find *Find) Iter() *Cursor {
 		findOptions.SetProjection(find.projection)
 	}
 
-	return newCursor(newFindCursor(find.collection, find.query, findOptions))
-}
-
-// IterAll return all the results for this query, you do not need to close the cursor after
-// this call
-func (find *Find) IterAll(ctx context.Context, results interface{}) error {
-	cursor := find.Iter()
+	cursor, err := find.collection.Find(ctx, find.query, findOptions)
+	if err != nil {
+		return wrapMongoError(err)
+	}
 
 	return wrapMongoError(cursor.All(ctx, results))
 }
