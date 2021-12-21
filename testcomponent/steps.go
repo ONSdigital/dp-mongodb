@@ -21,12 +21,17 @@ type dataModel struct {
 	Age  string
 }
 
+type find struct {
+	query   interface{}
+	options []mongoDriver.FindOption
+}
+
 type MongoV2Component struct {
 	database        string
 	collection      string
 	rawClient       mongo.Client
 	testClient      *mongoDriver.MongoConnection
-	find            *mongoDriver.Find
+	find            *find
 	insertResult    *mongoDriver.CollectionInsertManyResult
 	updateResult    *mongoDriver.CollectionUpdateResult
 	deleteResult    *mongoDriver.CollectionDeleteResult
@@ -57,8 +62,7 @@ func (m *MongoV2Component) RegisterSteps(ctx *godog.ScenarioContext) {
 	ctx.Step(`^there are (\d+) matched, (\d+) modified, (\d+) upserted records$`, m.modifiedCount)
 	ctx.Step(`^there are (\d+) deleted records$`, m.deletedRecords)
 	ctx.Step(`^this is the inserted records result$`, m.insertedRecords)
-	ctx.Step(`^All should fail with a wrapped error if an incorrect result param is provided$`, m.testErrorAll)
-	ctx.Step(`^Find All should fail with a wrapped error if an incorrect result param is provided$`, m.testFindErrorAll)
+	ctx.Step(`^Find All should fail with a wrapped error if an incorrect result param is provided$`, m.testFindAllError)
 	ctx.Step(`^Find One should fail with an ErrNoDocumentFound error$`, m.testFindOneError)
 	ctx.Step(`^I should receive a ErrNoDocumentFound error$`, m.testRecieveErrNoDocumentFoundError)
 	ctx.Step(`^Must did not return an error$`, m.testMustDidNotReturnError)
@@ -120,7 +124,7 @@ func (m *MongoV2Component) insertedTheseRecords(recordsJson *godog.DocString) er
 }
 
 func (m *MongoV2Component) findRecords() error {
-	m.find = m.testClient.Collection(m.collection).Find(bson.D{})
+	m.find = &find{query: bson.D{}}
 
 	return nil
 }
@@ -128,13 +132,12 @@ func (m *MongoV2Component) findRecords() error {
 func (m *MongoV2Component) shouldReceiveTheseRecords(recordsJson *godog.DocString) error {
 	actualRecords := make([]dataModel, 0)
 
-	err := m.find.All(context.Background(), &actualRecords)
+	_, err := m.testClient.Collection(m.collection).Find(context.Background(), m.find.query, &actualRecords, m.find.options...)
 	if err != nil {
 		return err
 	}
 
 	expectedRecords := make([]dataModel, 0)
-
 	err = json.Unmarshal([]byte(recordsJson.Content), &expectedRecords)
 	if err != nil {
 		return err
@@ -146,7 +149,7 @@ func (m *MongoV2Component) shouldReceiveTheseRecords(recordsJson *godog.DocStrin
 }
 
 func (m *MongoV2Component) countRecords(expected int) error {
-	actual, err := m.find.Count(context.Background())
+	actual, err := m.testClient.Collection(m.collection).Count(context.Background(), m.find.query, m.find.options...)
 	if err != nil {
 		return err
 	}
@@ -157,31 +160,31 @@ func (m *MongoV2Component) countRecords(expected int) error {
 }
 
 func (m *MongoV2Component) setLimit(limit int) error {
-	m.find.Limit(limit)
+	m.find.options = append(m.find.options, mongoDriver.Limit(limit))
 
 	return nil
 }
 
 func (m *MongoV2Component) setSkip(skip int) error {
-	m.find.Skip(skip)
+	m.find.options = append(m.find.options, mongoDriver.Offset(skip))
 
 	return nil
 }
 
 func (m *MongoV2Component) findWithId(id int) error {
-	m.find = m.testClient.Collection(m.collection).Find(bson.M{"_id": bson.M{"$gt": id}})
+	m.find = &find{query: bson.M{"_id": bson.M{"$gt": id}}}
 
 	return nil
 }
 
 func (m *MongoV2Component) sortByIdDesc() error {
-	m.find.Sort(bson.D{{Key: "_id", Value: -1}})
+	m.find.options = append(m.find.options, mongoDriver.Sort(bson.D{{Key: "_id", Value: -1}}))
 
 	return nil
 }
 
 func (m *MongoV2Component) selectField(field string) error {
-	m.find.Select(bson.M{field: 1})
+	m.find.options = append(m.find.options, mongoDriver.Projection(bson.M{field: 1}))
 
 	return nil
 }
@@ -195,7 +198,7 @@ func (m *MongoV2Component) findOneRecord(recordAsString *godog.DocString) error 
 		return err
 	}
 
-	err = m.find.One(context.Background(), &actualRecord)
+	err = m.testClient.Collection(m.collection).FindOne(context.Background(), m.find.query, &actualRecord, m.find.options...)
 	if err != nil {
 		return err
 	}
@@ -357,20 +360,10 @@ func (m *MongoV2Component) insertedRecords(recordsJson *godog.DocString) error {
 	return m.ErrorFeature.StepError()
 }
 
-func (m *MongoV2Component) testErrorAll() error {
+func (m *MongoV2Component) testFindAllError() error {
 	badResult := 1
 
-	err := m.find.All(context.Background(), &badResult)
-
-	assert.True(&m.ErrorFeature, mongoDriver.IsServerErr(err))
-
-	return m.ErrorFeature.StepError()
-}
-
-func (m *MongoV2Component) testFindErrorAll() error {
-	badResult := 1
-
-	err := m.find.All(context.Background(), &badResult)
+	_, err := m.testClient.Collection(m.collection).Find(context.Background(), m.find.query, &badResult, m.find.options...)
 
 	assert.True(&m.ErrorFeature, mongoDriver.IsServerErr(err))
 
@@ -380,7 +373,7 @@ func (m *MongoV2Component) testFindErrorAll() error {
 func (m *MongoV2Component) testFindOneError() error {
 	var result dataModel
 
-	err := m.find.One(context.Background(), &result)
+	err := m.testClient.Collection(m.collection).FindOne(context.Background(), m.find.query, &result, m.find.options...)
 
 	assert.True(&m.ErrorFeature, errors.Is(err, mongoDriver.ErrNoDocumentFound))
 

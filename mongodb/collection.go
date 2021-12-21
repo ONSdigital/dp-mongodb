@@ -47,9 +47,53 @@ func (c *Collection) Must() *Must {
 	return newMust(c)
 }
 
-// Find returns a Find interface which can be used to either refine the criteria or retrieve a cursor
-func (c *Collection) Find(query interface{}) *Find {
-	return newFind(c.collection, query)
+// Distinct returns the list of distinct values for the given field name in the collection
+func (c *Collection) Distinct(ctx context.Context, filter interface{}, fieldName string) ([]interface{}, error) {
+
+	results, err := c.collection.Distinct(ctx, fieldName, filter)
+
+	return results, wrapMongoError(err)
+}
+
+// Count returns the number of documents in the collection that satisfy the given filter (which cannot be nil)
+// Sort and Projection options are ignored. The Limit option <=0 is ignored and a count of all documents is returned
+func (c *Collection) Count(ctx context.Context, filter interface{}, opts ...FindOption) (int, error) {
+
+	return newFind(c.collection, filter, opts...).count(ctx)
+}
+
+// Find returns the total number of documents in the collection that satisfy the given query (restricted by the
+// given options), with the actual documents provided in the results parameter (which must be a non nil pointer
+// to a slice of the expected document type)
+// If no sort order option is provided a default of sort of 'ascending _id' is used (bson.M{"_id": 1})
+func (c *Collection) Find(ctx context.Context, filter, results interface{}, opts ...FindOption) (int, error) {
+
+	f := newFind(c.collection, filter, opts...)
+
+	tc, err := c.Count(ctx, filter)
+	switch {
+	case err != nil:
+		return 0, err
+	case tc == 0:
+		return 0, nil
+	case f.limit < 0 || f.skip >= int64(tc):
+		return tc, nil
+	}
+
+	if f.sort == nil {
+		f.sort = bson.M{"_id": 1}
+	}
+	if err = f.all(ctx, results); err != nil {
+		return 0, err
+	}
+
+	return tc, nil
+}
+
+// FindOne locates a single document
+func (c *Collection) FindOne(ctx context.Context, filter interface{}, result interface{}, opts ...FindOption) error {
+
+	return newFind(c.collection, filter, opts...).one(ctx, result)
 }
 
 // Insert creates a single record
@@ -115,12 +159,6 @@ func (c *Collection) updateRecord(ctx context.Context, selector interface{}, upd
 	}
 
 	return nil, wrapMongoError(err)
-}
-
-// FindOne locates a single document
-func (c *Collection) FindOne(ctx context.Context, filter interface{}, result interface{}) error {
-	err := c.collection.FindOne(ctx, filter).Decode(result)
-	return wrapMongoError(err)
 }
 
 // Delete deletes a record based on the provided selector

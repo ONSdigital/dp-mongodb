@@ -7,7 +7,16 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-type Find struct {
+type FindOption func(f *find)
+
+var (
+	Sort       = func(s interface{}) FindOption { return func(f *find) { f.sort = s } }
+	Offset     = func(o int) FindOption { return func(f *find) { f.skip = int64(o) } }
+	Limit      = func(l int) FindOption { return func(f *find) { f.limit = int64(l) } }
+	Projection = func(p interface{}) FindOption { return func(f *find) { f.projection = p } }
+)
+
+type find struct {
 	collection *mongo.Collection
 	query      interface{}
 	limit      int64
@@ -16,79 +25,35 @@ type Find struct {
 	projection interface{}
 }
 
-func newFind(collection *mongo.Collection, query interface{}) *Find {
-	return &Find{collection, query, 0, 0, nil, nil}
-}
+func newFind(collection *mongo.Collection, query interface{}, opts ...FindOption) *find {
+	f := &find{collection: collection, query: query}
+	for _, o := range opts {
+		o(f)
+	}
 
-// Find set the find query
-func (find *Find) Find(query interface{}) *Find {
-	find.query = query
-	return find
-}
-
-// Sort set the sort criteria
-func (find *Find) Sort(sort interface{}) *Find {
-	find.sort = sort
-	return find
-}
-
-// Limit set the max number of records to retrieve
-func (find *Find) Limit(limit int) *Find {
-	find.limit = int64(limit)
-	return find
-}
-
-// Skip set the number of records to skip when the query is run
-func (find *Find) Skip(skip int) *Find {
-	find.skip = int64(skip)
-	return find
-}
-
-// Select specifies the fields to return
-func (find *Find) Select(projection interface{}) *Find {
-	find.projection = projection
-	return find
+	return f
 }
 
 // Count the number of records which match the find query
-func (find *Find) Count(ctx context.Context) (int, error) {
-	count := options.Count()
+func (find *find) count(ctx context.Context) (int, error) {
+	var (
+		docCount int64
+		err      error
+	)
 
-	if find.skip != 0 {
-		count.SetSkip(find.skip)
+	opts := options.Count().SetSkip(find.skip)
+	if find.limit > 0 {
+		opts.SetLimit(find.limit)
 	}
 
-	if find.limit != 0 {
-		count.SetLimit(find.limit)
-	}
+	docCount, err = find.collection.CountDocuments(ctx, find.query, opts)
 
-	docCount, err := find.collection.CountDocuments(ctx, find.query, count)
 	return int(docCount), wrapMongoError(err)
 }
 
-// One finds a record which matches the find criteria
-// Current FindOptions are limited to what is used: Sort, Skip, Projection
-// Other exhaustive list of options are: AllowPartialResults,BatchSize,Collation,
-// Comment,CursorType,Hint,Max, MaxAwaitTime, MaxTime ,Min,
-// NoCursorTimeout,OplogReplay,ReturnKey,ShowRecordID,
-// Snapshot,
-// ref: https://github.com/mongodb/mongo-go-driver/blob/master/mongo/options/findoptions.go#L306
-func (find *Find) One(ctx context.Context, val interface{}) error {
-	findOneOptions := options.FindOne()
+func (find *find) one(ctx context.Context, val interface{}) error {
 
-	if find.skip != 0 {
-		findOneOptions.SetSkip(find.skip)
-	}
-
-	if find.sort != nil {
-		findOneOptions.SetSort(find.sort)
-	}
-
-	if find.projection != nil {
-		findOneOptions.SetProjection(find.projection)
-	}
-
-	result := find.collection.FindOne(ctx, find.query, findOneOptions)
+	result := find.collection.FindOne(ctx, find.query, options.FindOne().SetSort(find.sort).SetSkip(find.skip).SetProjection(find.projection))
 	if result.Err() != nil {
 		return wrapMongoError(result.Err())
 	}
@@ -96,37 +61,13 @@ func (find *Find) One(ctx context.Context, val interface{}) error {
 	return wrapMongoError(result.Decode(val))
 }
 
-// All return all the results for this query, you do not need to close the cursor after this call
-func (find *Find) All(ctx context.Context, results interface{}) error {
-	findOptions := options.Find()
+// Iter return a cursor to iterate through the results
+func (find *find) all(ctx context.Context, results interface{}) error {
 
-	if find.skip != 0 {
-		findOptions.SetSkip(find.skip)
-	}
-
-	if find.limit != 0 {
-		findOptions.SetLimit(find.limit)
-	}
-
-	if find.sort != nil {
-		findOptions.SetSort(find.sort)
-	}
-
-	if find.projection != nil {
-		findOptions.SetProjection(find.projection)
-	}
-
-	cursor, err := find.collection.Find(ctx, find.query, findOptions)
+	cursor, err := find.collection.Find(ctx, find.query, options.Find().SetSort(find.sort).SetSkip(find.skip).SetLimit(find.limit).SetProjection(find.projection))
 	if err != nil {
 		return wrapMongoError(err)
 	}
 
 	return wrapMongoError(cursor.All(ctx, results))
-}
-
-// Distinct return only distinct records
-func (find *Find) Distinct(ctx context.Context, fieldName string) ([]interface{}, error) {
-	results, err := find.collection.Distinct(ctx, fieldName, find.query)
-
-	return results, wrapMongoError(err)
 }
