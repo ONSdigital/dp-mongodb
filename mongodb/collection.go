@@ -59,41 +59,49 @@ func (c *Collection) Distinct(ctx context.Context, filter interface{}, fieldName
 // Sort and Projection options are ignored. The Limit option <=0 is ignored and a count of all documents is returned
 func (c *Collection) Count(ctx context.Context, filter interface{}, opts ...FindOption) (int, error) {
 
-	return newFind(c.collection, filter, opts...).count(ctx)
+	count, err := c.collection.CountDocuments(ctx, filter, newFindOptions(opts...).asDriverCountOption())
+
+	return int(count), wrapMongoError(err)
 }
 
-// Find returns the total number of documents in the collection that satisfy the given query (restricted by the
+// Find returns the total number of documents in the collection that satisfy the given filter (restricted by the
 // given options), with the actual documents provided in the results parameter (which must be a non nil pointer
 // to a slice of the expected document type)
-// If no sort order option is provided a default of sort of 'ascending _id' is used (bson.M{"_id": 1})
+// If no sort order option is provided a default sort order of 'ascending _id' is used (bson.M{"_id": 1})
 func (c *Collection) Find(ctx context.Context, filter, results interface{}, opts ...FindOption) (int, error) {
 
-	f := newFind(c.collection, filter, opts...)
+	fo := newFindOptions(opts...)
 
-	tc, err := c.Count(ctx, filter)
+	tc, err := c.collection.CountDocuments(ctx, filter)
 	switch {
 	case err != nil:
 		return 0, err
 	case tc == 0:
 		return 0, nil
-	case f.limit < 0 || f.skip >= int64(tc):
-		return tc, nil
+	case fo.limit < 0 || fo.skip >= tc:
+		return int(tc), nil
 	}
 
-	if f.sort == nil {
-		f.sort = bson.M{"_id": 1}
+	if fo.sort == nil {
+		fo.sort = bson.M{"_id": 1}
 	}
-	if err = f.all(ctx, results); err != nil {
-		return 0, err
+	cursor, err := c.collection.Find(ctx, filter, fo.asDriverFindOption())
+	if err != nil {
+		return 0, wrapMongoError(err)
 	}
 
-	return tc, nil
+	return int(tc), wrapMongoError(cursor.All(ctx, results))
 }
 
 // FindOne locates a single document
 func (c *Collection) FindOne(ctx context.Context, filter interface{}, result interface{}, opts ...FindOption) error {
 
-	return newFind(c.collection, filter, opts...).one(ctx, result)
+	r := c.collection.FindOne(ctx, filter, newFindOptions(opts...).asDriverFindOneOption())
+	if r.Err() != nil {
+		return wrapMongoError(r.Err())
+	}
+
+	return wrapMongoError(r.Decode(result))
 }
 
 // Insert creates a single record
