@@ -46,24 +46,25 @@ func TestSuite(t *testing.T) {
 		So(conn, ShouldNotBeNil)
 
 		Convey("With some test data", func() {
-			if err := setUpTestData(conn); err != nil {
+			collection := "test-collection"
+			if err := setUpTestData(conn, collection); err != nil {
 				t.Fatalf("failed to insert test data, skipping tests: %v", err)
 			}
 
 			Convey("check data in original state", func() {
 				res := TestModel{}
 
-				err := queryMongo(conn, bson.M{"_id": 1}, &res)
+				err := queryMongo(conn, collection, bson.M{"_id": 1}, &res)
 				So(err, ShouldBeNil)
 				So(res.State, ShouldEqual, "first")
 			})
 
 			Convey("check data after plain Update", func() {
 				res := TestModel{}
-				_, err := conn.GetConfiguredCollection().UpdateById(context.Background(), 1, bson.M{"$set": bson.M{"new_key": 123}})
+				_, err := conn.Collection(collection).UpdateById(context.Background(), 1, bson.M{"$set": bson.M{"new_key": 123}})
 				So(err, ShouldBeNil)
 
-				err = queryMongo(conn, bson.M{"_id": 1}, &res)
+				err = queryMongo(conn, collection, bson.M{"_id": 1}, &res)
 				So(err, ShouldBeNil)
 				So(res.State, ShouldEqual, "first")
 				So(res.NewKey, ShouldEqual, 123)
@@ -78,10 +79,10 @@ func TestSuite(t *testing.T) {
 				So(err, ShouldBeNil)
 				So(updateWithTimestamps, ShouldResemble, bson.M{"$currentDate": bson.M{"last_updated": true, "unique_timestamp": bson.M{"$type": "timestamp"}}, "$set": bson.M{"new_key": 321}})
 
-				_, err = conn.GetConfiguredCollection().UpdateById(context.Background(), 1, updateWithTimestamps)
+				_, err = conn.Collection(collection).UpdateById(context.Background(), 1, updateWithTimestamps)
 				So(err, ShouldBeNil)
 
-				err = queryMongo(conn, bson.M{"_id": 1}, &res)
+				err = queryMongo(conn, collection, bson.M{"_id": 1}, &res)
 				So(err, ShouldBeNil)
 				So(res.State, ShouldEqual, "first")
 				So(res.NewKey, ShouldEqual, 321)
@@ -109,10 +110,10 @@ func TestSuite(t *testing.T) {
 					"$set": bson.M{"new_key": 1234},
 				})
 
-				_, err = conn.GetConfiguredCollection().UpdateById(context.Background(), 1, updateWithTimestamps)
+				_, err = conn.Collection(collection).UpdateById(context.Background(), 1, updateWithTimestamps)
 				So(err, ShouldBeNil)
 
-				err = queryMongo(conn, bson.M{"_id": 1}, &res)
+				err = queryMongo(conn, collection, bson.M{"_id": 1}, &res)
 				So(err, ShouldBeNil)
 				So(res.State, ShouldEqual, "first")
 				So(res.NewKey, ShouldEqual, 1234)
@@ -126,36 +127,36 @@ func TestSuite(t *testing.T) {
 
 			Convey("UpsertId should insert if not exists", func() {
 				_, err := conn.
-					GetConfiguredCollection().
+					Collection(collection).
 					UpsertById(context.Background(), 4, bson.M{"$set": bson.M{"new_key": 456}})
 				So(err, ShouldBeNil)
 
 				res := TestModel{}
 
-				err = queryMongo(conn, bson.M{"_id": 4}, &res)
+				err = queryMongo(conn, collection, bson.M{"_id": 4}, &res)
 				So(err, ShouldBeNil)
 				So(res.NewKey, ShouldEqual, 456)
 			})
 
 			Convey("UpsertId should update if  exists", func() {
 				_, err := conn.
-					GetConfiguredCollection().
+					Collection(collection).
 					UpsertById(context.Background(), 3, bson.M{"$set": bson.M{"new_key": 789}})
 				So(err, ShouldBeNil)
 
 				res := TestModel{}
-				err = queryMongo(conn, bson.M{"_id": 3}, &res)
+				err = queryMongo(conn, collection, bson.M{"_id": 3}, &res)
 				So(err, ShouldBeNil)
 				So(res.NewKey, ShouldEqual, 789)
 			})
 
 			Convey("UpdateId should update data if document exists", func() {
-				_, err := conn.GetConfiguredCollection().UpdateById(context.Background(), 3, bson.M{"$set": bson.M{"new_key": 7892}})
+				_, err := conn.Collection(collection).UpdateById(context.Background(), 3, bson.M{"$set": bson.M{"new_key": 7892}})
 				So(err, ShouldBeNil)
 
 				res := TestModel{}
 
-				err = queryMongo(conn, bson.M{"_id": 3}, &res)
+				err = queryMongo(conn, collection, bson.M{"_id": 3}, &res)
 				So(err, ShouldBeNil)
 				So(res.NewKey, ShouldEqual, 7892)
 			})
@@ -163,7 +164,7 @@ func TestSuite(t *testing.T) {
 			Convey("FindOne should find data if document exists", func() {
 				res := TestModel{}
 				err := conn.
-					GetConfiguredCollection().
+					Collection(collection).
 					FindOne(context.Background(), bson.M{"_id": 3}, &res)
 				So(err, ShouldBeNil)
 
@@ -196,15 +197,14 @@ func getMongoConnectionConfig(mongoServer *mim.Server) *mongoDriver.MongoConnect
 		QueryTimeout:    5 * time.Second,
 		ClusterEndpoint: fmt.Sprintf("localhost:%d", mongoServer.Port()),
 		Database:        "testDb",
-		Collection:      "testCollection",
 	}
 }
 
-func setUpTestData(mongoConnection *mongoDriver.MongoConnection) error {
+func setUpTestData(mongoConnection *mongoDriver.MongoConnection, collection string) error {
 	ctx := context.Background()
 	for i, data := range getTestData() {
 		if _, err := mongoConnection.
-			GetConfiguredCollection().
+			Collection(collection).
 			UpsertById(ctx, i+1, bson.M{"$set": data}); err != nil {
 			return err
 		}
@@ -226,10 +226,8 @@ func getTestData() []bson.M {
 	}
 }
 
-func queryMongo(mongoConnection *mongoDriver.MongoConnection, query bson.M, res interface{}) error {
-	ctx := context.Background()
-	collection := mongoConnection.GetConfiguredCollection()
-	if err := collection.FindOne(ctx, query, res); err != nil {
+func queryMongo(mongoConnection *mongoDriver.MongoConnection, collection string, query bson.M, res interface{}) error {
+	if err := mongoConnection.Collection(collection).FindOne(context.Background(), query, res); err != nil {
 		return err
 	}
 

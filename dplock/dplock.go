@@ -71,7 +71,7 @@ var GenerateTimeID = func() int {
 
 // New creates a new mongoDB lock for the provided session, db, collection and resource
 func New(ctx context.Context, mongoConnection *mongoDriver.MongoConnection, resource string) *Lock {
-	lockClient := mongoConnection.C(fmt.Sprintf("%s_locks", resource)).NewLockClient()
+	lockClient := mongoConnection.Collection(fmt.Sprintf("%s_locks", resource)).NewLockClient()
 	lockClient.CreateIndexes(ctx)
 	lockPurger := lock.NewPurger(lockClient)
 	lck := &Lock{
@@ -173,7 +173,7 @@ func (l *Lock) Unlock(ctx context.Context, lockID string) {
 }
 
 // Close closes the closer channel, and waits for the WaitGroup to finish.
-func (l *Lock) Close(ctx context.Context) {
+func (l *Lock) Close(_ context.Context) {
 	close(l.CloserChannel)
 	l.WaitGroup.Wait()
 }

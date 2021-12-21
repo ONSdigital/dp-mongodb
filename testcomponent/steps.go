@@ -70,7 +70,7 @@ func (m *MongoV2Component) RegisterSteps(ctx *godog.ScenarioContext) {
 
 func newMongoV2Component(database string, collection string, rawClient mongo.Client) *MongoV2Component {
 	return &MongoV2Component{database, collection, rawClient,
-		mongoDriver.NewMongoConnection(&rawClient, database, collection),
+		mongoDriver.NewMongoConnection(&rawClient, database),
 		nil, nil, nil, nil, nil, componenttest.ErrorFeature{}}
 }
 
@@ -119,7 +119,7 @@ func (m *MongoV2Component) insertedTheseRecords(recordsJson *godog.DocString) er
 }
 
 func (m *MongoV2Component) findRecords() error {
-	m.find = m.testClient.C(m.collection).Find(bson.D{})
+	m.find = m.testClient.Collection(m.collection).Find(bson.D{})
 
 	return nil
 }
@@ -150,7 +150,7 @@ func (m *MongoV2Component) countRecords(expected int) error {
 		return err
 	}
 
-	assert.EqualValues(&m.ErrorFeature, int(expected), int(actual))
+	assert.EqualValues(&m.ErrorFeature, expected, actual)
 
 	return m.ErrorFeature.StepError()
 }
@@ -168,7 +168,7 @@ func (m *MongoV2Component) setSkip(skip int) error {
 }
 
 func (m *MongoV2Component) findWithId(id int) error {
-	m.find = m.testClient.C(m.collection).Find(bson.M{"_id": bson.M{"$gt": id}})
+	m.find = m.testClient.Collection(m.collection).Find(bson.M{"_id": bson.M{"$gt": id}})
 
 	return nil
 }
@@ -214,7 +214,7 @@ func (m *MongoV2Component) upsertRecordById(id int, recordAsString *godog.DocStr
 
 	upsert := bson.D{{Key: "$set", Value: bson.D{{Key: "name", Value: record.Name}, {Key: "age", Value: record.Age}}}}
 
-	m.updateResult, err = m.testClient.C(m.collection).UpsertById(context.Background(), id, upsert)
+	m.updateResult, err = m.testClient.Collection(m.collection).UpsertById(context.Background(), id, upsert)
 
 	return err
 }
@@ -231,7 +231,7 @@ func (m *MongoV2Component) upsertRecord(id int, recordAsString *godog.DocString)
 
 	upsert := bson.D{{Key: "$set", Value: bson.D{{Key: "name", Value: record.Name}, {Key: "age", Value: record.Age}}}}
 
-	m.updateResult, err = m.testClient.C(m.collection).Upsert(context.Background(), idQuery, upsert)
+	m.updateResult, err = m.testClient.Collection(m.collection).Upsert(context.Background(), idQuery, upsert)
 
 	return err
 }
@@ -246,7 +246,7 @@ func (m *MongoV2Component) updateRecordById(id int, recordAsString *godog.DocStr
 
 	update := bson.D{{Key: "$set", Value: bson.D{{Key: "name", Value: record.Name}, {Key: "age", Value: record.Age}}}}
 
-	m.updateResult, err = m.testClient.C(m.collection).UpdateById(context.Background(), id, update)
+	m.updateResult, err = m.testClient.Collection(m.collection).UpdateById(context.Background(), id, update)
 
 	return err
 }
@@ -263,7 +263,7 @@ func (m *MongoV2Component) updateRecord(id int, recordAsString *godog.DocString)
 
 	update := bson.D{{Key: "$set", Value: bson.D{{Key: "name", Value: record.Name}, {Key: "age", Value: record.Age}}}}
 
-	m.updateResult, err = m.testClient.C(m.collection).Update(context.Background(), idQuery, update)
+	m.updateResult, err = m.testClient.Collection(m.collection).Update(context.Background(), idQuery, update)
 
 	return err
 }
@@ -271,7 +271,7 @@ func (m *MongoV2Component) updateRecord(id int, recordAsString *godog.DocString)
 func (m *MongoV2Component) deleteRecordById(id int) error {
 	var err error
 
-	m.deleteResult, err = m.testClient.C(m.collection).DeleteById(context.Background(), id)
+	m.deleteResult, err = m.testClient.Collection(m.collection).DeleteById(context.Background(), id)
 
 	return err
 }
@@ -281,7 +281,7 @@ func (m *MongoV2Component) deleteRecord(id int) error {
 
 	idQuery := bson.D{{Key: "_id", Value: id}}
 
-	m.deleteResult, err = m.testClient.C(m.collection).Delete(context.Background(), idQuery)
+	m.deleteResult, err = m.testClient.Collection(m.collection).Delete(context.Background(), idQuery)
 
 	return err
 }
@@ -291,7 +291,7 @@ func (m *MongoV2Component) deleteRecordByName(name string) error {
 
 	selector := bson.D{{Key: "name", Value: primitive.Regex{Pattern: ".*" + name + ".*"}}}
 
-	m.deleteResult, err = m.testClient.C(m.collection).DeleteMany(context.Background(), selector)
+	m.deleteResult, err = m.testClient.Collection(m.collection).DeleteMany(context.Background(), selector)
 
 	return err
 }
@@ -330,7 +330,7 @@ func (m *MongoV2Component) insertRecords(recordsJson *godog.DocString) error {
 
 	testRecords := []interface{}{records[0], records[1]}
 
-	m.insertResult, err = m.testClient.C(m.collection).InsertMany(context.Background(), testRecords)
+	m.insertResult, err = m.testClient.Collection(m.collection).InsertMany(context.Background(), testRecords)
 	if err != nil {
 		return err
 	}
@@ -395,7 +395,7 @@ func (m *MongoV2Component) mustUpdateId(id int, recordAsString *godog.DocString)
 	}
 
 	update := bson.M{"$set": record}
-	m.updateResult, m.mustErrorResult = m.testClient.C(m.collection).Must().UpdateById(context.Background(), id, update)
+	m.updateResult, m.mustErrorResult = m.testClient.Collection(m.collection).Must().UpdateById(context.Background(), id, update)
 
 	return nil
 }
@@ -410,7 +410,7 @@ func (m *MongoV2Component) mustUpdateRecord(id int, recordAsString *godog.DocStr
 
 	idQuery := bson.M{"_id": id}
 	update := bson.M{"$set": record}
-	m.updateResult, m.mustErrorResult = m.testClient.C(m.collection).Must().Update(context.Background(), idQuery, update)
+	m.updateResult, m.mustErrorResult = m.testClient.Collection(m.collection).Must().Update(context.Background(), idQuery, update)
 
 	return nil
 }
@@ -427,7 +427,7 @@ func (m *MongoV2Component) testMustDidNotReturnError() error {
 }
 
 func (m *MongoV2Component) mustDeleteRecordById(id int) error {
-	m.deleteResult, m.mustErrorResult = m.testClient.C(m.collection).Must().DeleteById(context.Background(), id)
+	m.deleteResult, m.mustErrorResult = m.testClient.Collection(m.collection).Must().DeleteById(context.Background(), id)
 
 	return nil
 }
@@ -435,7 +435,7 @@ func (m *MongoV2Component) mustDeleteRecordById(id int) error {
 func (m *MongoV2Component) mustDeleteRecord(id int) error {
 	idQuery := bson.D{{Key: "_id", Value: id}}
 
-	m.deleteResult, m.mustErrorResult = m.testClient.C(m.collection).Must().Delete(context.Background(), idQuery)
+	m.deleteResult, m.mustErrorResult = m.testClient.Collection(m.collection).Must().Delete(context.Background(), idQuery)
 
 	return nil
 }
@@ -443,7 +443,7 @@ func (m *MongoV2Component) mustDeleteRecord(id int) error {
 func (m *MongoV2Component) mustDeleteRecordsByName(name string) error {
 	selector := bson.D{{Key: "name", Value: primitive.Regex{Pattern: ".*" + name + ".*"}}}
 
-	m.deleteResult, m.mustErrorResult = m.testClient.C(m.collection).Must().DeleteMany(context.Background(), selector)
+	m.deleteResult, m.mustErrorResult = m.testClient.Collection(m.collection).Must().DeleteMany(context.Background(), selector)
 
 	return nil
 }

@@ -17,23 +17,21 @@ var (
 )
 
 type MongoConnector interface {
-	Ping(ctx context.Context) error
-	C(collection string) *Collection
-	Close(ctx context.Context) error
-	GetCollectionsFor(ctx context.Context, database string) ([]string, error)
-	GetConfiguredCollection() *Collection
+	Collection(collection string) *Collection
+	ListCollectionsFor(ctx context.Context, database string) ([]string, error)
 	DropDatabase(ctx context.Context) error
 	RunCommand(ctx context.Context, runCommand interface{}) error
+	Ping(ctx context.Context, timeoutInSeconds time.Duration) error
+	Close(ctx context.Context) error
 }
 
 type MongoConnection struct {
-	client     *mongo.Client
-	database   string
-	collection string
+	client   *mongo.Client
+	database string
 }
 
-func NewMongoConnection(client *mongo.Client, database string, collection string) *MongoConnection {
-	return &MongoConnection{client: client, database: database, collection: collection}
+func NewMongoConnection(client *mongo.Client, database string) *MongoConnection {
+	return &MongoConnection{client: client, database: database}
 }
 
 // Close represents mongo session closing within the context deadline
@@ -65,10 +63,6 @@ func (ms *MongoConnection) Close(ctx context.Context) error {
 	}
 }
 
-func (ms *MongoConnection) GetConfiguredCollection() *Collection {
-	return ms.C(ms.collection)
-}
-
 func (ms *MongoConnection) Ping(ctx context.Context, timeoutInSeconds time.Duration) error {
 	connectionCtx, cancel := context.WithTimeout(ctx, timeoutInSeconds*time.Second)
 	defer cancel()
@@ -81,6 +75,7 @@ func (ms *MongoConnection) Ping(ctx context.Context, timeoutInSeconds time.Durat
 	}
 	return nil
 }
+
 func (ms *MongoConnection) ListCollectionsFor(ctx context.Context, database string) ([]string, error) {
 	collectionNames, err := ms.
 		client.
@@ -97,7 +92,7 @@ func (ms *MongoConnection) d() *mongo.Database {
 	return ms.client.Database(ms.database)
 }
 
-func (ms *MongoConnection) C(collection string) *Collection {
+func (ms *MongoConnection) Collection(collection string) *Collection {
 	return NewCollection(ms.d().Collection(collection))
 }
 

@@ -277,7 +277,7 @@ func TestNew(t *testing.T) {
 			t.Fatalf("failed to connect to mongo server: %v", err)
 		}
 
-		mongoConnection := mongoDriver.NewMongoConnection(client, "database", "collection")
+		mongoConnection := mongoDriver.NewMongoConnection(client, "database")
 		Convey("When the New method is called for a resource", func() {
 			resource := "image"
 			lock := dplock.New(ctx, mongoConnection, resource)

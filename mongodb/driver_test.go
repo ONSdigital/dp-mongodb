@@ -47,7 +47,7 @@ func ExampleOpen() {
 	// Can now work with the mongo db
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
-	_, _ = mongoDB.GetConfiguredCollection().Insert(ctx, bson.M{"recipe field": "field value"})
+	_, _ = mongoDB.Collection(connectionConfig.Collection).Insert(ctx, bson.M{"recipe field": "field value"})
 }
 
 func TestOpenConnectionToMongoDB_NoSSL(t *testing.T) {

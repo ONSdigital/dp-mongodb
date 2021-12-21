@@ -181,5 +181,5 @@ func Open(m *MongoConnectionConfig) (*MongoConnection, error) {
 		return nil, errors.New(errMessage)
 	}
 
-	return NewMongoConnection(client, m.Database, m.Collection), nil
+	return NewMongoConnection(client, m.Database), nil
 }
