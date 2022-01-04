@@ -42,10 +42,12 @@ type MongoV2Component struct {
 func (m *MongoV2Component) RegisterSteps(ctx *godog.ScenarioContext) {
 	ctx.Step(`^I have inserted these Records$`, m.insertedTheseRecords)
 	ctx.Step(`^I should find these records$`, m.shouldReceiveTheseRecords)
+	ctx.Step(`^I should find no records, just a total count of (\d+)$`, m.shouldReceiveNoRecords)
 	ctx.Step(`^I will count (\d+) records$`, m.countRecords)
 	ctx.Step(`^I filter on all records$`, m.findRecords)
 	ctx.Step(`^I set the limit to (\d+)`, m.setLimit)
 	ctx.Step(`^I skip (\d+) records$`, m.setSkip)
+	ctx.Step(`^I set the ignore zero limit option$`, m.setIgnoreZeroLimit)
 	ctx.Step(`^I filter on records with Id > (\d+)$`, m.findWithId)
 	ctx.Step(`^find one should give me this one record$`, m.findOneRecord)
 	ctx.Step(`^I sort by ID desc`, m.sortByIdDesc)
@@ -148,6 +150,20 @@ func (m *MongoV2Component) shouldReceiveTheseRecords(recordsJson *godog.DocStrin
 	return m.ErrorFeature.StepError()
 }
 
+func (m *MongoV2Component) shouldReceiveNoRecords(totalCount int) error {
+	var actualRecords []dataModel
+
+	tc, err := m.testClient.Collection(m.collection).Find(context.Background(), m.find.query, &actualRecords, m.find.options...)
+	if err != nil {
+		return err
+	}
+
+	assert.EqualValues(&m.ErrorFeature, totalCount, tc)
+	assert.Nil(&m.ErrorFeature, actualRecords)
+
+	return m.ErrorFeature.StepError()
+}
+
 func (m *MongoV2Component) countRecords(expected int) error {
 	actual, err := m.testClient.Collection(m.collection).Count(context.Background(), m.find.query, m.find.options...)
 	if err != nil {
@@ -167,6 +183,12 @@ func (m *MongoV2Component) setLimit(limit int) error {
 
 func (m *MongoV2Component) setSkip(skip int) error {
 	m.find.options = append(m.find.options, mongoDriver.Offset(skip))
+
+	return nil
+}
+
+func (m *MongoV2Component) setIgnoreZeroLimit() error {
+	m.find.options = append(m.find.options, mongoDriver.IgnoreZeroLimit())
 
 	return nil
 }

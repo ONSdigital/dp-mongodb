@@ -78,7 +78,8 @@ func (c *Collection) Find(ctx context.Context, filter, results interface{}, opts
 		return 0, err
 	case tc == 0:
 		return 0, nil
-	case fo.limit < 0 || fo.skip >= tc:
+	case fo.limit < 0 || fo.skip >= tc,
+		fo.limit == 0 && fo.obeyZeroLimit:
 		return int(tc), nil
 	}
 
