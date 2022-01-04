@@ -10,13 +10,13 @@ Feature: Error Steps
                   }
               ]
               """
-    When I start a find operation
-    Then Find All should fail with a wrapped error if an incorrect result param is provided
+    When I filter on all records
+    Then Find should fail with a wrapped error if an incorrect result param is provided
 
   Scenario:
-    When I start a find operation
+    When I filter on all records
     Then Find One should fail with an ErrNoDocumentFound error
 
   Scenario:
-    When I start a find operation
+    When I filter on all records
     Then I will count 0 records

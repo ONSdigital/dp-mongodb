@@ -27,8 +27,8 @@ Feature: Find One record
             """
     
     Scenario: Find one record by Id
-        When I find records with Id > 1
-        Then I find this one record
+        When I filter on records with Id > 1
+        Then find one should give me this one record
             """
             {
                 "id": 2,
@@ -38,9 +38,9 @@ Feature: Find One record
             """
     
     Scenario: Find one record by Id and skip 1
-        When I find records with Id > 1
+        When I filter on records with Id > 1
         And I skip 1 records
-        Then I find this one record
+        Then find one should give me this one record
             """
             {
                 "id": 3,
@@ -50,9 +50,9 @@ Feature: Find One record
             """
 
     Scenario: Find one record by Id and sort id desc
-        When I find records with Id > 1
+        When I filter on records with Id > 1
         And I sort by ID desc
-        Then I find this one record
+        Then find one should give me this one record
             """
             {
                 "id": 4,
@@ -62,9 +62,9 @@ Feature: Find One record
             """
 
     Scenario: Find one field select
-        When I find records with Id > 2
+        When I filter on records with Id > 2
         And I select the field "name"
-        Then I find this one record
+        Then find one should give me this one record
             """
             {
                 "id": 3,

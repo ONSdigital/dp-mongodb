@@ -21,8 +21,8 @@ Feature: Find records
             ]
             """
     Scenario: Find all records
-        When I start a find operation
-        Then I should receive these records
+        When I filter on all records
+        Then I should find these records
             """
             [
                 {
@@ -44,8 +44,8 @@ Feature: Find records
             """
     
     Scenario: Find all records with Id > 1
-        When I find records with Id > 1
-        Then I should receive these records
+        When I filter on records with Id > 1
+        Then I should find these records
             """
                 [
                     {
@@ -62,9 +62,9 @@ Feature: Find records
             """
 
     Scenario: Find all records with Id > 1 with Limit of 1
-        When I find records with Id > 1
+        When I filter on records with Id > 1
         And I set the limit to 1
-        Then I should receive these records
+        Then I should find these records
             """
                 [
                     {
@@ -74,10 +74,11 @@ Feature: Find records
                     }
                 ]
             """
+
     Scenario: Find all records with Skip = 1
-        When I find records with Id > 1
+        When I filter on records with Id > 1
         And I skip 1 records
-        Then I should receive these records
+        Then I should find these records
             """
                 [
                     {
@@ -89,10 +90,10 @@ Feature: Find records
             """
 
      Scenario: Find all records with Limit = 1 Skip = 1
-        When I find records with Id > 0
+        When I filter on records with Id > 0
         And I set the limit to 1
         And I skip 1 records
-        Then I should receive these records
+        Then I should find these records
             """
                 [
                     {
@@ -104,9 +105,9 @@ Feature: Find records
             """
 
     Scenario: Find all records sorted by Id desc
-        When I start a find operation
+        When I filter on all records
         And I sort by ID desc
-        Then I should receive these records
+        Then I should find these records
             """
             [
                 {
@@ -128,9 +129,9 @@ Feature: Find records
             """
 
     Scenario: Find all records with the name field
-        When I start a find operation
+        When I filter on all records
         And I select the field "name"
-        Then I should receive these records
+        Then I should find these records
             """
             [
                 {
@@ -149,51 +150,51 @@ Feature: Find records
             """
 
     Scenario: Count all records
-        When I start a find operation
+        When I filter on all records
         Then I will count 3 records
-    
+
     Scenario: Count with Limit of 2
-        When I start a find operation
+        When I filter on all records
         And I set the limit to 2
         Then I will count 2 records
     
     Scenario: Count with a Skip of 2
-        When I start a find operation
+        When I filter on all records
         And I skip 2 records
         Then I will count 1 records
 
     Scenario: Count with a Limit of 1 and Skip of 1
-        When I start a find operation
+        When I filter on all records
         And I set the limit to 1
         And I skip 1 records
         Then I will count 1 records
 
     Scenario: Count with Find Id > 1 
-        When I find records with Id > 1
+        When I filter on records with Id > 1
         Then I will count 2 records
     
     Scenario: Count with Find Id > 1 and Skip 1 
-        When I find records with Id > 1
+        When I filter on records with Id > 1
         And I skip 1 records
         Then I will count 1 records
 
     Scenario: Count with Find Id > 1 and Skip 2
-        When I find records with Id > 1
+        When I filter on records with Id > 1
         And I skip 2 records
         Then I will count 0 records
 
      Scenario: Count with Find Id > 1 and Limit 1 
-        When I find records with Id > 1
+        When I filter on records with Id > 1
         And I set the limit to 1
         Then I will count 1 records
     
     Scenario: Count with Find Id > 1 and Limit 2
-        When I find records with Id > 1
+        When I filter on records with Id > 1
         And I set the limit to 2
         Then I will count 2 records
 
      Scenario: Count with Find Id > 1 and Limit 2 And Skip 2
-        When I find records with Id > 0
+        When I filter on records with Id > 0
         And I set the limit to 1
         And I skip 2 records
         Then I will count 1 records
