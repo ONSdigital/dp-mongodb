@@ -6,7 +6,6 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
-	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -62,14 +61,9 @@ func (m TLSConnectionConfig) GetTLSConfig() (*tls.Config, error) {
 		return nil, NoCACertChain
 	}
 
-	certChain, e := os.ReadFile(m.CACertChain)
-	if e != nil {
-		return nil, NoCACertChain
-	}
-
 	tlsConfig := &tls.Config{}
 	tlsConfig.RootCAs = x509.NewCertPool()
-	ok := tlsConfig.RootCAs.AppendCertsFromPEM(certChain)
+	ok := tlsConfig.RootCAs.AppendCertsFromPEM([]byte(m.CACertChain))
 	if !ok {
 		return nil, InvalidCACertChain
 	}

@@ -4,9 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"net"
-	"path/filepath"
-	"strings"
+	"io/ioutil"
 	"testing"
 	"time"
 
@@ -36,7 +34,7 @@ func ExampleOpen() {
 		TLSConnectionConfig: mongoDriver.TLSConnectionConfig{
 			IsSSL:              true,
 			VerifyCert:         true,
-			CACertChain:        "./test/data/rds-combined-ca-bundle.pem",
+			CACertChain:        "-----BEGIN CERTIFICATE-----ACTUAL CERT CONTENTS -----END CERTIFICATE-----",
 			RealHostnameForSSH: "develop-docdb-cluster.cluster-cpviojtnaxsj.eu-west-1.docdb.amazonaws.com",
 		},
 	}
@@ -122,7 +120,7 @@ func TestOpenConnectionToMongoDB_NoSSL(t *testing.T) {
 }
 
 func TestMongoTLSConnectionConfig(t *testing.T) {
-	Convey("When TLS if off", t, func() {
+	Convey("When TLS is off", t, func() {
 		TLSConfig := &mongoDriver.TLSConnectionConfig{}
 		cfg, err := TLSConfig.GetTLSConfig()
 
@@ -138,7 +136,7 @@ func TestMongoTLSConnectionConfig(t *testing.T) {
 		})
 	})
 
-	Convey("When TLS if on, but we don't verify server certificates", t, func() {
+	Convey("When TLS is on, but we don't verify server certificates", t, func() {
 		TLSConfig := &mongoDriver.TLSConnectionConfig{IsSSL: true, VerifyCert: false}
 		cfg, err := TLSConfig.GetTLSConfig()
 
@@ -154,7 +152,7 @@ func TestMongoTLSConnectionConfig(t *testing.T) {
 		})
 	})
 
-	Convey("When TLS if on and we verify server certificates", t, func() {
+	Convey("When TLS is on and we verify server certificates", t, func() {
 
 		Convey("but we don't supply any CA certs to do the verification", func() {
 			TLSConfig := &mongoDriver.TLSConnectionConfig{IsSSL: true, VerifyCert: true}
@@ -163,30 +161,19 @@ func TestMongoTLSConnectionConfig(t *testing.T) {
 			So(cfg, ShouldBeNil)
 		})
 
-		Convey("but we can't read the CA certs to do the verification", func() {
-			TLSConfig := &mongoDriver.TLSConnectionConfig{IsSSL: true, VerifyCert: true, CACertChain: "invalid-file"}
-			cfg, err := TLSConfig.GetTLSConfig()
-			So(err, ShouldBeError, mongoDriver.NoCACertChain)
-			So(cfg, ShouldBeNil)
-		})
-
 		Convey("but the CA certs are invalid", func() {
-			f, e := filepath.Abs("./test/data/invalid.pem")
-			if e != nil {
-				t.Errorf("error accessing ./test/data/invalid.pem as an invalid cert file: %v", e)
-			}
-			TLSConfig := &mongoDriver.TLSConnectionConfig{IsSSL: true, VerifyCert: true, CACertChain: f}
+			TLSConfig := &mongoDriver.TLSConnectionConfig{IsSSL: true, VerifyCert: true, CACertChain: "invalid certificate"}
 			cfg, err := TLSConfig.GetTLSConfig()
 			So(err, ShouldBeError, mongoDriver.InvalidCACertChain)
 			So(cfg, ShouldBeNil)
 		})
 
 		Convey("and the CA certs are valid", func() {
-			f, e := filepath.Abs("./test/data/rds-combined-ca-bundle.pem")
+			c, e := ioutil.ReadFile("./test/data/rds-combined-ca-bundle.pem")
 			if e != nil {
 				t.Errorf("error accessing ./test/data/rds-combined-ca-bundle.pem as a valid cert file: %v", e)
 			}
-			TLSConfig := &mongoDriver.TLSConnectionConfig{IsSSL: true, VerifyCert: true, CACertChain: f}
+			TLSConfig := &mongoDriver.TLSConnectionConfig{IsSSL: true, VerifyCert: true, CACertChain: string(c)}
 			cfg, err := TLSConfig.GetTLSConfig()
 			So(err, ShouldBeNil)
 			So(cfg, ShouldNotBeNil)
@@ -288,17 +275,4 @@ func setupMongoConnectionTest(t *testing.T, mongoServer *mim.Server, db, user, p
 		t.Fatalf("couldn't set up test: %v", err)
 	}
 
-}
-
-func checkTcpConnection(connectionString string) error {
-	address := strings.Split(connectionString, ":")
-	timeout := time.Second
-	conn, err := net.DialTimeout("tcp", net.JoinHostPort(address[0], address[1]), timeout)
-	if err != nil {
-		return err
-	}
-	if conn != nil {
-		defer func(conn net.Conn) { _ = conn.Close() }(conn)
-	}
-	return nil
 }
