@@ -85,8 +85,8 @@ type MongoConnectionConfig struct {
 	IsStrongReadConcernEnabled    bool   `envconfig:"MONGODB_ENABLE_READ_CONCERN"`
 	IsWriteConcernMajorityEnabled bool   `envconfig:"MONGODB_ENABLE_WRITE_CONCERN"`
 
-	ConnectTimeoutInSeconds time.Duration `envconfig:"MONGODB_CONNECT_TIMEOUT"`
-	QueryTimeoutInSeconds   time.Duration `envconfig:"MONGODB_QUERY_TIMEOUT"`
+	ConnectTimeout time.Duration `envconfig:"MONGODB_CONNECT_TIMEOUT"`
+	QueryTimeout   time.Duration `envconfig:"MONGODB_QUERY_TIMEOUT"`
 
 	TLSConnectionConfig
 }
@@ -163,7 +163,7 @@ func Open(m *MongoConnectionConfig) (*MongoConnection, error) {
 		return nil, errors.New(errMessage)
 	}
 
-	connectionCtx, cancel := context.WithTimeout(context.Background(), m.ConnectTimeoutInSeconds*time.Second)
+	connectionCtx, cancel := context.WithTimeout(context.Background(), m.ConnectTimeout)
 	defer cancel()
 
 	err = client.Connect(connectionCtx)

@@ -192,11 +192,11 @@ func TestSuite(t *testing.T) {
 
 func getMongoConnectionConfig(mongoServer *mim.Server) *mongoDriver.MongoConnectionConfig {
 	return &mongoDriver.MongoConnectionConfig{
-		ConnectTimeoutInSeconds: 5,
-		QueryTimeoutInSeconds:   5,
-		ClusterEndpoint:         fmt.Sprintf("localhost:%d", mongoServer.Port()),
-		Database:                "testDb",
-		Collection:              "testCollection",
+		ConnectTimeout:  5 * time.Second,
+		QueryTimeout:    5 * time.Second,
+		ClusterEndpoint: fmt.Sprintf("localhost:%d", mongoServer.Port()),
+		Database:        "testDb",
+		Collection:      "testCollection",
 	}
 }
 

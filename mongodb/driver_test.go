@@ -27,8 +27,8 @@ func ExampleOpen() {
 		Username:        "XXX- username for recipe-api for authentication",
 		Password:        "XXX - the password for the above username",
 
-		ConnectTimeoutInSeconds:       5,
-		QueryTimeoutInSeconds:         5,
+		ConnectTimeout:                5 * time.Second,
+		QueryTimeout:                  5 * time.Second,
 		IsStrongReadConcernEnabled:    true,
 		IsWriteConcernMajorityEnabled: true,
 		TLSConnectionConfig: mongoDriver.TLSConnectionConfig{
@@ -69,8 +69,8 @@ func TestOpenConnectionToMongoDB_NoSSL(t *testing.T) {
 		setupMongoConnectionTest(t, mongoServer, db, user, password)
 
 		connectionConfig := &mongoDriver.MongoConnectionConfig{
-			ConnectTimeoutInSeconds: 5,
-			QueryTimeoutInSeconds:   5,
+			ConnectTimeout: 5 * time.Second,
+			QueryTimeout:   5 * time.Second,
 
 			Username:        user,
 			Password:        password,
