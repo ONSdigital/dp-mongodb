@@ -56,7 +56,7 @@ func (c *Collection) Distinct(ctx context.Context, filter interface{}, fieldName
 }
 
 // Count returns the number of documents in the collection that satisfy the given filter (which cannot be nil)
-// Sort and Projection options are ignored. The Limit option <=0 is ignored and a count of all documents is returned
+// Sort and Projection options are ignored. A Limit option <=0 is ignored, and a count of all documents is returned
 func (c *Collection) Count(ctx context.Context, filter interface{}, opts ...FindOption) (int, error) {
 
 	count, err := c.collection.CountDocuments(ctx, filter, newFindOptions(opts...).asDriverCountOption())

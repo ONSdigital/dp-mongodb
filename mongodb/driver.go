@@ -29,8 +29,7 @@ const (
 
 // TLSConnectionConfig supplies the options for setting up a TLS based connection to the Mongo DB server
 // If the Mongo server certificate is to be validated (a major security breach not doing so), the VerifyCert
-// should be true, and the chain of CA certificates for the validation must be supplied -  in a file specified
-// by the absolute path given in the CACertChain attribute.
+// should be true, and the chain of CA certificates for the validation must be supplied
 // If the connection to the server is being made with an IP address, or via an SSH proxy
 // (such as with `dp ssh develop publishing 1 -p local-port:remote-host:remote-port`)
 // the real hostname should be supplied in the RealHostnameForSSH attribute. The real hostname is the
