@@ -28,7 +28,7 @@ Feature: Find One record
     
     Scenario: Find one record by Id
         When I filter on records with Id > 1
-        Then find one should give me this one record
+        Then FindOne should give me this one record
             """
             {
                 "id": 2,
@@ -40,7 +40,7 @@ Feature: Find One record
     Scenario: Find one record by Id and skip 1
         When I filter on records with Id > 1
         And I skip 1 records
-        Then find one should give me this one record
+        Then FindOne should give me this one record
             """
             {
                 "id": 3,
@@ -52,7 +52,7 @@ Feature: Find One record
     Scenario: Find one record by Id and sort id desc
         When I filter on records with Id > 1
         And I sort by ID desc
-        Then find one should give me this one record
+        Then FindOne should give me this one record
             """
             {
                 "id": 4,
@@ -64,7 +64,7 @@ Feature: Find One record
     Scenario: Find one field select
         When I filter on records with Id > 2
         And I select the field "name"
-        Then find one should give me this one record
+        Then FindOne should give me this one record
             """
             {
                 "id": 3,

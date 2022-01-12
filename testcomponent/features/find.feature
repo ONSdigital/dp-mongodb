@@ -78,12 +78,13 @@ Feature: Find records
     Scenario: Find all records with Id > 1 with Limit of 0
         When I filter on records with Id > 1
         And I set the limit to 0
+        And I DON'T set the IgnoreZeroLimit option
         Then I should find no records, just a total count of 2
 
     Scenario: Find all records with Id > 1 with Limit of 0, but ignore limit
         When I filter on records with Id > 1
         And I set the limit to 0
-        But I set the ignore zero limit option
+        But I DO set the IgnoreZeroLimit option
         Then I should find these records
             """
                 [
@@ -181,7 +182,7 @@ Feature: Find records
     Scenario: Count with Limit of 0 (limit will be ignored)
         When I filter on all records
         And I set the limit to 0
-        Then I will count 3 records
+        Then I will count 3 records because a limit of 0 when counting is ignored
 
     Scenario: Count with Limit of 2
         When I filter on all records

@@ -39,17 +39,21 @@ type MongoV2Component struct {
 	ErrorFeature    componenttest.ErrorFeature
 }
 
+var noop = func() error { return nil }
+
 func (m *MongoV2Component) RegisterSteps(ctx *godog.ScenarioContext) {
 	ctx.Step(`^I have inserted these Records$`, m.insertedTheseRecords)
 	ctx.Step(`^I should find these records$`, m.shouldReceiveTheseRecords)
 	ctx.Step(`^I should find no records, just a total count of (\d+)$`, m.shouldReceiveNoRecords)
 	ctx.Step(`^I will count (\d+) records$`, m.countRecords)
+	ctx.Step(`^I will count (\d+) records because a limit of 0 when counting is ignored$`, m.countRecords)
 	ctx.Step(`^I filter on all records$`, m.findRecords)
 	ctx.Step(`^I set the limit to (\d+)`, m.setLimit)
 	ctx.Step(`^I skip (\d+) records$`, m.setSkip)
-	ctx.Step(`^I set the ignore zero limit option$`, m.setIgnoreZeroLimit)
+	ctx.Step(`^I DO set the IgnoreZeroLimit option$`, m.setIgnoreZeroLimit)
+	ctx.Step(`^I DON'T set the IgnoreZeroLimit option$`, noop)
 	ctx.Step(`^I filter on records with Id > (\d+)$`, m.findWithId)
-	ctx.Step(`^find one should give me this one record$`, m.findOneRecord)
+	ctx.Step(`^FindOne should give me this one record$`, m.findOneRecord)
 	ctx.Step(`^I sort by ID desc`, m.sortByIdDesc)
 	ctx.Step(`^I select the field "([^"]*)"$`, m.selectField)
 	ctx.Step(`^I upsertById this record with id (\d+)$`, m.upsertRecordById)
@@ -60,10 +64,10 @@ func (m *MongoV2Component) RegisterSteps(ctx *godog.ScenarioContext) {
 	ctx.Step(`^I delete a record with id (\d+)$`, m.deleteRecord)
 	ctx.Step(`^I delete a record with name like (\w+)$`, m.deleteRecordByName)
 	ctx.Step(`^I insert these records$`, m.insertRecords)
-	ctx.Step(`^there are (\d+) matched, (\d+) modified, (\d+) upserted records, with upsert Id of (\d+)$`, m.modifiedCountWithid)
-	ctx.Step(`^there are (\d+) matched, (\d+) modified, (\d+) upserted records$`, m.modifiedCount)
-	ctx.Step(`^there are (\d+) deleted records$`, m.deletedRecords)
-	ctx.Step(`^this is the inserted records result$`, m.insertedRecords)
+	ctx.Step(`^There are (\d+) matched, (\d+) modified, (\d+) upserted records, with upsert Id of (\d+)$`, m.modifiedCountWithid)
+	ctx.Step(`^There are (\d+) matched, (\d+) modified, (\d+) upserted records$`, m.modifiedCount)
+	ctx.Step(`^There are (\d+) deleted records$`, m.deletedRecords)
+	ctx.Step(`^This is the inserted records result$`, m.insertedRecords)
 	ctx.Step(`^Find should fail with a wrapped error if an incorrect result param is provided$`, m.testFindAllError)
 	ctx.Step(`^Find One should fail with an ErrNoDocumentFound error$`, m.testFindOneError)
 	ctx.Step(`^I should receive a ErrNoDocumentFound error$`, m.testRecieveErrNoDocumentFoundError)

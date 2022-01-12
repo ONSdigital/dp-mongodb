@@ -30,7 +30,7 @@ Feature: Must operation records
                 "age": "TestAge3"
             }
             """
-    Then there are 1 matched, 0 modified, 0 upserted records
+    Then There are 1 matched, 0 modified, 0 upserted records
     And Must did not return an error
 
   Scenario:
@@ -41,7 +41,7 @@ Feature: Must operation records
                 "age": "UpsertAge1"
             }
             """
-    Then there are 1 matched, 1 modified, 0 upserted records
+    Then There are 1 matched, 1 modified, 0 upserted records
     And Must did not return an error
 
   Scenario:
@@ -62,7 +62,7 @@ Feature: Must operation records
                 "age": "TestAge1"
             }
             """
-    Then there are 1 matched, 0 modified, 0 upserted records
+    Then There are 1 matched, 0 modified, 0 upserted records
     And Must did not return an error
 
   Scenario:
@@ -73,7 +73,7 @@ Feature: Must operation records
                 "age": "UpdateWithIdAge3"
             } 
             """
-    Then there are 1 matched, 1 modified, 0 upserted records
+    Then There are 1 matched, 1 modified, 0 upserted records
     And Must did not return an error
 
   Scenario:
@@ -88,7 +88,7 @@ Feature: Must operation records
 
   Scenario:
     When I Must deleteById a record with id 2
-    Then there are 1 deleted records
+    Then There are 1 deleted records
 
   Scenario:
     When I Must deleteById a record with id 20
@@ -96,7 +96,7 @@ Feature: Must operation records
 
   Scenario:
     When I Must delete a record with id 2
-    Then there are 1 deleted records
+    Then There are 1 deleted records
 
   Scenario:
     When I Must delete a record with id 20
@@ -104,7 +104,7 @@ Feature: Must operation records
 
   Scenario:
     When I Must delete records with name like TestName
-    Then there are 2 deleted records
+    Then There are 2 deleted records
 
   Scenario:
     When I Must delete records with name like Other

@@ -21,11 +21,10 @@ var (
 )
 
 type findOptions struct {
-	limit      int64
-	skip       int64
-	sort       interface{}
-	projection interface{}
-
+	limit         int64
+	skip          int64
+	sort          interface{}
+	projection    interface{}
 	obeyZeroLimit bool
 }
 
@@ -39,17 +38,14 @@ func newFindOptions(opts ...FindOption) *findOptions {
 }
 
 func (fo findOptions) asDriverFindOption() *options.FindOptions {
-
 	return options.Find().SetSort(fo.sort).SetSkip(fo.skip).SetLimit(fo.limit).SetProjection(fo.projection)
 }
 
 func (fo findOptions) asDriverFindOneOption() *options.FindOneOptions {
-
 	return options.FindOne().SetSort(fo.sort).SetSkip(fo.skip).SetProjection(fo.projection)
 }
 
 func (fo findOptions) asDriverCountOption() *options.CountOptions {
-
 	co := options.Count().SetSkip(fo.skip)
 	if fo.limit > 0 {
 		co.SetLimit(fo.limit)
