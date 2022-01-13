@@ -1,7 +1,7 @@
 Feature: Find records
     Background:
         Given I have inserted these Records
-            """
+        """
             [
                 {
                     "id": 1,
@@ -16,10 +16,10 @@ Feature: Find records
                 {
                     "id": 3,
                     "name": "TestName3",
-                    "age": "TestAge3"
+                    "age": "TestAge2"
                 }
             ]
-            """
+        """
     Scenario: Find all records
         When I filter on all records
         Then I should find these records
@@ -38,11 +38,11 @@ Feature: Find records
                 {
                     "id": 3,
                     "name": "TestName3",
-                    "age": "TestAge3"
+                    "age": "TestAge2"
                 }
             ]
             """
-    
+
     Scenario: Find all records with Id > 1
         When I filter on records with Id > 1
         Then I should find these records
@@ -56,7 +56,7 @@ Feature: Find records
                     {
                         "id": 3,
                         "name": "TestName3",
-                        "age": "TestAge3"
+                        "age": "TestAge2"
                     }
                 ]
             """
@@ -96,7 +96,7 @@ Feature: Find records
                     {
                         "id": 3,
                         "name": "TestName3",
-                        "age": "TestAge3"
+                        "age": "TestAge2"
                     }
                 ]
             """
@@ -110,7 +110,7 @@ Feature: Find records
                     {
                         "id": 3,
                         "name": "TestName3",
-                        "age": "TestAge3"
+                        "age": "TestAge2"
                     }
                 ]
             """
@@ -139,7 +139,7 @@ Feature: Find records
                 {
                     "id": 3,
                     "name": "TestName3",
-                    "age": "TestAge3"
+                    "age": "TestAge2"
                 },
                 {
                     "id": 2,
@@ -230,5 +230,9 @@ Feature: Find records
         And I skip 2 records
         Then I will count 1 records
 
-
-
+    Scenario: Find distinct records
+        When I filter for records with a distinct value for age
+        Then I should find these distinct fields
+        """
+            ["TestAge1", "TestAge2"]
+        """

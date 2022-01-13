@@ -45,6 +45,7 @@ func (m *MongoV2Component) RegisterSteps(ctx *godog.ScenarioContext) {
 	ctx.Step(`^I have inserted these Records$`, m.insertedTheseRecords)
 	ctx.Step(`^I should find these records$`, m.shouldReceiveTheseRecords)
 	ctx.Step(`^I should find no records, just a total count of (\d+)$`, m.shouldReceiveNoRecords)
+	ctx.Step(`^I should find these distinct fields`, m.shouldReceiveTheseDistinctFields)
 	ctx.Step(`^I will count (\d+) records$`, m.countRecords)
 	ctx.Step(`^I filter on all records$`, m.findRecords)
 	ctx.Step(`^I set the limit to (\d+)`, m.setLimit)
@@ -55,6 +56,7 @@ func (m *MongoV2Component) RegisterSteps(ctx *godog.ScenarioContext) {
 	ctx.Step(`^FindOne should give me this one record$`, m.findOneRecord)
 	ctx.Step(`^I sort by ID desc`, m.sortByIdDesc)
 	ctx.Step(`^I select the field "([^"]*)"$`, m.selectField)
+	ctx.Step(`^I filter for records with a distinct value for (\w+)$`, m.distinct)
 	ctx.Step(`^I upsertById this record with id (\d+)$`, m.upsertRecordById)
 	ctx.Step(`^I upsert this record with id (\d+)$`, m.upsertRecord)
 	ctx.Step(`^I updateById this record with id (\d+)$`, m.updateRecordById)
@@ -167,6 +169,24 @@ func (m *MongoV2Component) shouldReceiveNoRecords(totalCount int) error {
 	return m.ErrorFeature.StepError()
 }
 
+func (m *MongoV2Component) shouldReceiveTheseDistinctFields(recordsJson *godog.DocString) error {
+
+	var expectedFields []interface{}
+	err := json.Unmarshal([]byte(recordsJson.Content), &expectedFields)
+	if err != nil {
+		return err
+	}
+
+	actualFields, err := m.testClient.Collection(m.collection).Distinct(context.Background(), m.find.query.(string), bson.D{})
+	if err != nil {
+		return err
+	}
+
+	assert.ElementsMatch(&m.ErrorFeature, expectedFields, actualFields)
+
+	return m.ErrorFeature.StepError()
+}
+
 func (m *MongoV2Component) countRecords(expected int) error {
 	actual, err := m.testClient.Collection(m.collection).Count(context.Background(), m.find.query, m.find.options...)
 	if err != nil {
@@ -210,6 +230,12 @@ func (m *MongoV2Component) sortByIdDesc() error {
 
 func (m *MongoV2Component) selectField(field string) error {
 	m.find.options = append(m.find.options, mongoDriver.Projection(bson.M{field: 1}))
+
+	return nil
+}
+
+func (m *MongoV2Component) distinct(field string) error {
+	m.find = &find{query: field}
 
 	return nil
 }
