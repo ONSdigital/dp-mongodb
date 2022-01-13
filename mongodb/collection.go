@@ -48,7 +48,7 @@ func (c *Collection) Must() *Must {
 }
 
 // Distinct returns the list of distinct values for the given field name in the collection
-func (c *Collection) Distinct(ctx context.Context, filter interface{}, fieldName string) ([]interface{}, error) {
+func (c *Collection) Distinct(ctx context.Context, fieldName string, filter interface{}) ([]interface{}, error) {
 
 	results, err := c.collection.Distinct(ctx, fieldName, filter)
 

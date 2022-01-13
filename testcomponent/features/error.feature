@@ -15,7 +15,7 @@ Feature: Error Steps
 
   Scenario:
     When I filter on all records
-    Then Find One should fail with an ErrNoDocumentFound error
+    Then FindOne should fail with an ErrNoDocumentFound error
 
   Scenario:
     When I filter on all records
