@@ -33,20 +33,22 @@ type testNamespacedModel struct {
 }
 
 func TestSuite(t *testing.T) {
-	Convey("Given a connection to a mongodb server", t, func() {
+	Convey("Given a connection to a mongodb server set up with a database and a set of collections", t, func() {
+		database := "testDB"
+		collection := "testCollection"
+		collections := map[string]string{collection: "test-collection"}
 		mongoServer, err := mim.Start("4.4.8")
 		if err != nil {
 			t.Fatalf("failed to start mongo server: %v", err)
 		}
 		defer mongoServer.Stop()
 
-		connectionConfig := getMongoConnectionConfig(mongoServer)
-		conn, err := mongoDriver.Open(connectionConfig)
+		driverConfig := getMongoDriverConfig(mongoServer, database, collections)
+		conn, err := mongoDriver.Open(driverConfig)
 		So(err, ShouldBeNil)
 		So(conn, ShouldNotBeNil)
 
 		Convey("With some test data", func() {
-			collection := "test-collection"
 			if err := setUpTestData(conn, collection); err != nil {
 				t.Fatalf("failed to insert test data, skipping tests: %v", err)
 			}
@@ -191,12 +193,13 @@ func TestSuite(t *testing.T) {
 	})
 }
 
-func getMongoConnectionConfig(mongoServer *mim.Server) *mongoDriver.MongoConnectionConfig {
-	return &mongoDriver.MongoConnectionConfig{
+func getMongoDriverConfig(mongoServer *mim.Server, database string, collections map[string]string) *mongoDriver.MongoDriverConfig {
+	return &mongoDriver.MongoDriverConfig{
 		ConnectTimeout:  5 * time.Second,
 		QueryTimeout:    5 * time.Second,
 		ClusterEndpoint: fmt.Sprintf("localhost:%d", mongoServer.Port()),
-		Database:        "testDb",
+		Database:        database,
+		Collections:     collections,
 	}
 }
 

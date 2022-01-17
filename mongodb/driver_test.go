@@ -20,7 +20,7 @@ import (
 // Example of how to connect to a Mongo DB server with SSL, in this case a connection via ssh port forwarding to a DocumentDB server
 // cluster: `dp ssh develop publishing 1 -p 27017:develop-docdb-cluster.cluster-cpviojtnaxsj.eu-west-1.docdb.amazonaws.com:27017`
 func ExampleOpen() {
-	connectionConfig := &mongoDriver.MongoConnectionConfig{
+	connectionConfig := &mongoDriver.MongoDriverConfig{
 		ClusterEndpoint: "localhost:27017",
 		Database:        "recipes",
 		Username:        "XXX- username for recipe-api for authentication",
@@ -67,7 +67,7 @@ func TestOpenConnectionToMongoDB_NoSSL(t *testing.T) {
 
 		setupMongoConnectionTest(t, mongoServer, db, user, password)
 
-		connectionConfig := &mongoDriver.MongoConnectionConfig{
+		connectionConfig := &mongoDriver.MongoDriverConfig{
 			ConnectTimeout: 5 * time.Second,
 			QueryTimeout:   5 * time.Second,
 
@@ -180,8 +180,8 @@ func TestMongoTLSConnectionConfig(t *testing.T) {
 }
 
 func TestMongoConnectionConfig_GetConnectionURIWhen(t *testing.T) {
-	Convey("Given a MongoConnectionConfig", t, func() {
-		connectionConfig := &mongoDriver.MongoConnectionConfig{
+	Convey("Given a MongoDriverConfig", t, func() {
+		connectionConfig := &mongoDriver.MongoDriverConfig{
 			Database: "test-db",
 		}
 
@@ -272,5 +272,4 @@ func setupMongoConnectionTest(t *testing.T, mongoServer *mim.Server, db, user, p
 	if err != nil {
 		t.Fatalf("couldn't set up test: %v", err)
 	}
-
 }

@@ -74,14 +74,16 @@ func (m TLSConnectionConfig) GetTLSConfig() (*tls.Config, error) {
 	return tlsConfig, nil
 }
 
-type MongoConnectionConfig struct {
-	Username                      string `envconfig:"MONGODB_USERNAME"    json:"-"`
-	Password                      string `envconfig:"MONGODB_PASSWORD"    json:"-"`
-	ClusterEndpoint               string `envconfig:"MONGODB_BIND_ADDR"   json:"-"`
-	Database                      string `envconfig:"MONGODB_DATABASE"`
-	ReplicaSet                    string `envconfig:"MONGODB_REPLICA_SET"`
-	IsStrongReadConcernEnabled    bool   `envconfig:"MONGODB_ENABLE_READ_CONCERN"`
-	IsWriteConcernMajorityEnabled bool   `envconfig:"MONGODB_ENABLE_WRITE_CONCERN"`
+type MongoDriverConfig struct {
+	Username        string `envconfig:"MONGODB_USERNAME"    json:"-"`
+	Password        string `envconfig:"MONGODB_PASSWORD"    json:"-"`
+	ClusterEndpoint string `envconfig:"MONGODB_BIND_ADDR"   json:"-"`
+	Database        string `envconfig:"MONGODB_DATABASE"`
+	// Collections is a mapping from a collection's 'Well Known Name' to 'Actual Name'
+	Collections                   map[string]string `envconfig:"MONGODB_COLLECTIONS"`
+	ReplicaSet                    string            `envconfig:"MONGODB_REPLICA_SET"`
+	IsStrongReadConcernEnabled    bool              `envconfig:"MONGODB_ENABLE_READ_CONCERN"`
+	IsWriteConcernMajorityEnabled bool              `envconfig:"MONGODB_ENABLE_WRITE_CONCERN"`
 
 	ConnectTimeout time.Duration `envconfig:"MONGODB_CONNECT_TIMEOUT"`
 	QueryTimeout   time.Duration `envconfig:"MONGODB_QUERY_TIMEOUT"`
@@ -89,7 +91,11 @@ type MongoConnectionConfig struct {
 	TLSConnectionConfig
 }
 
-func (m *MongoConnectionConfig) GetConnectionURI() (string, error) {
+func (m *MongoDriverConfig) ActualCollectionName(wellKnownName string) string {
+	return m.Collections[wellKnownName]
+}
+
+func (m *MongoDriverConfig) GetConnectionURI() (string, error) {
 	var connectionString string
 	endpoint := m.ClusterEndpoint
 
@@ -118,7 +124,7 @@ func (m *MongoConnectionConfig) GetConnectionURI() (string, error) {
 	return connectionString, nil
 }
 
-func Open(m *MongoConnectionConfig) (*MongoConnection, error) {
+func Open(m *MongoDriverConfig) (*MongoConnection, error) {
 	if strconv.IntSize < int64Size {
 		return nil, errors.New("cannot use dp-mongodb library when default int size is less than 64 bits")
 	}
