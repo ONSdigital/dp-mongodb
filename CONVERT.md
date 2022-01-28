@@ -239,13 +239,13 @@ func (m *Mongo) GetItems(ctx context.Context, offset int, limit int) ([]models.I
 func (m *Mongo) GetItems(ctx context.Context, offset, limit int) ([]models.Items, totalCount int, err error) {
     var items []models.Items
 	totalCount, err = m.Connection.Collection(m.ActualCollectionName(config.ItemsCollection)).
-		Find(ctx, bson.M{"current": bson.M{"$exists": true}}, &values,
+		Find(ctx, bson.M{"current": bson.M{"$exists": true}}, &items,
 		options.Sort(bson.M{"_id": -1}), options.Offset(offset), options.Limit(limit))
 	if err != nil {
 		return nil, 0, err
 	}
 
-	return values, totalCount, nil
+	return items, totalCount, nil
 }
 ```
 #### V1 code to find one document
@@ -265,10 +265,9 @@ func (m *Mongo) GetItem(id string) (*models.Item, error) {
 	return &item, nil
 }
 ```
-
 #### V3 code to find one document
 ```go
-func (m *Mongo) GetItem(ctx context.Context, id string) (models.Item, error) {
+func (m *Mongo) GetItem(ctx context.Context, id string) (*models.Item, error) {
 	var item models.Item
 	err := m.connection.Collection(m.ActualCollectionName(config.ItemsCollection)).FindOne(ctx, bson.M{"_id": id}, &item)
 	if err != nil {
@@ -278,7 +277,7 @@ func (m *Mongo) GetItem(ctx context.Context, id string) (models.Item, error) {
 		return nil, err
 	}
 
-	return item, nil
+	return &item, nil
 }
 ```
 
@@ -294,7 +293,7 @@ func (m *Mongo) AddIem(item *models.Item) error {
 ```
 #### V3 code
 ```go
-func (m *Mongo) AddItem(ctx context.Context, item models.Item) error {
+func (m *Mongo) AddItem(ctx context.Context, item *models.Item) error {
 	_, err := m.connection.Collection(m.ActualCollectionName(config.ItemsCollection)).UpsertById(ctx, item.ID, bson.M{"$set": item})
 
 	return err
