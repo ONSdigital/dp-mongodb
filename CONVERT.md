@@ -1,7 +1,7 @@
 ## Converting from MongoDB v1 to v3
 In moving from v1 to v3 certain functionality is explicitly addressed
 ### 1. Changing the driver
-   1. This involved moving from the semi-official 'github.com/globalsign/mgo' driver, to the official golang driver 'go.mongodb.org/mongo-driver'. For the most part this change is hidden in the library, but where the driver is imported by the application (often to access the 'bson' package), the new driver package will have to be imported. This is usually a straight substitution in the code, for example from 'github.com/globalsign/mgo/bson' to 'go.mongodb.org/mongo-driver/bson'.
+   1. This involved moving from the globalsign mgo driver: 'github.com/globalsign/mgo', to the official golang driver: 'go.mongodb.org/mongo-driver'. For the most part this change is hidden in the library, but where the driver is imported by the application (often to access the 'bson' package), the new driver package will have to be imported. This is usually a straight substitution in the code, for example from 'github.com/globalsign/mgo/bson' to 'go.mongodb.org/mongo-driver/bson'. Please check your go.mod/go.sum files to ensure all references to the original globalsign mgo driver have been removed.
    2. As part of the upgrade to the new driver, the library's functions and methods were upgraded to take a context.Context. Where necessary, a context will have to be passed along the function chain which ends in the call to library.
 ### 2. Changing the config and means of initialisation.
    The library now defines an explicit configuration that must be passed by an application. This is:
@@ -12,18 +12,18 @@ type MongoDriverConfig struct {
    ClusterEndpoint               string            // The endpoint
    Database                      string            // The hosted database
    Collections                   map[string]string // A mapping from a collection's 'Well Known Name' to 'Actual Name'
-   ReplicaSet                    string            // A name for the DocumentDB replica set, the empty string for non DocumentDB clusters   
+   ReplicaSet                    string            // A name for the DocumentDB replica set, the empty string for non DocumentDB clusters
    IsStrongReadConcernEnabled    bool              // Whether a read value must be acknowledged by a majority of servers in the cluster to be returned
    IsWriteConcernMajorityEnabled bool              // Whether a value to be written must be acknowledged by a majority of servers in the cluster before returning
    ConnectTimeout                time.Duration     // Default timeout value to connect to a server
-   QueryTimeout   time.Duration                    // Default timeout value for a query
+   QueryTimeout                  time.Duration     // Default timeout value for a query
 
 	TLSConnectionConfig
 }
 
 type TLSConnectionConfig struct {
-   IsSSL              bool                         // Whether to use TLS in connections to the server (a major security breach not to do so)
-   VerifyCert         bool                         // When IsSSL is true, whether to validate the server's TLS certificate (another major security breach not to do so)
+   IsSSL              bool                         // Whether to use TLS in connections to the server (required be to true for the production environment)
+   VerifyCert         bool                         // When IsSSL is true, whether to validate the server's TLS certificate (a security breach not to do so, and should be true for the production environment)
    CACertChain        string                       // The Certificate Authority chain that to be used to validate the server's certificate
    RealHostnameForSSH string                       // When using ssh to proxy to a server, as is often the case when testing locally, this can be set to the DNS name of
                                                    // the actual server, since with ssh the server name will appear to be 'localhost'
@@ -37,11 +37,11 @@ type MongoDriverConfig struct {
 	ClusterEndpoint               string            `envconfig:"MONGODB_BIND_ADDR"   json:"-"`
 	Database                      string            `envconfig:"MONGODB_DATABASE"`
 	Collections                   map[string]string `envconfig:"MONGODB_COLLECTIONS"`
-	ReplicaSet                    string            `envconfig:"MONGODB_REPLICA_SET"`
-	IsStrongReadConcernEnabled    bool              `envconfig:"MONGODB_ENABLE_READ_CONCERN"`
-	IsWriteConcernMajorityEnabled bool              `envconfig:"MONGODB_ENABLE_WRITE_CONCERN"`
-	ConnectTimeout                time.Duration     `envconfig:"MONGODB_CONNECT_TIMEOUT"`
-	QueryTimeout                  time.Duration     `envconfig:"MONGODB_QUERY_TIMEOUT"`
+	ReplicaSet                    string            `envconfig:"MONGODB_REPLICA_SET"`           // The standard default value for our production environment is 'rs0'
+	IsStrongReadConcernEnabled    bool              `envconfig:"MONGODB_ENABLE_READ_CONCERN"`   // The standard default value for our production environment is false
+	IsWriteConcernMajorityEnabled bool              `envconfig:"MONGODB_ENABLE_WRITE_CONCERN"`  // The standard default value for our production environment is true
+	ConnectTimeout                time.Duration     `envconfig:"MONGODB_CONNECT_TIMEOUT"`       // The standard default value for our production environment is 5*time.Second - this is expressed as '5s' in the configuration file
+	QueryTimeout                  time.Duration     `envconfig:"MONGODB_QUERY_TIMEOUT"`         // The standard default value for our production environment is 15*time.Second - this is expressed as '15s' in the configuration file
 
 	TLSConnectionConfig
 }
@@ -77,8 +77,6 @@ const (
 )
 
 // Init creates a new mgo.Session with a strong consistency and a write mode of "majortiy"; and initialises the mongo health client.
-
-
 func (m *Mongo) Init(ctx context.Context) (err error) {
 	if m.Session != nil {
 		return errors.New("session already exists")
@@ -161,22 +159,6 @@ func (m *Mongo) GetDataset(id string) (*models.DatasetUpdate, error) {
 	return &dataset, nil
 }
 ```
-#### V2 code
-```go
-func (m *Mongo) GetDataset(ctx context.Context, id string) (*models.DatasetUpdate, error) {
-
-	var dataset models.DatasetUpdate
-	err := m.Connection.GetConfiguredCollection().FindOne(ctx, bson.M{"_id": id}, &dataset)
-	if err != nil {
-		if mongodriver.IsErrNoDocumentFound(err) {
-			return nil, errs.ErrDatasetNotFound
-		}
-		return nil, err
-	}
-
-	return &dataset, nil
-}
-```
 #### V3 code
 ```go
 func (m *Mongo) GetDataset(ctx context.Context, id string) (*models.DatasetUpdate, error) {
@@ -197,8 +179,8 @@ Note the use of the standard errors.Is() mechanism, part of the error handling s
 ### 4. Making search/find easier
 This was achieved with a number of changes:
    1. Removing the use of an explicit Find object in the library, whose primary purpose was to enable the use of a builder pattern to define the parameters of the search
-   2. Introduce a simple and standard options handling, whereby a find operation on a collection would take one or more find options: Sort, Offset, Limit, Project (see options.go in the library's mongodb package
-   3. Remove the Iterator object from the library, and provide a simple Collection.FindOne() method and a Collection.Find() method. The change between V1 and V3 are:
+   2. Introduce a simple and standard options handling, whereby a find operation on a collection would take one or more find options: Sort, Offset, Limit, Project (see options.go in the library's mongodb package)
+   3. Remove the Iterator object from the library, and provide a simple dp-mongodblib.Collection.FindOne() method and a dp-mongodblib.Collection.Find() method. The changes between V1 and V3 are:
 #### V1 code to find all documents
 ```go
 func (m *Mongo) GetItems(ctx context.Context, offset int, limit int) ([]models.Items, error) {
@@ -234,7 +216,7 @@ func (m *Mongo) GetItems(ctx context.Context, offset int, limit int) ([]models.I
 }
 ```
 #### V3 code to find all documents
-> Note you must pass a sort element as DocumentDB does not support the [default ordering of results](https://docs.aws.amazon.com/documentdb/latest/developerguide/functional-differences.html#functional-differences.result-ordering)
+> Note you must pass a sort option as DocumentDB does not support the [default ordering of results](https://docs.aws.amazon.com/documentdb/latest/developerguide/functional-differences.html#functional-differences.result-ordering)
 ```go
 func (m *Mongo) GetItems(ctx context.Context, offset, limit int) ([]models.Items, totalCount int, err error) {
     var items []models.Items
