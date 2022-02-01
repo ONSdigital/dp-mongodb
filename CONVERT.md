@@ -22,14 +22,14 @@ type MongoDriverConfig struct {
 }
 
 type TLSConnectionConfig struct {
-   IsSSL              bool                         // Whether to use TLS in connections to the server (required be to true for the production environment)
-   VerifyCert         bool                         // When IsSSL is true, whether to validate the server's TLS certificate (a security breach not to do so, and should be true for the production environment)
-   CACertChain        string                       // The Certificate Authority chain that to be used to validate the server's certificate
+   IsSSL              bool                         // Whether to use TLS in connections to the server (required to be true for the production environment)
+   VerifyCert         bool                         // When IsSSL is true, whether to validate the server's TLS certificate (required to be true for the production environment)
+   CACertChain        string                       // The (chain of) Certificate Authority certificate(s) to be used to validate the server's certificate (must be supplied when VerifyCert is true)
    RealHostnameForSSH string                       // When using ssh to proxy to a server, as is often the case when testing locally, this can be set to the DNS name of
                                                    // the actual server, since with ssh the server name will appear to be 'localhost'
 }
 ```
-As a convenience to the applications the MongoDriverConfig struct have envconfig annotations that allow the application to use the MongoDriverConfig directly. An application is, of course, free to define its config in any way it chooses, provided it passes an instance of the above struct to the initialisation
+As a convenience to the applications the MongoDriverConfig struct has envconfig annotations that allow the application to use the MongoDriverConfig directly. An application is, of course, free to define its config in any way it chooses, provided it passes an instance of the above struct to the initialisation
 ```go
 type MongoDriverConfig struct {
 	Username                      string            `envconfig:"MONGODB_USERNAME"    json:"-"`
