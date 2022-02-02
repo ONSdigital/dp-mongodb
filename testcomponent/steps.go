@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-
 	componenttest "github.com/ONSdigital/dp-component-test"
 	mongoDriver "github.com/ONSdigital/dp-mongodb/v3/mongodb"
 
@@ -78,6 +77,8 @@ func (m *MongoV2Component) RegisterSteps(ctx *godog.ScenarioContext) {
 	ctx.Step(`^I Must deleteById a record with id (\d+)$`, m.mustDeleteRecordById)
 	ctx.Step(`^I Must delete a record with id (\d+)$`, m.mustDeleteRecord)
 	ctx.Step(`^I Must delete records with name like (\w+)$`, m.mustDeleteRecordsByName)
+	ctx.Step(`^I update records with name "([^"]*)" age to "([^"]*)"$`, m.iUpdateRecordsWithGroupAgeTo)
+	ctx.Step(`^the records should match$`, m.theRecordsShouldMatch)
 }
 
 func newMongoV2Component(database string, collection string, rawClient mongo.Client) *MongoV2Component {
@@ -134,6 +135,11 @@ func (m *MongoV2Component) findRecords() error {
 	m.find = &find{query: bson.D{}}
 
 	return nil
+}
+
+func (m *MongoV2Component) theRecordsShouldMatch(recordsJson *godog.DocString) error {
+	m.findRecords()
+	return m.shouldReceiveTheseRecords(recordsJson)
 }
 
 func (m *MongoV2Component) shouldReceiveTheseRecords(recordsJson *godog.DocString) error {
@@ -323,6 +329,20 @@ func (m *MongoV2Component) updateRecord(id int, recordAsString *godog.DocString)
 	return err
 }
 
+func (m *MongoV2Component) iUpdateRecordsWithGroupAgeTo(name, age string) error {
+	query := bson.M{"name": name}
+	update := bson.D{{
+		"$set", bson.D{
+			{"age", age},
+		}}}
+
+	var err error
+
+	m.updateResult, err = m.testClient.Collection(m.collection).UpdateMany(context.Background(), query, update)
+
+	return err
+}
+
 func (m *MongoV2Component) deleteRecordById(id int) error {
 	var err error
 
@@ -361,9 +381,9 @@ func (m *MongoV2Component) modifiedCountWithid(matched, modified, upserted, upse
 }
 
 func (m *MongoV2Component) modifiedCount(matched, modified, upserted int) error {
-	assert.Equal(&m.ErrorFeature, matched, m.updateResult.MatchedCount)
-	assert.Equal(&m.ErrorFeature, modified, m.updateResult.ModifiedCount)
-	assert.Equal(&m.ErrorFeature, upserted, m.updateResult.UpsertedCount)
+	assert.Equal(&m.ErrorFeature, matched, m.updateResult.MatchedCount, "Matched Count")
+	assert.Equal(&m.ErrorFeature, modified, m.updateResult.ModifiedCount, "Modified Count")
+	assert.Equal(&m.ErrorFeature, upserted, m.updateResult.UpsertedCount, "Upsert Count")
 	assert.Empty(&m.ErrorFeature, m.updateResult.UpsertedID)
 
 	return m.ErrorFeature.StepError()

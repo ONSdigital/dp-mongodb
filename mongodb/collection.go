@@ -170,6 +170,18 @@ func (c *Collection) updateRecord(ctx context.Context, selector interface{}, upd
 	return nil, wrapMongoError(err)
 }
 
+func (c *Collection) UpdateMany(ctx context.Context, selector interface{}, update interface{}) (*CollectionUpdateResult, error) {
+	updateResult, err := c.collection.UpdateMany(ctx, selector, update, options.Update())
+	if err == nil {
+		return &CollectionUpdateResult{
+			MatchedCount:  int(updateResult.MatchedCount),
+			ModifiedCount: int(updateResult.ModifiedCount),
+		}, nil
+	}
+
+	return nil, wrapMongoError(err)
+}
+
 // Delete deletes a record based on the provided selector
 func (c *Collection) Delete(ctx context.Context, selector interface{}) (*CollectionDeleteResult, error) {
 	result, err := c.collection.DeleteOne(ctx, selector)
