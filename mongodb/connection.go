@@ -43,7 +43,7 @@ func (ms *MongoConnection) Close(ctx context.Context) error {
 	closeTimeLeft := timeLeft
 	if deadline, ok := ctx.Deadline(); ok {
 		// Add some time to timeLeft so case where ctx.Done in select
-		// statement below gets called before time.After(timeLeft) gets called.
+		// statement below gets called before time.NewTimer(closeTimeLeft) gets called.
 		// This is so the context error is returned over hardcoded error.
 		closeTimeLeft = deadline.Sub(time.Now()) + (10 * time.Millisecond)
 	}
@@ -53,12 +53,23 @@ func (ms *MongoConnection) Close(ctx context.Context) error {
 		return
 	}()
 
+	delay := time.NewTimer(closeTimeLeft)
 	select {
-	case <-time.After(closeTimeLeft):
+	case <-delay.C:
 		return errors.New("closing mongo timed out")
 	case <-closedChannel:
+		// Ensure timer is stopped and its resources are freed
+		if !delay.Stop() {
+			// if the timer has been stopped then read from the channel
+			<-delay.C
+		}
 		return nil
 	case <-ctx.Done():
+		// Ensure timer is stopped and its resources are freed
+		if !delay.Stop() {
+			// if the timer has been stopped then read from the channel
+			<-delay.C
+		}
 		return ctx.Err()
 	}
 }
