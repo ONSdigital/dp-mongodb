@@ -99,11 +99,17 @@ func (l *Lock) startPurgerLoop(ctx context.Context) {
 		defer l.WaitGroup.Done()
 		for {
 			l.Purger.Purge(ctx)
+			delay := time.NewTimer(PurgerPeriod)
 			select {
 			case <-l.CloserChannel:
+				// Ensure timer is stopped and its resources are freed
+				if !delay.Stop() {
+					// if the timer has been stopped then read from the channel
+					<-delay.C
+				}
 				log.Info(ctx, "closing mongo db lock purger go-routine")
 				return
-			case <-time.After(PurgerPeriod):
+			case <-delay.C:
 				log.Info(ctx, "purging expired mongoDB locks")
 			}
 		}
@@ -135,10 +141,16 @@ func (l *Lock) Acquire(ctx context.Context, id string) (lockID string, err error
 			return "", ErrAcquireMaxRetries // Failed too many times
 		}
 		retries++
+		delay := time.NewTimer(AcquirePeriod)
 		select {
-		case <-time.After(AcquirePeriod):
+		case <-delay.C:
 			continue // Retry
 		case <-l.CloserChannel:
+			// Ensure timer is stopped and its resources are freed
+			if !delay.Stop() {
+				// if the timer has been stopped then read from the channel
+				<-delay.C
+			}
 			log.Info(ctx, "stop acquiring lock. Mongo db is being closed")
 			return "", ErrMongoDbClosing // Abort because the app is closing
 		}
@@ -162,10 +174,16 @@ func (l *Lock) Unlock(ctx context.Context, lockID string) {
 			return // Failed too many times
 		}
 		retries++
+		delay := time.NewTimer(UnlockPeriod)
 		select {
-		case <-time.After(UnlockPeriod):
+		case <-delay.C:
 			continue // Retry
 		case <-l.CloserChannel:
+			// Ensure timer is stopped and its resources are freed
+			if !delay.Stop() {
+				// if the timer has been stopped then read from the channel
+				<-delay.C
+			}
 			log.Info(ctx, "stop unlocking lock. Mongo db is being closed", log.INFO)
 			return // Abort because the app is closing
 		}
