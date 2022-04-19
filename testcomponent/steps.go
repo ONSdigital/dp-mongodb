@@ -127,7 +127,7 @@ func (m *MongoV2Component) insertedTheseRecords(recordsJson *godog.DocString) er
 		return err
 	}
 
-	assert.Equal(&m.ErrorFeature, records, foundRecords)
+	assert.EqualValues(&m.ErrorFeature, records, foundRecords)
 
 	return m.ErrorFeature.StepError()
 }
@@ -189,7 +189,7 @@ func (m *MongoV2Component) shouldReceiveTheseDistinctFields(recordsJson *godog.D
 		return err
 	}
 
-	assert.Equal(&m.ErrorFeature, expectedFields, actualFields)
+	assert.EqualValues(&m.ErrorFeature, expectedFields, actualFields)
 
 	return m.ErrorFeature.StepError()
 }
