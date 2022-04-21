@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+
 	componenttest "github.com/ONSdigital/dp-component-test"
 	mongoDriver "github.com/ONSdigital/dp-mongodb/v3/mongodb"
 
@@ -126,7 +127,7 @@ func (m *MongoV2Component) insertedTheseRecords(recordsJson *godog.DocString) er
 		return err
 	}
 
-	assert.ElementsMatch(&m.ErrorFeature, records, foundRecords)
+	assert.EqualValues(&m.ErrorFeature, records, foundRecords)
 
 	return m.ErrorFeature.StepError()
 }
@@ -156,7 +157,7 @@ func (m *MongoV2Component) shouldReceiveTheseRecords(recordsJson *godog.DocStrin
 		return err
 	}
 
-	assert.ElementsMatch(&m.ErrorFeature, expectedRecords, actualRecords)
+	assert.Equal(&m.ErrorFeature, expectedRecords, actualRecords)
 
 	return m.ErrorFeature.StepError()
 }
@@ -169,7 +170,7 @@ func (m *MongoV2Component) shouldReceiveNoRecords(totalCount int) error {
 		return err
 	}
 
-	assert.EqualValues(&m.ErrorFeature, totalCount, tc)
+	assert.Equal(&m.ErrorFeature, totalCount, tc)
 	assert.Nil(&m.ErrorFeature, actualRecords)
 
 	return m.ErrorFeature.StepError()
@@ -188,7 +189,7 @@ func (m *MongoV2Component) shouldReceiveTheseDistinctFields(recordsJson *godog.D
 		return err
 	}
 
-	assert.ElementsMatch(&m.ErrorFeature, expectedFields, actualFields)
+	assert.EqualValues(&m.ErrorFeature, expectedFields, actualFields)
 
 	return m.ErrorFeature.StepError()
 }
@@ -199,7 +200,7 @@ func (m *MongoV2Component) countRecords(expected int) error {
 		return err
 	}
 
-	assert.EqualValues(&m.ErrorFeature, expected, actual)
+	assert.Equal(&m.ErrorFeature, expected, actual)
 
 	return m.ErrorFeature.StepError()
 }
@@ -426,7 +427,7 @@ func (m *MongoV2Component) insertedRecords(recordsJson *godog.DocString) error {
 		actual = append(actual, element.(int32))
 	}
 
-	assert.ElementsMatch(&m.ErrorFeature, expected, actual)
+	assert.Equal(&m.ErrorFeature, expected, actual)
 
 	return m.ErrorFeature.StepError()
 }
