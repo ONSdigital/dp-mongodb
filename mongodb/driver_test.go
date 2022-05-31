@@ -59,11 +59,12 @@ func TestOpenConnectionToMongoDB_NoSSL(t *testing.T) {
 			password     = "test-password"
 		)
 
-		mongoServer, err := mim.Start(mongoVersion)
+		ctx := context.Background()
+		mongoServer, err := mim.Start(ctx, mongoVersion)
 		if err != nil {
 			t.Fatalf("failed to start mongo server: %v", err)
 		}
-		defer mongoServer.Stop()
+		defer mongoServer.Stop(ctx)
 
 		setupMongoConnectionTest(t, mongoServer, db, user, password)
 
