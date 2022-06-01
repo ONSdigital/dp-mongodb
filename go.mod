@@ -2,9 +2,6 @@ module github.com/ONSdigital/dp-mongodb/v3
 
 go 1.18
 
-// This is to override the transitive dependency coming from mongo-lock
-replace go.mongodb.org/mongo-driver => go.mongodb.org/mongo-driver v1.9.1
-
 require (
 	github.com/ONSdigital/dp-component-test v0.7.0
 	github.com/ONSdigital/dp-healthcheck v1.3.0
@@ -12,7 +9,7 @@ require (
 	github.com/ONSdigital/log.go/v2 v2.2.0
 	github.com/cucumber/godog v0.10.0
 	github.com/smartystreets/goconvey v1.7.2
-	github.com/square/mongo-lock v0.0.0-20201208161834-4db518ed7fb2
+	github.com/square/mongo-lock v0.0.0-20220601164918-701ecf357cd7
 	github.com/stretchr/testify v1.7.0
 	go.mongodb.org/mongo-driver v1.9.1
 )
