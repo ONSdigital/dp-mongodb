@@ -290,7 +290,7 @@ Before setting up the required database and collections for v3 (Document DB), in
 4. Database password
 
 Once those values are to hand then they can be used in updating the following documents:
-1. https://github.com/ONSdigital/dp-setup/blob/awsb/ansible/group_vars/docdbhttps://github.com/ONSdigital/dp-setup/blob/awsb/ansible/group_vars/docdb
+1. https://github.com/ONSdigital/dp-setup/blob/awsb/ansible/group_vars/docdb
 2. https://github.com/ONSdigital/dp-setup/blob/awsb/ansible/inventories/sandbox/group_vars/all
 3. https://github.com/ONSdigital/dp-setup/blob/awsb/ansible/inventories/prod/group_vars/all
 
