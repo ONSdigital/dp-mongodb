@@ -296,7 +296,5 @@ Once those values are to hand then they can be used in updating the following do
 
 Once those documents have been updated, and the changes approved and merged, then ansible should be run. This will apply the relevant changes to AWS.
 
-For instructions on how to do the above tasks please see dp-setup.
-
 ### 7. Updating the secrets in sandbox and prod
-The secrets in dp-configs, for sandbox and prod, need to contain all the attributes that are in the MongoDriverConfig struct.
+The secrets (for the relevant service) in dp-configs, for sandbox and prod, need to contain all the attributes that are in the MongoDriverConfig struct.
