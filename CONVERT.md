@@ -281,3 +281,22 @@ func (m *Mongo) AddItem(ctx context.Context, item *models.Item) error {
 	return err
 }
 ```
+
+### 6. Setting up a DocumentDB database and collections in AWS
+Before setting up the required database and collections for v3 (Document DB), in AWS, you need to have ready the following values:
+1. Database name
+2. Names of any collections that should exist in the database
+3. Database username
+4. Database password
+
+Once those values are to hand then they can be used in updating the following documents:
+1. https://github.com/ONSdigital/dp-setup/blob/awsb/ansible/group_vars/docdbhttps://github.com/ONSdigital/dp-setup/blob/awsb/ansible/group_vars/docdb
+2. https://github.com/ONSdigital/dp-setup/blob/awsb/ansible/inventories/sandbox/group_vars/all
+3. https://github.com/ONSdigital/dp-setup/blob/awsb/ansible/inventories/prod/group_vars/all
+
+Once those documents have been updated, and the changes approved and merged, then ansible should be run. This will apply the relevant changes to AWS.
+
+For instructions on how to do the above tasks please see dp-setup.
+
+### 7. Updating the secrets in sandbox and prod
+The secrets in dp-configs, for sandbox and prod, need to contain all the attributes that are in the MongoDriverConfig struct.
