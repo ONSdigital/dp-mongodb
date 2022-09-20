@@ -2,6 +2,7 @@ package mongodb_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -11,6 +12,7 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 type TestModel struct {
@@ -236,4 +238,19 @@ func queryMongo(mongoConnection *mongoDriver.MongoConnection, collection string,
 	}
 
 	return nil
+}
+
+func queryCursor(mongoConnection *mongoDriver.MongoConnection, collection string, query bson.M, res interface{}) error {
+	ctx := context.Background()
+	cursor, err := mongoConnection.Collection(collection).FindCursor(context.Background(), query)
+	if err != nil {
+		return err
+	}
+
+	rawCursor, ok := cursor.(*mongo.Cursor)
+	if !ok {
+		return errors.New("not a mongo cursor")
+	}
+
+	return rawCursor.All(ctx, res)
 }

@@ -37,6 +37,13 @@ type CollectionInsertResult struct {
 	InsertedId interface{} // Id of the document inserted
 }
 
+type Cursor interface {
+	Close(ctx context.Context) error
+	Next(ctx context.Context) bool
+	Decode(val interface{}) error
+	Err() error
+}
+
 // NewCollection creates a new collection
 func NewCollection(collection *mongo.Collection) *Collection {
 	return &Collection{collection}
@@ -92,6 +99,22 @@ func (c *Collection) Find(ctx context.Context, filter, results interface{}, opts
 	}
 
 	return int(tc), wrapMongoError(cursor.All(ctx, results))
+}
+
+// FindCursor returns a mongo cursor iterating over the collection
+// If no sort order option is provided a default sort order of 'ascending _id' is used (bson.M{"_id": 1})
+func (c *Collection) FindCursor(ctx context.Context, filter interface{}, opts ...FindOption) (Cursor, error) {
+
+	fo := newFindOptions(opts...)
+	if fo.sort == nil {
+		fo.sort = bson.M{"_id": 1}
+	}
+	cursor, err := c.collection.Find(ctx, filter, fo.asDriverFindOption())
+	if err != nil {
+		return nil, wrapMongoError(err)
+	}
+
+	return cursor, nil
 }
 
 // FindOne locates a single document
