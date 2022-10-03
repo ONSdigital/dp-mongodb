@@ -72,10 +72,12 @@ func TestOpenConnectionToMongoDB_NoSSL(t *testing.T) {
 			ConnectTimeout: 5 * time.Second,
 			QueryTimeout:   5 * time.Second,
 
-			Username:        user,
-			Password:        password,
-			ClusterEndpoint: fmt.Sprintf("localhost:%d", mongoServer.Port()),
-			Database:        db,
+			Username:                      user,
+			Password:                      password,
+			ClusterEndpoint:               fmt.Sprintf("localhost:%d", mongoServer.Port()),
+			Database:                      db,
+			IsStrongReadConcernEnabled:    true,
+			IsWriteConcernMajorityEnabled: true,
 		}
 
 		Convey("When a connection is attempted", func() {

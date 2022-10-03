@@ -144,19 +144,18 @@ func Open(m *MongoDriverConfig) (*MongoConnection, error) {
 	mongoClientOptions := options.Client().
 		ApplyURI(connectionUri).
 		SetTLSConfig(tlsConfig).
-		SetReadPreference(readpref.SecondaryPreferred()).
 		SetRetryWrites(false)
 
 	if m.IsStrongReadConcernEnabled {
 		// For ensuring strong consistency
+		// The following will work for MongoDB but not for DocumentDB
 		mongoClientOptions = mongoClientOptions.SetReadConcern(readconcern.Majority())
+		// The following is needed for DocumentDB
+		mongoClientOptions = mongoClientOptions.SetReadPreference(readpref.Primary())
 	}
 
 	if m.IsWriteConcernMajorityEnabled {
-		mongoClientOptions = mongoClientOptions.SetWriteConcern(writeconcern.New(writeconcern.WMajority()))
-		// No support for retryable writes, retryable commit and retryable abort.
-		//https://docs.aws.amazon.com/documentdb/latest/developerguide/transactions.html
-		//https://docs.aws.amazon.com/documentdb/latest/developerguide/functional-differences.html#functional-differences.retryable-writes
+		mongoClientOptions = mongoClientOptions.SetWriteConcern(writeconcern.New(writeconcern.WMajority(), writeconcern.J(true)))
 	}
 
 	var client *mongo.Client
