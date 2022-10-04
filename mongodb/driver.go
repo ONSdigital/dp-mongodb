@@ -155,7 +155,7 @@ func Open(m *MongoDriverConfig) (*MongoConnection, error) {
 	}
 
 	if m.IsWriteConcernMajorityEnabled {
-		mongoClientOptions = mongoClientOptions.SetWriteConcern(writeconcern.New(writeconcern.WMajority(), writeconcern.J(true)))
+		mongoClientOptions = mongoClientOptions.SetWriteConcern(writeconcern.New(writeconcern.WMajority()))
 	}
 
 	var client *mongo.Client
