@@ -148,14 +148,17 @@ func Open(m *MongoDriverConfig) (*MongoConnection, error) {
 
 	if m.IsStrongReadConcernEnabled {
 		// For ensuring strong consistency
-		// The following will work for MongoDB but not for DocumentDB
-		mongoClientOptions = mongoClientOptions.SetReadConcern(readconcern.Majority())
-		// The following is needed for DocumentDB
 		mongoClientOptions = mongoClientOptions.SetReadPreference(readpref.Primary())
+		// The following is needed for MongoDB but has no effect for DocumentDB
+		mongoClientOptions = mongoClientOptions.SetReadConcern(readconcern.Majority())
+	} else {
+		mongoClientOptions = mongoClientOptions.SetReadPreference(readpref.SecondaryPreferred())
 	}
 
 	if m.IsWriteConcernMajorityEnabled {
 		mongoClientOptions = mongoClientOptions.SetWriteConcern(writeconcern.New(writeconcern.WMajority()))
+	} else {
+		mongoClientOptions = mongoClientOptions.SetWriteConcern(writeconcern.New(writeconcern.W(1)))
 	}
 
 	var client *mongo.Client
