@@ -9,6 +9,9 @@ import (
 	"github.com/ONSdigital/log.go/v2/log"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/mongo/readpref"
+	"go.mongodb.org/mongo-driver/mongo/writeconcern"
 )
 
 var (
@@ -116,4 +119,38 @@ func (ms *MongoConnection) DropDatabase(ctx context.Context) error {
 func (ms *MongoConnection) RunCommand(ctx context.Context, runCommand interface{}) error {
 	res := ms.d().RunCommand(ctx, runCommand)
 	return res.Err()
+}
+
+type Session struct {
+	Ctx mongo.SessionContext
+}
+
+type SessionFunc func(session Session) error
+
+func (ms *MongoConnection) RunTransaction(ctx context.Context, sessionFunc SessionFunc) error {
+
+	runSession := func(sessionContext mongo.SessionContext) error {
+		session := Session{
+			sessionContext,
+		}
+
+		sessionContext.StartTransaction()
+
+		err := sessionFunc(session)
+
+		if err != nil {
+			sessionContext.AbortTransaction(sessionContext)
+			return err
+		}
+
+		sessionContext.CommitTransaction(sessionContext)
+		return nil
+	}
+
+	options := options.Session()
+	options.SetCausalConsistency(false)
+	options.SetDefaultReadPreference(readpref.Primary())
+	options.SetDefaultWriteConcern(writeconcern.New(writeconcern.WMajority()))
+
+	return ms.d().Client().UseSessionWithOptions(ctx, options, runSession)
 }
