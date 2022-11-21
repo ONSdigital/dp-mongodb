@@ -11,9 +11,12 @@ import (
 	"github.com/cucumber/godog/colors"
 )
 
-const MongoVersion = "4.4.8"
-const DatabaseName = "testing"
-const CollectionName = "testCollection"
+const (
+	MongoVersion   = "4.4.8"
+	DatabaseName   = "testing"
+	ReplicaSetName = "test-replica-set"
+	CollectionName = "testCollection"
+)
 
 type MongoDBComponentTest struct {
 	MongoFeature     *componentTest.MongoFeature
@@ -24,17 +27,17 @@ var componentFlag = flag.Bool("component", false, "perform component tests")
 
 func (m *MongoDBComponentTest) InitializeTestSuite(ctx *godog.TestSuiteContext) {
 	ctx.BeforeSuite(func() {
-		m.MongoFeature = componentTest.NewMongoFeature(componentTest.MongoOptions{MongoVersion: MongoVersion, DatabaseName: DatabaseName})
+		m.MongoFeature = componentTest.NewMongoFeature(componentTest.MongoOptions{MongoVersion: MongoVersion, DatabaseName: DatabaseName, ReplicaSetName: ReplicaSetName})
 		m.MongoV2Component = newMongoV2Component(DatabaseName, CollectionName, m.MongoFeature.Client)
 	})
 	ctx.AfterSuite(func() {
-		m.MongoFeature.Close()
+		_ = m.MongoFeature.Close()
 	})
 }
 
 func (m *MongoDBComponentTest) InitializeScenario(ctx *godog.ScenarioContext) {
 	ctx.BeforeScenario(func(*godog.Scenario) {
-		m.MongoFeature.Reset()
+		_ = m.MongoFeature.Reset()
 		m.MongoV2Component.reset()
 	})
 
