@@ -4,7 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"testing"
 	"time"
 
@@ -170,7 +170,7 @@ func TestMongoTLSConnectionConfig(t *testing.T) {
 		})
 
 		Convey("and the CA certs are valid", func() {
-			c, e := ioutil.ReadFile("./test/data/rds-combined-ca-bundle.pem")
+			c, e := os.ReadFile("./test/data/rds-combined-ca-bundle.pem")
 			if e != nil {
 				t.Errorf("error accessing ./test/data/rds-combined-ca-bundle.pem as a valid cert file: %v", e)
 			}
@@ -262,15 +262,13 @@ func TestMongoConnectionConfig_GetConnectionURIWhen(t *testing.T) {
 func setupMongoConnectionTest(t *testing.T, mongoServer *mim.Server, db, user, password string) {
 	t.Helper()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	client, err := mongo.Connect(ctx, options.Client().ApplyURI(mongoServer.URI()))
 	if err != nil {
 		t.Fatalf("failed to connect to mongo server: %v", err)
 	}
 
-	ctx, cancel = context.WithTimeout(context.Background(), 1*time.Second)
-	defer cancel()
 	err = client.Database(db).RunCommand(ctx, bson.D{{Key: "createUser", Value: user}, {Key: "pwd", Value: password}, {Key: "roles", Value: []bson.M{}}}).Err()
 	if err != nil {
 		t.Fatalf("couldn't set up test: %v", err)
