@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 
 	componenttest "github.com/ONSdigital/dp-component-test"
 	mongoDriver "github.com/ONSdigital/dp-mongodb/v3/mongodb"
@@ -80,6 +81,7 @@ func (m *MongoV2Component) RegisterSteps(ctx *godog.ScenarioContext) {
 	ctx.Step(`^I Must delete records with name like (\w+)$`, m.mustDeleteRecordsByName)
 	ctx.Step(`^I update records with name "([^"]*)" age to "([^"]*)"$`, m.iUpdateRecordsWithGroupAgeTo)
 	ctx.Step(`^the records should match$`, m.theRecordsShouldMatch)
+	ctx.Step(`^I update the record in a transaction (\w+) interference$`, m.runTransaction)
 }
 
 func newMongoV2Component(database string, collection string, rawClient mongo.Client) *MongoV2Component {
@@ -139,7 +141,7 @@ func (m *MongoV2Component) findRecords() error {
 }
 
 func (m *MongoV2Component) theRecordsShouldMatch(recordsJson *godog.DocString) error {
-	m.findRecords()
+	_ = m.findRecords()
 	return m.shouldReceiveTheseRecords(recordsJson)
 }
 
@@ -512,4 +514,39 @@ func (m *MongoV2Component) mustDeleteRecordsByName(name string) error {
 	m.deleteResult, m.mustErrorResult = m.testClient.Collection(m.collection).Must().DeleteMany(context.Background(), selector)
 
 	return nil
+}
+
+func (m *MongoV2Component) runTransaction(interference string) error {
+	_, e := m.testClient.RunTransaction(context.Background(), false, func(transactionCtx context.Context) (interface{}, error) {
+		var obj dataModel
+		err := m.testClient.Collection(m.collection).FindOne(transactionCtx, bson.M{"_id": 1}, &obj)
+		if err != nil {
+			return nil, fmt.Errorf("could not find object in collection (%s): %w", m.collection, err)
+		}
+
+		if interference == "with" {
+			_, err = m.testClient.Collection(m.collection).Update(context.Background(), bson.M{"_id": 1}, bson.M{"$set": bson.M{"name": "third"}})
+			if err != nil {
+				return nil, fmt.Errorf("interleave write failed in collection (%s): %w", m.collection, err)
+			}
+		}
+
+		if obj.Name == "first" {
+			obj.Name = "second"
+			_, err = m.testClient.Collection(m.collection).Update(transactionCtx, bson.M{"_id": 1}, bson.M{"$set": obj})
+			if err != nil {
+				return nil, fmt.Errorf("could not write object in collection (%s): %w", m.collection, err)
+			}
+		}
+
+		return obj, nil
+	})
+
+	if interference == "with" {
+		assert.Error(&m.ErrorFeature, e)
+	} else {
+		assert.Nil(&m.ErrorFeature, e)
+	}
+
+	return m.ErrorFeature.StepError()
 }
