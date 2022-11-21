@@ -3,16 +3,17 @@ package mongodb_test
 import (
 	"context"
 	"errors"
-	"fmt"
 	"testing"
 	"time"
 
 	mim "github.com/ONSdigital/dp-mongodb-in-memory"
 	mongoDriver "github.com/ONSdigital/dp-mongodb/v3/mongodb"
-	. "github.com/smartystreets/goconvey/convey"
+
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+
+	. "github.com/smartystreets/goconvey/convey"
 )
 
 type TestModel struct {
@@ -200,7 +201,7 @@ func getMongoDriverConfig(mongoServer *mim.Server, database string, collections 
 	return &mongoDriver.MongoDriverConfig{
 		ConnectTimeout:  5 * time.Second,
 		QueryTimeout:    5 * time.Second,
-		ClusterEndpoint: fmt.Sprintf("localhost:%d", mongoServer.Port()),
+		ClusterEndpoint: mongoServer.URI(),
 		Database:        database,
 		Collections:     collections,
 	}
