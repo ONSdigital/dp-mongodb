@@ -81,7 +81,7 @@ func (m *MongoV2Component) RegisterSteps(ctx *godog.ScenarioContext) {
 	ctx.Step(`^I Must delete records with name like (\w+)$`, m.mustDeleteRecordsByName)
 	ctx.Step(`^I update records with name "([^"]*)" age to "([^"]*)"$`, m.iUpdateRecordsWithGroupAgeTo)
 	ctx.Step(`^the records should match$`, m.theRecordsShouldMatch)
-	ctx.Step(`^I update the record in a transaction (\w+) interference$`, m.runTransaction)
+	ctx.Step(`^I update the record in a transaction (without|with) interference$`, m.runTransaction)
 }
 
 func newMongoV2Component(database string, collection string, rawClient mongo.Client) *MongoV2Component {

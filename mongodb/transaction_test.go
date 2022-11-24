@@ -58,7 +58,7 @@ var badObjectState = errors.New("object state incorrect")
 // exampleTransactionFunc returns a sample TransactionFunc that executes a series of mongo based operations
 // within a transaction defined by the transactionCtx parameter of the function.
 // The transactionCtx is derived from the MongoConnection conn
-// The interleave boolean value allows injection a mongo call outside of the main transaction in transactionCtx, to
+// The interleave boolean value allows injection of a mongo call outside of the main transaction in transactionCtx, to
 // simulate a parallel transaction that interferes with the main transaction. Without retrying the main transaction,
 // this will lead to a Transaction Error on commit
 func exampleTransactionFunc(conn *mongoDriver.MongoConnection, interleave bool) mongoDriver.TransactionFunc {
@@ -101,17 +101,16 @@ func exampleTransactionFunc(conn *mongoDriver.MongoConnection, interleave bool) 
 }
 
 func TestTransaction(t *testing.T) {
-	ctx := context.Background()
-	conn, cleanup := setupMongoConnection(t)
-	defer cleanup(ctx)
-
 	Convey("Given a mongo server cluster", t, func() {
+		ctx := context.Background()
+		conn, cleanup := setupMongoConnection(t)
+		defer cleanup(ctx)
 		Convey("setup with a test simpleObject in 'first' State in test-collection-1", func() {
 			setupTest(t, conn, collection1, simpleObject{ID: 1, State: "first"})
 
 			Convey("when the example transaction is run with neither retries nor an interleaved outside transaction", func() {
 				r, e := conn.RunTransaction(ctx, false, exampleTransactionFunc(conn, false))
-				Convey("the transaction completes successfully, amd the results are as expected", func() {
+				Convey("the transaction completes successfully, and the results are as expected", func() {
 					So(e, ShouldBeNil)
 					res, ok := r.(struct{ o1, o2 simpleObject })
 					So(ok, ShouldBeTrue)
@@ -120,9 +119,9 @@ func TestTransaction(t *testing.T) {
 				})
 			})
 
-			Convey("when the example transaction is run with retries (but without an interleaved outside transaction)", func() {
+			Convey("when the example transaction is run with retries but without an interleaved outside transaction", func() {
 				r, e := conn.RunTransaction(ctx, true, exampleTransactionFunc(conn, false))
-				Convey("again the transaction completes successfully, and the results are the same, as expected", func() {
+				Convey("the transaction completes successfully, and the results are as expected", func() {
 					So(e, ShouldBeNil)
 					res, ok := r.(struct{ o1, o2 simpleObject })
 					So(ok, ShouldBeTrue)
@@ -165,9 +164,9 @@ func TestTransaction(t *testing.T) {
 				})
 			})
 
-			Convey("when the example transaction is run with retries (but without an interleaved outside transaction), the same results are obtained", func() {
+			Convey("when the example transaction is run with retries but without an interleaved outside transaction", func() {
 				r, e := conn.RunTransaction(ctx, true, exampleTransactionFunc(conn, false))
-				Convey("again the transaction completes successfully, and the results are the same, as expected", func() {
+				Convey("the transaction completes successfully, and the results are as expected", func() {
 					So(e, ShouldBeNil)
 					res, ok := r.(struct{ o1, o2 simpleObject })
 					So(ok, ShouldBeTrue)
@@ -178,7 +177,7 @@ func TestTransaction(t *testing.T) {
 
 			Convey("when the example transaction is run without retries but with an interleaved outside transaction", func() {
 				r, e := conn.RunTransaction(ctx, false, exampleTransactionFunc(conn, true))
-				Convey("the same results are obtained since the interleaved transaction does not 'interfere' with the main transaction", func() {
+				Convey("the transaction completes successfully, since the interleaved transaction does not 'interfere' with the main transaction", func() {
 					So(e, ShouldBeNil)
 					res, ok := r.(struct{ o1, o2 simpleObject })
 					So(ok, ShouldBeTrue)
@@ -189,7 +188,7 @@ func TestTransaction(t *testing.T) {
 
 			Convey("when the example transaction is run with retries and with an interleaved outside transaction", func() {
 				r, e := conn.RunTransaction(ctx, false, exampleTransactionFunc(conn, true))
-				Convey("again the same results are obtained since the interleaved transaction does not 'interfere' with the main transaction", func() {
+				Convey("the transaction completes successfully, since the interleaved transaction does not 'interfere' with the main transaction", func() {
 					So(e, ShouldBeNil)
 					res, ok := r.(struct{ o1, o2 simpleObject })
 					So(ok, ShouldBeTrue)
@@ -203,17 +202,19 @@ func TestTransaction(t *testing.T) {
 			setupTest(t, conn, collection1, simpleObject{ID: 1, State: "invalid"})
 
 			Convey("when the example transaction is run without retries or an interleaved outside transaction", func() {
-				Convey("the transaction is explicitly aborted by teh exampleTransactionFunc(), and the expected error and result returned", func() {
-					r, e := conn.RunTransaction(ctx, false, exampleTransactionFunc(conn, false))
+				r, e := conn.RunTransaction(ctx, false, exampleTransactionFunc(conn, false))
+				Convey("the transaction is explicitly aborted by the exampleTransactionFunc(), and the expected error and result returned", func() {
 					So(e, ShouldEqual, badObjectState)
 					So(r, ShouldBeNil)
 				})
 			})
 
-			Convey("and the same results are obtained when the example transaction is run with retries (but without an interleaved outside transaction)", func() {
+			Convey("when the example transaction is run with retries but without an interleaved outside transaction", func() {
 				r, e := conn.RunTransaction(ctx, true, exampleTransactionFunc(conn, false))
-				So(e, ShouldEqual, badObjectState)
-				So(r, ShouldBeNil)
+				Convey("the transaction is explicitly aborted by the exampleTransactionFunc(), and the expected error and result returned", func() {
+					So(e, ShouldEqual, badObjectState)
+					So(r, ShouldBeNil)
+				})
 			})
 		})
 	})
