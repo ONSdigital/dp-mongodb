@@ -282,7 +282,113 @@ func (m *Mongo) AddItem(ctx context.Context, item *models.Item) error {
 }
 ```
 
-### 6. Setting up a DocumentDB database and collections in AWS
+### 6. Transactions
+A small but powerful transaction api has been added to mongo v3. It is well documented in the Example and Tests in the transaction_test.go file, but a summary is as follows:<br>
+The existing MongoConnection object now has a new RunTransaction method:
+```go
+    type TransactionFunc func(transactionCtx context.Context) (interface{}, error)
+
+    func (ms *MongoConnection) RunTransaction(ctx context.Context, withRetries bool, fn TransactionFunc) (interface{}, error) {....}
+```
+The RunTransaction method starts the transaction and calls the provided TransactionFunc fn<br>
+The transactionCtx is the context in which the transaction is to be executed. Any mongo operation executed with that context (by passing the transactionCtx to
+the given mongo operation) will occur within the transaction in an acid fashion). If the TransactionFunc returns an error the transaction is rolled back;
+if not, the transaction is committed. In either case the original return value and error (from TransactionFunc), are returned to the caller of the RunTransaction method.
+If an internal error occurs when committing/rolling back the transaction, this error is returned by RunTransaction, and the returned value should not be trusted. <br>
+There is one exception to this: when the value of withRetries is true, and a ‘transient transaction error’ occurs on committal, the transaction will be re-tried, i.e. 
+the TransactionFunc will be re-run.
+```go
+func example() {
+        .
+        .
+			
+        // conn is a MongoConnection to a replica set cluster
+		
+        r, e := conn.RunTransaction(ctx, true, func(transactionCtx context.Context) (interface{}, error) {
+                    var obj AnObjectType
+                    err := conn.Collection(collection-name).FindOne(transactionCtx, bson.M{"_id": AnIdentifier}, &obj)
+                    if err != nil {
+                        return nil, fmt.Errorf("could not find object in collection (%s): %w", collection-name, err)
+                    }
+                    
+                    if obj.SomeStateVariable != "What I Expect" {
+                        return nil, badObjectState
+                    }
+    
+                    obj.SomeStateVariable = "Updated Value"
+                    _, err = conn.Collection(collection-name).Update(transactionCtx, bson.M{"_id": 1}, bson.M{"$set": obj})
+                    if err != nil {
+                        return nil, fmt.Errorf("could not write object in collection (%s): %w", collection-name, err)
+                    }
+                    
+                    return obj, nil
+                })
+    
+        switch {
+        // handle this special case, where we have aborted the transaction because the object was not in a valid state
+        case errors.Is(e, badObjectState):
+    
+        // otherwise, a runtime error, i.e. couldn't complete the transaction for some other reason (even with retries)
+        case !errors.Is(e, nil):
+    
+        // transaction completed successfully, and r contains a valid object
+        default:
+            if _, ok := r.(AnObjectType); !ok {
+                // This should not be possible :-)
+            }
+        }
+}
+```
+##### When is a transaction needed
+Generally when multiple writes are needed atomically across multiple documents in the same or different collections.
+##### When is a transaction NOT needed (the dplock package)
+There has been extensive use of the dp-mongodb/dplock package to lock an object for ’read for write’ operations, i.e. we lock an object, read its value, check it’s state, 
+and in certain cases perform an update write (as in the example above). This package was most likely developed before mongo had implemented transactions, and its use is 
+computationally expensive, so using the new transaction mechanism is preferred over the use of the dplock package. <br>
+Having said that, the 'read for write' pattern is a very standard pattern and should not need the use of locking or transactions. This pattern is exactly what ETags 
+were developed for. So instead of the above, something like the following can be used:
+```go
+func exampleUpdate(ctx context.Context, obj AnObjectType) error {
+        .
+        .
+			
+        // conn is a MongoConnection to a replica set cluster
+		
+        var existing AnObjectType
+        err := conn.Collection(collection-name).FindOne(transactionCtx, bson.M{"_id": obj.ID}, &existing)
+        if err != nil {
+            return fmt.Errorf("could not find object in collection (%s): %w", collection-name, err)
+        }
+        
+        if obj.ETag != existing.ETag {
+            return badObjectVersion
+        }
+
+        // Check state changes are okay
+
+        obj.Etag = calculateNewEtag(obj, existing)
+        // Use the existing ETag value to ensure we only update if the object has not changed state since we read it above
+        _, err = conn.Collection(collection-name).Update(transactionCtx, bson.M{"_id": obj.ID, "e_tag": existing.ETag}, bson.M{"$set": obj})
+        if err != nil {
+            return fmt.Errorf("could not write object in collection (%s): %w", collection-name, err)
+        }
+        
+        return nil
+}
+```
+Etags should be used extensively. If for some reason Etags are not implemented for an object type, there is no alternative other than to use a transaction.
+#### Testing Transactions
+Transactions are only available with mongo clusters in a replica set. All ONS production systems of MongoDB/DocumentDB run as replica sets.<br>
+To allow for testing transactions with a replica set, versions of dp-mongodb-in-memory >= Release 1.5.0 have the ability to start a mongo server as a replica set - see [StartWithReplicaSet()](https://github.com/ONSdigital/dp-mongodb-in-memory/blob/8c15e7b214955795920e49dc1db496daf6b8078c/main.go#L46) or [StartWithOption()](https://github.com/ONSdigital/dp-mongodb-in-memory/blob/8c15e7b214955795920e49dc1db496daf6b8078c/main.go#L70) <br>
+Versions of dp-component-test >= 0.9.0 use the new version of dp-mongodb-in-memory, and using the standard [NewMongoFeature(mongoOptions MongoOptions)](https://github.com/ONSdigital/dp-component-test/blob/3cdf30c6782e872d45ca55d41a9d9f030209a776/mongo_feature.go#L47) where [MongoOptions.ReplicaSetName](https://github.com/ONSdigital/dp-component-test/blob/3cdf30c6782e872d45ca55d41a9d9f030209a776/mongo_feature.go#L29) has a non-empty set name,
+results in the feature using a mongo server set up as a replica set of the given name.
+#### Long-running Transactions
+The handling of an executing transaction at service shutdown proceeds as one might expect. If a transaction is in progress when the service receives a shutdown signal, 
+the graceful shutdown process commences:  
+- If the transaction finishes before the graceful shutdown period ends (generally 5 seconds), the transaction ends successfully (either commits or rollsback according to the business logic), the mongo connection is successfully closed, and the shutdown ends gracefully.  
+- If the transaction does not finish before the graceful period ends, then service is terminated ‘ungracefully’, i.e. after the graceful shutdown period expires, the
+server terminates with an error code, the client will receive an http error, and the mongo server will rollback the transaction.  
+### 7. Setting up a DocumentDB database and collections in AWS
 Before setting up the required database and collections for v3 (Document DB), in AWS, you need to have ready the following values:
 1. Database name
 2. Names of any collections that should exist in the database
@@ -296,5 +402,5 @@ Once those values are to hand then they can be used in updating the following do
 
 Once those documents have been updated, and the changes approved and merged, then ansible should be run. This will apply the relevant changes to AWS.
 
-### 7. Updating the secrets in sandbox and prod
+### 8. Updating the secrets in sandbox and prod
 The secrets (for the relevant service) in dp-configs, for sandbox and prod, need to contain all the attributes that are in the MongoDriverConfig struct.
