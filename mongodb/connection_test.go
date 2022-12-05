@@ -144,7 +144,7 @@ func TestSuite(t *testing.T) {
 				So(res.NewKey, ShouldEqual, 456)
 			})
 
-			Convey("UpsertId should update if  exists", func() {
+			Convey("UpsertId should update if exists", func() {
 				_, err := conn.
 					Collection(collection).
 					UpsertById(context.Background(), 3, bson.M{"$set": bson.M{"new_key": 789}})
@@ -157,7 +157,7 @@ func TestSuite(t *testing.T) {
 			})
 
 			Convey("UpdateId should update data if document exists", func() {
-				_, err := conn.Collection(collection).UpdateById(context.Background(), 3, bson.M{"$set": bson.M{"new_key": 7892}})
+				_, err := conn.Collection(collection).UpdateById(context.Background(), 3, bson.M{"$set": bson.M{"new_key": 7892, "state": "second"}})
 				So(err, ShouldBeNil)
 
 				res := TestModel{}
@@ -165,6 +165,21 @@ func TestSuite(t *testing.T) {
 				err = queryMongo(conn, collection, bson.M{"_id": 3}, &res)
 				So(err, ShouldBeNil)
 				So(res.NewKey, ShouldEqual, 7892)
+				So(res.State, ShouldEqual, "second")
+
+				Convey("UpdateMany should update multiple matching documents", func() {
+					_, err := conn.
+						Collection(collection).
+						UpdateMany(context.Background(), bson.M{"state": "second"}, bson.M{"$set": bson.M{"new_key": 9999}})
+					So(err, ShouldBeNil)
+
+					res := []TestModel{}
+					err = queryCursor(conn, collection, bson.M{"state": "second"}, &res)
+					So(err, ShouldBeNil)
+					So(len(res), ShouldEqual, 2)
+					So(res[0].NewKey, ShouldEqual, 9999)
+					So(res[1].NewKey, ShouldEqual, 9999)
+				})
 			})
 
 			Convey("FindOne should find data if document exists", func() {
@@ -212,7 +227,7 @@ func setUpTestData(mongoConnection *mongoDriver.MongoConnection, collection stri
 	for i, data := range getTestData() {
 		if _, err := mongoConnection.
 			Collection(collection).
-			UpsertById(ctx, i+1, bson.M{"$set": data}); err != nil {
+			UpsertOne(ctx, bson.M{"_id": i + 1}, bson.M{"$set": data}); err != nil {
 			return err
 		}
 	}

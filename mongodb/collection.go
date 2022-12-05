@@ -29,7 +29,7 @@ type CollectionUpdateResult struct {
 
 // CollectionDeleteResult is the result type returned from Delete, DeleteById and DeleteMany operations.
 type CollectionDeleteResult struct {
-	DeletedCount int // The number of records deleted
+	DeletedCount int // The number of documents deleted
 }
 
 // CollectionInsertResult is the result type return from Insert
@@ -101,6 +101,20 @@ func (c *Collection) Find(ctx context.Context, filter, results interface{}, opts
 	return int(tc), wrapMongoError(cursor.All(ctx, results))
 }
 
+// FindOne returns a single document in the collection that satisfies the given filter (restricted by the
+// given options), with the actual document provided in the result parameter (which must be a non nil pointer
+// to a document of the expected type)
+// If no document could be found, an ErrNoDocumentFound error is returned
+func (c *Collection) FindOne(ctx context.Context, filter interface{}, result interface{}, opts ...FindOption) error {
+
+	r := c.collection.FindOne(ctx, filter, newFindOptions(opts...).asDriverFindOneOption())
+	if r.Err() != nil {
+		return wrapMongoError(r.Err())
+	}
+
+	return wrapMongoError(r.Decode(result))
+}
+
 // FindCursor returns a mongo cursor iterating over the collection
 // If no sort order option is provided a default sort order of 'ascending _id' is used (bson.M{"_id": 1})
 func (c *Collection) FindCursor(ctx context.Context, filter interface{}, opts ...FindOption) (Cursor, error) {
@@ -117,19 +131,17 @@ func (c *Collection) FindCursor(ctx context.Context, filter interface{}, opts ..
 	return cursor, nil
 }
 
-// FindOne locates a single document
-func (c *Collection) FindOne(ctx context.Context, filter interface{}, result interface{}, opts ...FindOption) error {
-
-	r := c.collection.FindOne(ctx, filter, newFindOptions(opts...).asDriverFindOneOption())
-	if r.Err() != nil {
-		return wrapMongoError(r.Err())
-	}
-
-	return wrapMongoError(r.Decode(result))
+// Insert creates a single document in the collection
+// Deprecated: Use InsertOne
+func (c *Collection) Insert(ctx context.Context, document interface{}) (*CollectionInsertResult, error) {
+	return c.InsertOne(ctx, document)
 }
 
-// Insert creates a single record
-func (c *Collection) Insert(ctx context.Context, document interface{}) (*CollectionInsertResult, error) {
+// InsertOne creates a single document in the collection
+// The document must be the document to be inserted and cannot be nil.
+// If the document does not have an _id field when transformed into BSON, one will be added automatically to the marshalled document.
+// The _id can be retrieved from the InsertedId field of the returned CollectionInsertResult.
+func (c *Collection) InsertOne(ctx context.Context, document interface{}) (*CollectionInsertResult, error) {
 	result, err := c.collection.InsertOne(ctx, document)
 	if err != nil {
 		return nil, wrapMongoError(err)
@@ -138,7 +150,10 @@ func (c *Collection) Insert(ctx context.Context, document interface{}) (*Collect
 	return &CollectionInsertResult{result.InsertedID}, nil
 }
 
-// InsertMany adds a number of documents
+// InsertMany creates multiple documents in the collection
+// The documents must be a slice of documents to insert and slice cannot be nil or empty. The elements must all be non-nil.
+// For any document that does not have an _id field when transformed into BSON, one will be added automatically to the marshalled document.
+// The _id values for the inserted documents can be retrieved from the InsertedIds field of the returned CollectionInsertManyResult.
 func (c *Collection) InsertMany(ctx context.Context, documents []interface{}) (*CollectionInsertManyResult, error) {
 	result, err := c.collection.InsertMany(ctx, documents)
 	if err != nil {
@@ -151,26 +166,62 @@ func (c *Collection) InsertMany(ctx context.Context, documents []interface{}) (*
 	return insertResult, nil
 }
 
-// Upsert creates or updates a record located by a provided selector
+// Upsert creates or updates a document located by the provided selector
+// Deprecated: Use UpsertOne
 func (c *Collection) Upsert(ctx context.Context, selector interface{}, update interface{}) (*CollectionUpdateResult, error) {
-	return c.updateRecord(ctx, selector, update, true)
+	return c.UpsertOne(ctx, selector, update)
 }
 
-// UpsertById creates or updates a record located by a provided Id selector
+// UpsertById creates or updates a document located by the provided id selector
+// Deprecated: Use UpsertOne
 func (c *Collection) UpsertById(ctx context.Context, id interface{}, update interface{}) (*CollectionUpdateResult, error) {
-	selector := bson.D{{Key: "_id", Value: id}}
+	return c.UpsertOne(ctx, bson.M{"_id": id}, update)
+}
+
+// UpsertOne creates or updates a document located by the provided selector
+// The selector must be a document containing query operators and cannot be nil.
+// The update must be a document containing update operators and cannot be nil or empty.
+// If the selector does not match any documents, the update document is inserted into the collection.
+// If the selector matches multiple documents, one will be selected from the matched set, updated and a CollectionUpdateResult with a MatchedCount of 1 will be returned.
+func (c *Collection) UpsertOne(ctx context.Context, selector interface{}, update interface{}) (*CollectionUpdateResult, error) {
 	return c.updateRecord(ctx, selector, update, true)
 }
 
-// UpdateById modifies a record located by a provided Id selector
+// UpdateById modifies a single document located by the provided id selector
+// Deprecated: Use UpdateOne
 func (c *Collection) UpdateById(ctx context.Context, id interface{}, update interface{}) (*CollectionUpdateResult, error) {
-	selector := bson.D{{Key: "_id", Value: id}}
+	return c.UpdateOne(ctx, bson.M{"_id": id}, update)
+}
+
+// Update modifies a single document located by the provided selector
+// Deprecated: Use UpdateOne
+func (c *Collection) Update(ctx context.Context, selector interface{}, update interface{}) (*CollectionUpdateResult, error) {
+	return c.UpdateOne(ctx, selector, update)
+}
+
+// UpdateOne modifies a single document located by the provided selector
+// The selector must be a document containing query operators and cannot be nil.
+// The update must be a document containing update operators and cannot be nil or empty.
+// If the selector does not match any documents, the operation will succeed and a CollectionUpdateResult with a MatchedCount of 0 will be returned.
+// If the selector matches multiple documents, one will be selected from the matched set, updated and a CollectionUpdateResult with a MatchedCount of 1 will be returned.
+func (c *Collection) UpdateOne(ctx context.Context, selector interface{}, update interface{}) (*CollectionUpdateResult, error) {
 	return c.updateRecord(ctx, selector, update, false)
 }
 
-// Update modifies a record located by a provided selector
-func (c *Collection) Update(ctx context.Context, selector interface{}, update interface{}) (*CollectionUpdateResult, error) {
-	return c.updateRecord(ctx, selector, update, false)
+// UpdateMany modifies multiple documents located by the provided selector
+// The selector must be a document containing query operators and cannot be nil.
+// The update must be a document containing update operators and cannot be nil or empty.
+// If the selector does not match any documents, the operation will succeed and a CollectionUpdateResult with a MatchedCount of 0 will be returned.
+func (c *Collection) UpdateMany(ctx context.Context, selector interface{}, update interface{}) (*CollectionUpdateResult, error) {
+	updateResult, err := c.collection.UpdateMany(ctx, selector, update, options.Update())
+	if err == nil {
+		return &CollectionUpdateResult{
+			MatchedCount:  int(updateResult.MatchedCount),
+			ModifiedCount: int(updateResult.ModifiedCount),
+		}, nil
+	}
+
+	return nil, wrapMongoError(err)
 }
 
 func (c *Collection) updateRecord(ctx context.Context, selector interface{}, update interface{}, upsert bool) (*CollectionUpdateResult, error) {
@@ -193,20 +244,23 @@ func (c *Collection) updateRecord(ctx context.Context, selector interface{}, upd
 	return nil, wrapMongoError(err)
 }
 
-func (c *Collection) UpdateMany(ctx context.Context, selector interface{}, update interface{}) (*CollectionUpdateResult, error) {
-	updateResult, err := c.collection.UpdateMany(ctx, selector, update, options.Update())
-	if err == nil {
-		return &CollectionUpdateResult{
-			MatchedCount:  int(updateResult.MatchedCount),
-			ModifiedCount: int(updateResult.ModifiedCount),
-		}, nil
-	}
-
-	return nil, wrapMongoError(err)
+// Delete deletes a single document based on the provided selector
+// Deprecated: Use DeleteOne instead
+func (c *Collection) Delete(ctx context.Context, selector interface{}) (*CollectionDeleteResult, error) {
+	return c.DeleteOne(ctx, selector)
 }
 
-// Delete deletes a record based on the provided selector
-func (c *Collection) Delete(ctx context.Context, selector interface{}) (*CollectionDeleteResult, error) {
+// DeleteById deletes a document based on the provided id selector
+// Deprecated: Use DeleteOne
+func (c *Collection) DeleteById(ctx context.Context, id interface{}) (*CollectionDeleteResult, error) {
+	return c.DeleteOne(ctx, bson.M{"_id": id})
+}
+
+// DeleteOne deletes a single document based on the provided selector.
+// The selector must be a document containing query operators and cannot be nil.
+// If the selector does not match any documents, the operation will succeed and a CollectionDeleteResult with a DeletedCount of 0 will be returned.
+// If the selector matches multiple documents, one will be selected from the matched set, deleted and a CollectionDeleteResult with a DeletedCount of 1 will be returned.
+func (c *Collection) DeleteOne(ctx context.Context, selector interface{}) (*CollectionDeleteResult, error) {
 	result, err := c.collection.DeleteOne(ctx, selector)
 	if err != nil {
 		return nil, wrapMongoError(err)
@@ -215,7 +269,9 @@ func (c *Collection) Delete(ctx context.Context, selector interface{}) (*Collect
 	return &CollectionDeleteResult{int(result.DeletedCount)}, nil
 }
 
-// DeleteMany deletes records based on the provided selector
+// DeleteMany deletes multiple documents based on the provided selector
+// The selector must be a document containing query operators and cannot be nil.
+// If the selector does not match any documents, the operation will succeed and a CollectionDeleteResult with a DeletedCount of 0 will be returned.
 func (c *Collection) DeleteMany(ctx context.Context, selector interface{}) (*CollectionDeleteResult, error) {
 	result, err := c.collection.DeleteMany(ctx, selector)
 	if err != nil {
@@ -223,12 +279,6 @@ func (c *Collection) DeleteMany(ctx context.Context, selector interface{}) (*Col
 	}
 
 	return &CollectionDeleteResult{int(result.DeletedCount)}, nil
-}
-
-// DeleteById deletes a record based on the id selector
-func (c *Collection) DeleteById(ctx context.Context, id interface{}) (*CollectionDeleteResult, error) {
-	selector := bson.M{"_id": id}
-	return c.Delete(ctx, selector)
 }
 
 // Aggregate starts a pipeline operation

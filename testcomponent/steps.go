@@ -278,7 +278,7 @@ func (m *MongoV2Component) upsertRecordById(id int, recordAsString *godog.DocStr
 
 	upsert := bson.D{{Key: "$set", Value: bson.D{{Key: "name", Value: record.Name}, {Key: "age", Value: record.Age}}}}
 
-	m.updateResult, err = m.testClient.Collection(m.collection).UpsertById(context.Background(), id, upsert)
+	m.updateResult, err = m.testClient.Collection(m.collection).UpsertOne(context.Background(), bson.M{"_id": id}, upsert)
 
 	return err
 }
@@ -291,11 +291,9 @@ func (m *MongoV2Component) upsertRecord(id int, recordAsString *godog.DocString)
 		return err
 	}
 
-	idQuery := bson.D{{Key: "_id", Value: id}}
-
 	upsert := bson.D{{Key: "$set", Value: bson.D{{Key: "name", Value: record.Name}, {Key: "age", Value: record.Age}}}}
 
-	m.updateResult, err = m.testClient.Collection(m.collection).Upsert(context.Background(), idQuery, upsert)
+	m.updateResult, err = m.testClient.Collection(m.collection).UpsertOne(context.Background(), bson.M{"_id": id}, upsert)
 
 	return err
 }
@@ -310,7 +308,7 @@ func (m *MongoV2Component) updateRecordById(id int, recordAsString *godog.DocStr
 
 	update := bson.D{{Key: "$set", Value: bson.D{{Key: "name", Value: record.Name}, {Key: "age", Value: record.Age}}}}
 
-	m.updateResult, err = m.testClient.Collection(m.collection).UpdateById(context.Background(), id, update)
+	m.updateResult, err = m.testClient.Collection(m.collection).UpdateOne(context.Background(), bson.M{"_id": id}, update)
 
 	return err
 }
@@ -323,11 +321,9 @@ func (m *MongoV2Component) updateRecord(id int, recordAsString *godog.DocString)
 		return err
 	}
 
-	idQuery := bson.D{{Key: "_id", Value: id}}
-
 	update := bson.D{{Key: "$set", Value: bson.D{{Key: "name", Value: record.Name}, {Key: "age", Value: record.Age}}}}
 
-	m.updateResult, err = m.testClient.Collection(m.collection).Update(context.Background(), idQuery, update)
+	m.updateResult, err = m.testClient.Collection(m.collection).UpdateOne(context.Background(), bson.M{"_id": id}, update)
 
 	return err
 }
@@ -349,7 +345,7 @@ func (m *MongoV2Component) iUpdateRecordsWithGroupAgeTo(name, age string) error 
 func (m *MongoV2Component) deleteRecordById(id int) error {
 	var err error
 
-	m.deleteResult, err = m.testClient.Collection(m.collection).DeleteById(context.Background(), id)
+	m.deleteResult, err = m.testClient.Collection(m.collection).DeleteOne(context.Background(), bson.M{"_id": id})
 
 	return err
 }
@@ -357,9 +353,7 @@ func (m *MongoV2Component) deleteRecordById(id int) error {
 func (m *MongoV2Component) deleteRecord(id int) error {
 	var err error
 
-	idQuery := bson.D{{Key: "_id", Value: id}}
-
-	m.deleteResult, err = m.testClient.Collection(m.collection).Delete(context.Background(), idQuery)
+	m.deleteResult, err = m.testClient.Collection(m.collection).DeleteOne(context.Background(), bson.M{"_id": id})
 
 	return err
 }
@@ -463,7 +457,7 @@ func (m *MongoV2Component) mustUpdateId(id int, recordAsString *godog.DocString)
 	}
 
 	update := bson.M{"$set": record}
-	m.updateResult, m.mustErrorResult = m.testClient.Collection(m.collection).Must().UpdateById(context.Background(), id, update)
+	m.updateResult, m.mustErrorResult = m.testClient.Collection(m.collection).Must().UpdateOne(context.Background(), bson.M{"_id": id}, update)
 
 	return nil
 }
@@ -476,9 +470,7 @@ func (m *MongoV2Component) mustUpdateRecord(id int, recordAsString *godog.DocStr
 		return err
 	}
 
-	idQuery := bson.M{"_id": id}
-	update := bson.M{"$set": record}
-	m.updateResult, m.mustErrorResult = m.testClient.Collection(m.collection).Must().Update(context.Background(), idQuery, update)
+	m.updateResult, m.mustErrorResult = m.testClient.Collection(m.collection).Must().UpdateOne(context.Background(), bson.M{"_id": id}, bson.M{"$set": record})
 
 	return nil
 }
@@ -495,15 +487,13 @@ func (m *MongoV2Component) testMustDidNotReturnError() error {
 }
 
 func (m *MongoV2Component) mustDeleteRecordById(id int) error {
-	m.deleteResult, m.mustErrorResult = m.testClient.Collection(m.collection).Must().DeleteById(context.Background(), id)
+	m.deleteResult, m.mustErrorResult = m.testClient.Collection(m.collection).Must().DeleteOne(context.Background(), bson.M{"_id": id})
 
 	return nil
 }
 
 func (m *MongoV2Component) mustDeleteRecord(id int) error {
-	idQuery := bson.D{{Key: "_id", Value: id}}
-
-	m.deleteResult, m.mustErrorResult = m.testClient.Collection(m.collection).Must().Delete(context.Background(), idQuery)
+	m.deleteResult, m.mustErrorResult = m.testClient.Collection(m.collection).Must().DeleteOne(context.Background(), bson.M{"_id": id})
 
 	return nil
 }
@@ -525,7 +515,7 @@ func (m *MongoV2Component) runTransaction(interference string) error {
 		}
 
 		if interference == "with" {
-			_, err = m.testClient.Collection(m.collection).Update(context.Background(), bson.M{"_id": 1}, bson.M{"$set": bson.M{"name": "third"}})
+			_, err = m.testClient.Collection(m.collection).UpdateOne(context.Background(), bson.M{"_id": 1}, bson.M{"$set": bson.M{"name": "third"}})
 			if err != nil {
 				return nil, fmt.Errorf("interleave write failed in collection (%s): %w", m.collection, err)
 			}
@@ -533,7 +523,7 @@ func (m *MongoV2Component) runTransaction(interference string) error {
 
 		if obj.Name == "first" {
 			obj.Name = "second"
-			_, err = m.testClient.Collection(m.collection).Update(transactionCtx, bson.M{"_id": 1}, bson.M{"$set": obj})
+			_, err = m.testClient.Collection(m.collection).UpdateOne(transactionCtx, bson.M{"_id": 1}, bson.M{"$set": obj})
 			if err != nil {
 				return nil, fmt.Errorf("could not write object in collection (%s): %w", m.collection, err)
 			}

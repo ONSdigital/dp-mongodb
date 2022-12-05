@@ -18,8 +18,8 @@ type TransactionFunc func(transactionCtx context.Context) (interface{}, error)
 
 // RunTransaction will execute the given function - fn - within a transaction, defined by the transaction context - transactionCtx
 // If withRetries is true, the transaction will retry on a transient transaction error - this can be due to a network
-// error, but may also occur if the state of an object being updated in a transaction has been changed since the transaction
-// started. Ths latter behaviour may or may be suitable depending on the circumstances, and so is optional
+// error, but may also occur if the state of an object being updated in the transaction has been changed since the transaction
+// started. This latter behaviour may or may be suitable depending on the circumstances, and so is optional
 // The return values of the function are the return values provided by the TransactionFunc fn, except in the case where
 // runtime errors occur outside the TransactionFunc fn, when committing or aborting the transaction
 func (ms *MongoConnection) RunTransaction(ctx context.Context, withRetries bool, fn TransactionFunc) (interface{}, error) {

@@ -2,6 +2,8 @@ package mongodb
 
 import (
 	"context"
+
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 type Must struct {
@@ -12,23 +14,27 @@ func newMust(collection *Collection) *Must {
 	return &Must{collection}
 }
 
-// UpdateById modifies records located by a provided Id selector, must modifiy one record
+// UpdateById modifies a single document located by the provided id selector.
+// If a  document cannot be found, an ErrNoDocumentFound error is returned
+// Deprecated: Use UpdateOne instead
 func (m *Must) UpdateById(ctx context.Context, id interface{}, update interface{}) (*CollectionUpdateResult, error) {
-	result, err := m.collection.UpdateById(ctx, id, update)
-	if err != nil {
-		return nil, err
-	}
-
-	if result.MatchedCount == 0 {
-		return nil, ErrNoDocumentFound
-	}
-
-	return result, nil
+	return m.UpdateOne(ctx, bson.M{"_id": id}, update)
 }
 
-// Update modifies records located by a provided selector, must modifiy one record
+// Update modifies a single document located by the provided selector.
+// If a  document cannot be found, an ErrNoDocumentFound error is returned
+// Deprecated: Use UpdateOne instead
 func (m *Must) Update(ctx context.Context, selector interface{}, update interface{}) (*CollectionUpdateResult, error) {
-	result, err := m.collection.Update(ctx, selector, update)
+	return m.UpdateOne(ctx, selector, update)
+}
+
+// UpdateOne modifies a single document located by the provided selector.
+// The selector must be a document containing query operators and cannot be nil.
+// The update must be a document containing update operators and cannot be nil or empty.
+// If the selector does not match any documents, an ErrNoDocumentFound is returned
+// If the selector matches multiple documents, one will be selected from the matched set, updated and a CollectionUpdateResult with a MatchedCount of 1 will be returned.
+func (m *Must) UpdateOne(ctx context.Context, selector interface{}, update interface{}) (*CollectionUpdateResult, error) {
+	result, err := m.collection.UpdateOne(ctx, selector, update)
 	if err != nil {
 		return nil, err
 	}
@@ -40,9 +46,43 @@ func (m *Must) Update(ctx context.Context, selector interface{}, update interfac
 	return result, nil
 }
 
-// Delete deletes a record based on the provided selector, must delete at least one record
+// UpdateMany modifies multiple documents located by the provided selector.
+// The selector must be a document containing query operators and cannot be nil.
+// The update must be a document containing update operators and cannot be nil or empty.
+// If the selector does not match any documents, an ErrNoDocumentFound is returned
+func (m *Must) UpdateMany(ctx context.Context, selector interface{}, update interface{}) (*CollectionUpdateResult, error) {
+	result, err := m.collection.UpdateMany(ctx, selector, update)
+	if err != nil {
+		return nil, err
+	}
+
+	if result.MatchedCount == 0 {
+		return nil, ErrNoDocumentFound
+	}
+
+	return result, nil
+}
+
+// DeleteById deletes a single document located by the provided id selector. If no document is not found
+// an ErrNoDocumentFound error is returned
+// Deprecated: Use DeleteOne
+func (m *Must) DeleteById(ctx context.Context, id interface{}) (*CollectionDeleteResult, error) {
+	return m.DeleteOne(ctx, bson.M{"_id": id})
+}
+
+// Delete deletes a single document located by the provided selector. If no document is not found
+// an ErrNoDocumentFound error is returned
+// Deprecated: Use DeleteOne
 func (m *Must) Delete(ctx context.Context, selector interface{}) (*CollectionDeleteResult, error) {
-	result, err := m.collection.Delete(ctx, selector)
+	return m.DeleteOne(ctx, selector)
+}
+
+// DeleteOne deletes a single document located by the provided selector.
+// The selector must be a document containing query operators and cannot be nil.
+// If the selector does not match any documents, an ErrNoDocumentFound error is returned
+// If the selector matches multiple documents, one will be selected from the matched set, deleted and a CollectionDeleteResult with a DeletedCount of 1 will be returned.
+func (m *Must) DeleteOne(ctx context.Context, selector interface{}) (*CollectionDeleteResult, error) {
+	result, err := m.collection.DeleteOne(ctx, selector)
 	if err != nil {
 		return nil, err
 	}
@@ -54,23 +94,11 @@ func (m *Must) Delete(ctx context.Context, selector interface{}) (*CollectionDel
 	return result, nil
 }
 
-// DeleteMany deletes records based on the provided selector, must delete at least one record
+// DeleteMany deletes multiple documents located by the provided selector.
+// The selector must be a document containing query operators and cannot be nil.
+// If the selector does not match any documents, an ErrNoDocumentFound error is returned
 func (m *Must) DeleteMany(ctx context.Context, selector interface{}) (*CollectionDeleteResult, error) {
 	result, err := m.collection.DeleteMany(ctx, selector)
-	if err != nil {
-		return nil, err
-	}
-
-	if result.DeletedCount < 1 {
-		return nil, ErrNoDocumentFound
-	}
-
-	return result, nil
-}
-
-// DeleteById deletes record based on the id selector must delete at least one record
-func (m *Must) DeleteById(ctx context.Context, id interface{}) (*CollectionDeleteResult, error) {
-	result, err := m.collection.DeleteById(ctx, id)
 	if err != nil {
 		return nil, err
 	}
