@@ -76,7 +76,7 @@ func exampleTransactionFunc(conn *mongoDriver.MongoConnection, interleave bool) 
 			obj1.State = "third"
 
 			obj2 = simpleObject{ID: 1, State: "final"}
-			_, err = conn.Collection(collection2).Upsert(transactionCtx, bson.M{"_id": obj2.ID}, bson.M{"$set": obj2})
+			_, err = conn.Collection(collection2).UpsertOne(transactionCtx, bson.M{"_id": obj2.ID}, bson.M{"$set": obj2})
 			if err != nil {
 				return nil, fmt.Errorf("could not upsert object in collection (%s): %w", collection2, err)
 			}
@@ -85,13 +85,13 @@ func exampleTransactionFunc(conn *mongoDriver.MongoConnection, interleave bool) 
 		}
 
 		if interleave {
-			_, err = conn.Collection(collection1).Update(context.Background(), bson.M{"_id": 1}, bson.M{"$set": bson.M{"state": "second"}})
+			_, err = conn.Collection(collection1).UpdateOne(context.Background(), bson.M{"_id": 1}, bson.M{"$set": bson.M{"state": "second"}})
 			if err != nil {
 				return nil, fmt.Errorf("interleave write failed in collection (%s): %w", collection1, err)
 			}
 		}
 
-		_, err = conn.Collection(collection1).Update(transactionCtx, bson.M{"_id": 1}, bson.M{"$set": obj1})
+		_, err = conn.Collection(collection1).UpdateOne(transactionCtx, bson.M{"_id": 1}, bson.M{"$set": obj1})
 		if err != nil {
 			return nil, fmt.Errorf("could not write object in collection (%s): %w", collection1, err)
 		}
@@ -249,7 +249,7 @@ func setupMongoConnection(t *testing.T) (*mongoDriver.MongoConnection, func(cont
 }
 
 func setupTest(t *testing.T, conn *mongoDriver.MongoConnection, collection string, obj simpleObject) {
-	ures, err := conn.Collection(collection).Upsert(context.Background(), bson.M{"_id": obj.ID}, bson.M{"$set": obj})
+	ures, err := conn.Collection(collection).UpsertOne(context.Background(), bson.M{"_id": obj.ID}, bson.M{"$set": obj})
 	if err != nil || (ures.UpsertedCount != 1 && ures.MatchedCount != 1) {
 		t.Fatalf("failed to upsert test data into %s", collection)
 	}

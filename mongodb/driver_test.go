@@ -46,7 +46,7 @@ func ExampleOpen() {
 	// Can now work with the mongo db
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
-	_, _ = mongoDB.Collection("recipes").Insert(ctx, bson.M{"recipe field": "field value"})
+	_, _ = mongoDB.Collection("recipes").InsertOne(ctx, bson.M{"recipe field": "field value"})
 }
 
 func TestOpenConnectionToMongoDB_NoSSL(t *testing.T) {
@@ -259,7 +259,7 @@ func TestMongoConnectionConfig_GetConnectionURIWhen(t *testing.T) {
 	})
 }
 
-func setupMongoConnectionTest(t *testing.T, mongoServer *mim.Server, db, user, password string) {
+func setupMongoConnectionTest(t *testing.T, mongoServer *mim.Server, db, user, password string) *mongo.Client {
 	t.Helper()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -269,8 +269,16 @@ func setupMongoConnectionTest(t *testing.T, mongoServer *mim.Server, db, user, p
 		t.Fatalf("failed to connect to mongo server: %v", err)
 	}
 
-	err = client.Database(db).RunCommand(ctx, bson.D{{Key: "createUser", Value: user}, {Key: "pwd", Value: password}, {Key: "roles", Value: []bson.M{}}}).Err()
+	err = client.Database(db).RunCommand(ctx, bson.D{{Key: "createUser", Value: user}, {Key: "pwd", Value: password}, {Key: "roles", Value: []string{}}}).Err()
 	if err != nil {
 		t.Fatalf("couldn't set up test: %v", err)
 	}
+
+	_, err = client.Database(db).Collection("creation-collection").InsertOne(ctx, bson.M{"_id": "CREATION", "description": fmt.Sprintf("This collection we created to create the enclosing database %s", db)})
+
+	if err != nil {
+		t.Fatalf("couldn't set up test - error creating collection in database %s: %v", db, err)
+	}
+
+	return client
 }
