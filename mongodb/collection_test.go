@@ -3,6 +3,7 @@ package mongodb_test
 import (
 	"context"
 	"errors"
+	"sort"
 	"testing"
 	"time"
 
@@ -416,7 +417,7 @@ func TestCollectionSuite(t *testing.T) {
 
 				Convey("UpdateOne should update the identified object as expected", func() {
 
-					_, err := conn.Collection(collection).Update(context.Background(), bson.M{"_id": 1}, bson.M{"$set": bson.M{"new_key": 123}})
+					_, err := conn.Collection(collection).UpdateOne(context.Background(), bson.M{"_id": 1}, bson.M{"$set": bson.M{"new_key": 123}})
 					So(err, ShouldBeNil)
 
 					res := []TestModel{}
@@ -545,7 +546,7 @@ func TestCollectionSuite(t *testing.T) {
 				})
 
 				Convey("DeleteOne should delete the identified object as expected", func() {
-					dr, err := conn.Collection(collection).DeleteOne(context.Background(), bson.M{"_id": 1})
+					dr, err := conn.Collection(collection).DeleteOne(context.Background(), bson.M{"state": "first"})
 					So(err, ShouldBeNil)
 					So(dr.DeletedCount, ShouldEqual, 1)
 
@@ -556,7 +557,7 @@ func TestCollectionSuite(t *testing.T) {
 				})
 
 				Convey("Delete will chose one document to delete if the selector matches multiple documents", func() {
-					dr, err := conn.Collection(collection).Delete(context.Background(), bson.M{"state": "first"})
+					dr, err := conn.Collection(collection).Delete(context.Background(), bson.M{"state": "second"})
 					So(err, ShouldBeNil)
 					So(dr.DeletedCount, ShouldEqual, 1)
 
@@ -564,11 +565,14 @@ func TestCollectionSuite(t *testing.T) {
 					err = queryCursor(conn, collection, bson.M{}, &res)
 					So(err, ShouldBeNil)
 					So(len(res), ShouldEqual, 2)
-					So(res, ShouldContain, TestModel{ID: 2, State: "second"})
+					sort.Slice(res, func(i, j int) bool { return res[i].ID < res[j].ID })
+					So(res[0], ShouldResemble, TestModel{ID: 1, State: "first"})
+					So(res[1].ID, ShouldBeIn, []int{2, 3})
+					So(res[1].State, ShouldEqual, "second")
 				})
 
 				Convey("DeleteOne will chose one document to delete if the selector matches multiple documents", func() {
-					dr, err := conn.Collection(collection).DeleteOne(context.Background(), bson.M{"state": "first"})
+					dr, err := conn.Collection(collection).DeleteOne(context.Background(), bson.M{"state": "second"})
 					So(err, ShouldBeNil)
 					So(dr.DeletedCount, ShouldEqual, 1)
 
@@ -576,7 +580,10 @@ func TestCollectionSuite(t *testing.T) {
 					err = queryCursor(conn, collection, bson.M{}, &res)
 					So(err, ShouldBeNil)
 					So(len(res), ShouldEqual, 2)
-					So(res, ShouldContain, TestModel{ID: 2, State: "second"})
+					sort.Slice(res, func(i, j int) bool { return res[i].ID < res[j].ID })
+					So(res[0], ShouldResemble, TestModel{ID: 1, State: "first"})
+					So(res[1].ID, ShouldBeIn, []int{2, 3})
+					So(res[1].State, ShouldEqual, "second")
 				})
 
 				Convey("Delete should return a deleted count of 0 with no error, if no document is found that matches the given selector", func() {
@@ -625,7 +632,7 @@ func TestCollectionSuite(t *testing.T) {
 				})
 
 				Convey("DeleteMany returns a deleted count of 0 if no document is found that matches the given selector", func() {
-					dr, err := conn.Collection(collection).DeleteOne(context.Background(), bson.M{"state": "third"})
+					dr, err := conn.Collection(collection).DeleteMany(context.Background(), bson.M{"state": "third"})
 					So(err, ShouldBeNil)
 					So(dr.DeletedCount, ShouldEqual, 0)
 
