@@ -86,6 +86,27 @@ Feature: Must operation records
             """
     Then I should receive a ErrNoDocumentFound error
 
+  Scenario: Replace matching document
+    When I Must replace this record with id 3
+            """
+            {
+                "name": "UpdateWithIdName3",
+                "age": "UpdateWithIdAge3"
+            } 
+            """
+    Then there are 1 matched, 1 modified, 0 upserted records
+    And Must did not return an error
+
+  Scenario: Replace non matching document
+    When I Must replace this record with id 12
+            """
+            {
+                "name": "UpdateWithIdName3",
+                "age": "UpdateWithIdAge3"
+            } 
+            """
+    Then I should receive a ErrNoDocumentFound error
+
   Scenario:
     When I Must deleteById a record with id 2
     Then there are 1 deleted records
