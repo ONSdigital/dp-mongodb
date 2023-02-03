@@ -244,12 +244,12 @@ func (c *Collection) updateRecord(ctx context.Context, selector interface{}, upd
 	return nil, wrapMongoError(err)
 }
 
-// Replace replaces a single document located by the provided selector
+// ReplaceOne replaces a single document located by the provided selector
 // The selector must be a document containing query operators and cannot be nil.
 // The newDocument cannot be nil or empty.
 // If the selector does not match any documents, the operation will succeed and a CollectionUpdateResult with a MatchedCount of 0 will be returned.
 // If the selector matches multiple documents, one will be selected from the matched set, replaced and a CollectionUpdateResult with a MatchedCount of 1 will be returned.
-func (c *Collection) Replace(ctx context.Context, selector interface{}, newDocument interface{}) (*CollectionUpdateResult, error) {
+func (c *Collection) ReplaceOne(ctx context.Context, selector interface{}, newDocument interface{}) (*CollectionUpdateResult, error) {
 	updateResult, err := c.collection.ReplaceOne(ctx, selector, newDocument)
 	if err == nil {
 		return &CollectionUpdateResult{

@@ -507,7 +507,7 @@ func TestCollectionSuite(t *testing.T) {
 					So(res, ShouldResemble, []TestModel{{ID: 1, State: "first"}, {ID: 2, State: "first"}})
 				})
 
-				Convey("Replace should update the identified object as expected", func() {
+				Convey("ReplaceOne should update the identified object as expected", func() {
 					newDoc := TestModel{
 						ID:     2,
 						State:  "replaced-state",
@@ -515,7 +515,7 @@ func TestCollectionSuite(t *testing.T) {
 					}
 					selector := bson.M{"_id": 2}
 
-					updateResult, err := conn.Collection(collection).Replace(context.Background(), selector, newDoc)
+					updateResult, err := conn.Collection(collection).ReplaceOne(context.Background(), selector, newDoc)
 					So(err, ShouldBeNil)
 					So(updateResult.MatchedCount, ShouldEqual, 1)
 					So(updateResult.ModifiedCount, ShouldEqual, 1)
@@ -526,18 +526,17 @@ func TestCollectionSuite(t *testing.T) {
 					So(res, ShouldResemble, newDoc)
 				})
 
-				Convey("Replace updates no documents if none match", func() {
+				Convey("ReplaceOne updates no documents if none match", func() {
 					newDoc := TestModel{
 						State:  "replaced-state",
 						NewKey: 22,
 					}
 					selector := bson.M{"_id": 171}
-					Convey("Replace should succeed but return 0 matches", func() {
-						updateResult, err := conn.Collection(collection).Replace(context.Background(), selector, newDoc)
-						So(err, ShouldBeNil)
-						So(updateResult.MatchedCount, ShouldEqual, 0)
-						So(updateResult.ModifiedCount, ShouldEqual, 0)
-					})
+
+					updateResult, err := conn.Collection(collection).ReplaceOne(context.Background(), selector, newDoc)
+					So(err, ShouldBeNil)
+					So(updateResult.MatchedCount, ShouldEqual, 0)
+					So(updateResult.ModifiedCount, ShouldEqual, 0)
 				})
 			})
 

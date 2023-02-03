@@ -323,7 +323,7 @@ func (m *MongoV2Component) replaceRecord(id int, recordAsString *godog.DocString
 		return err
 	}
 
-	m.updateResult, err = m.testClient.Collection(m.collection).Replace(context.Background(), bson.M{"_id": id}, record)
+	m.updateResult, err = m.testClient.Collection(m.collection).ReplaceOne(context.Background(), bson.M{"_id": id}, record)
 
 	return err
 }
@@ -484,7 +484,7 @@ func (m *MongoV2Component) mustReplaceRecord(id int, recordAsString *godog.DocSt
 	}
 
 	idQuery := bson.M{"_id": id}
-	m.updateResult, m.mustErrorResult = m.testClient.Collection(m.collection).Must().Replace(context.Background(), idQuery, record)
+	m.updateResult, m.mustErrorResult = m.testClient.Collection(m.collection).Must().ReplaceOne(context.Background(), idQuery, record)
 
 	return nil
 }
