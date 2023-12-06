@@ -763,6 +763,8 @@ github.com/ONSdigital/dp-healthcheck v1.6.1 h1:YDAnxE2fI3G2hhGC42mKI/fRhAhIYmFZG
 github.com/ONSdigital/dp-healthcheck v1.6.1/go.mod h1:FURB2RUJHw3lssamKtsGsrbu31ar9yhMSDYzG9vgSIo=
 github.com/ONSdigital/dp-mongodb-in-memory v1.6.0 h1:kJN/oY+Gu7XZ+ZRx9WseA8nWhy+728iGebn9sF8v9VY=
 github.com/ONSdigital/dp-mongodb-in-memory v1.6.0/go.mod h1:rSsF/w/frWb/wmaj9eMwE8mJGdxvYgpRCcp2A+RK8wE=
+github.com/ONSdigital/dp-mongodb-in-memory v1.7.0 h1:lBmjAOfnp4JPZU/Krq+ad1sqknTwUZrUp+rFHoMfr8s=
+github.com/ONSdigital/dp-mongodb-in-memory v1.7.0/go.mod h1:78zt2X+mhXlPlDoaAX19Hu462XPJIW/llN2vcUAAWSc=
 github.com/ONSdigital/dp-net/v2 v2.9.1 h1:2hGa0ArL0m2pMT9cFxMPcSOgvJ0zstH3NxWeykU9Elg=
 github.com/ONSdigital/dp-net/v2 v2.9.1/go.mod h1:iy1XmnqC7aKwHCpbTDhfAVrlYDGJGkZl36zeXyHq+Hw=
 github.com/ONSdigital/log.go/v2 v2.4.1 h1:QAHQqtXgXx43OUTSebNAocVfN21RwrHzagN6zDAzwdo=

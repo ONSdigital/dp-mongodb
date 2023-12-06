@@ -9,7 +9,7 @@ replace golang.org/x/net => golang.org/x/net v0.19.0
 require (
 	github.com/ONSdigital/dp-component-test v0.9.2
 	github.com/ONSdigital/dp-healthcheck v1.6.1
-	github.com/ONSdigital/dp-mongodb-in-memory v1.6.0
+	github.com/ONSdigital/dp-mongodb-in-memory v1.7.0
 	github.com/ONSdigital/log.go/v2 v2.4.1
 	github.com/cucumber/godog v0.12.6
 	github.com/smartystreets/goconvey v1.8.0
