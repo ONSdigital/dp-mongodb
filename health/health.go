@@ -19,7 +19,7 @@ var (
 	healthyCollectionsMessage = " and all expected collections exist"
 )
 
-//List of errors
+// List of errors
 var (
 	errorCollectionDoesNotExist = errors.New("collection not found in database")
 	errorWithMongoDBConnection  = errors.New("unable to connect with MongoDB")

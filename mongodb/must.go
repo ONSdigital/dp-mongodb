@@ -18,6 +18,8 @@ func newMust(collection *Collection) *Must {
 // If a  document cannot be found, an ErrNoDocumentFound error is returned
 // Deprecated: Use UpdateOne instead
 func (m *Must) UpdateById(ctx context.Context, id interface{}, update interface{}) (*CollectionUpdateResult, error) {
+	span := getSpan(ctx, "must.UpdateById")
+	defer span.End()
 	return m.UpdateOne(ctx, bson.M{"_id": id}, update)
 }
 
@@ -25,6 +27,8 @@ func (m *Must) UpdateById(ctx context.Context, id interface{}, update interface{
 // If a  document cannot be found, an ErrNoDocumentFound error is returned
 // Deprecated: Use UpdateOne instead
 func (m *Must) Update(ctx context.Context, selector interface{}, update interface{}) (*CollectionUpdateResult, error) {
+	span := getSpan(ctx, "must.Update")
+	defer span.End()
 	return m.UpdateOne(ctx, selector, update)
 }
 
@@ -34,6 +38,8 @@ func (m *Must) Update(ctx context.Context, selector interface{}, update interfac
 // If the selector does not match any documents, an ErrNoDocumentFound is returned
 // If the selector matches multiple documents, one will be selected from the matched set, updated and a CollectionUpdateResult with a MatchedCount of 1 will be returned.
 func (m *Must) UpdateOne(ctx context.Context, selector interface{}, update interface{}) (*CollectionUpdateResult, error) {
+	span := getSpan(ctx, "must.UpdateOne")
+	defer span.End()
 	result, err := m.collection.UpdateOne(ctx, selector, update)
 	if err != nil {
 		return nil, err
@@ -51,6 +57,8 @@ func (m *Must) UpdateOne(ctx context.Context, selector interface{}, update inter
 // The update must be a document containing update operators and cannot be nil or empty.
 // If the selector does not match any documents, an ErrNoDocumentFound is returned
 func (m *Must) UpdateMany(ctx context.Context, selector interface{}, update interface{}) (*CollectionUpdateResult, error) {
+	span := getSpan(ctx, "must.UpdateMany")
+	defer span.End()
 	result, err := m.collection.UpdateMany(ctx, selector, update)
 	if err != nil {
 		return nil, err
@@ -67,6 +75,8 @@ func (m *Must) UpdateMany(ctx context.Context, selector interface{}, update inte
 // an ErrNoDocumentFound error is returned
 // Deprecated: Use DeleteOne
 func (m *Must) DeleteById(ctx context.Context, id interface{}) (*CollectionDeleteResult, error) {
+	span := getSpan(ctx, "must.DeleteById")
+	defer span.End()
 	return m.DeleteOne(ctx, bson.M{"_id": id})
 }
 
@@ -74,6 +84,8 @@ func (m *Must) DeleteById(ctx context.Context, id interface{}) (*CollectionDelet
 // an ErrNoDocumentFound error is returned
 // Deprecated: Use DeleteOne
 func (m *Must) Delete(ctx context.Context, selector interface{}) (*CollectionDeleteResult, error) {
+	span := getSpan(ctx, "must.Delete")
+	defer span.End()
 	return m.DeleteOne(ctx, selector)
 }
 
@@ -82,6 +94,8 @@ func (m *Must) Delete(ctx context.Context, selector interface{}) (*CollectionDel
 // If the selector does not match any documents, an ErrNoDocumentFound error is returned
 // If the selector matches multiple documents, one will be selected from the matched set, deleted and a CollectionDeleteResult with a DeletedCount of 1 will be returned.
 func (m *Must) DeleteOne(ctx context.Context, selector interface{}) (*CollectionDeleteResult, error) {
+	span := getSpan(ctx, "must.DeleteOne")
+	defer span.End()
 	result, err := m.collection.DeleteOne(ctx, selector)
 	if err != nil {
 		return nil, err
@@ -98,6 +112,8 @@ func (m *Must) DeleteOne(ctx context.Context, selector interface{}) (*Collection
 // The selector must be a document containing query operators and cannot be nil.
 // If the selector does not match any documents, an ErrNoDocumentFound error is returned
 func (m *Must) DeleteMany(ctx context.Context, selector interface{}) (*CollectionDeleteResult, error) {
+	span := getSpan(ctx, "must.DeleteMany")
+	defer span.End()
 	result, err := m.collection.DeleteMany(ctx, selector)
 	if err != nil {
 		return nil, err

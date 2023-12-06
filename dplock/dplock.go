@@ -44,7 +44,7 @@ var ErrUnlockMaxRetries = errors.New("cannot unlock, maximum number of retries h
 //go:generate moq -out mock/client.go -pkg mock . Client
 //go:generate moq -out mock/purger.go -pkg mock . Purger
 
-//Client defines the lock Client methods from mongo-lock
+// Client defines the lock Client methods from mongo-lock
 type Client interface {
 	XLock(ctx context.Context, resourceName, lockID string, ld lock.LockDetails) error
 	Unlock(ctx context.Context, lockID string) ([]lock.LockStatus, error)

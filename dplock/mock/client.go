@@ -5,9 +5,10 @@ package dplock
 
 import (
 	"context"
+	"sync"
+
 	"github.com/ONSdigital/dp-mongodb/v3/dplock"
 	lock "github.com/square/mongo-lock"
-	"sync"
 )
 
 // Ensure, that ClientMock does implement Client.
@@ -16,22 +17,22 @@ var _ dplock.Client = &ClientMock{}
 
 // ClientMock is a mock implementation of Client.
 //
-// 	func TestSomethingThatUsesClient(t *testing.T) {
+//	func TestSomethingThatUsesClient(t *testing.T) {
 //
-// 		// make and configure a mocked Client
-// 		mockedClient := &ClientMock{
-// 			UnlockFunc: func(ctx context.Context, lockID string) ([]lock.LockStatus, error) {
-// 				panic("mock out the Unlock method")
-// 			},
-// 			XLockFunc: func(ctx context.Context, resourceName string, lockID string, ld lock.LockDetails) error {
-// 				panic("mock out the XLock method")
-// 			},
-// 		}
+//		// make and configure a mocked Client
+//		mockedClient := &ClientMock{
+//			UnlockFunc: func(ctx context.Context, lockID string) ([]lock.LockStatus, error) {
+//				panic("mock out the Unlock method")
+//			},
+//			XLockFunc: func(ctx context.Context, resourceName string, lockID string, ld lock.LockDetails) error {
+//				panic("mock out the XLock method")
+//			},
+//		}
 //
-// 		// use mockedClient in code that requires Client
-// 		// and then make assertions.
+//		// use mockedClient in code that requires Client
+//		// and then make assertions.
 //
-// 	}
+//	}
 type ClientMock struct {
 	// UnlockFunc mocks the Unlock method.
 	UnlockFunc func(ctx context.Context, lockID string) ([]lock.LockStatus, error)
@@ -84,7 +85,8 @@ func (mock *ClientMock) Unlock(ctx context.Context, lockID string) ([]lock.LockS
 
 // UnlockCalls gets all the calls that were made to Unlock.
 // Check the length with:
-//     len(mockedClient.UnlockCalls())
+//
+//	len(mockedClient.UnlockCalls())
 func (mock *ClientMock) UnlockCalls() []struct {
 	Ctx    context.Context
 	LockID string
@@ -123,7 +125,8 @@ func (mock *ClientMock) XLock(ctx context.Context, resourceName string, lockID s
 
 // XLockCalls gets all the calls that were made to XLock.
 // Check the length with:
-//     len(mockedClient.XLockCalls())
+//
+//	len(mockedClient.XLockCalls())
 func (mock *ClientMock) XLockCalls() []struct {
 	Ctx          context.Context
 	ResourceName string

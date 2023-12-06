@@ -5,9 +5,10 @@ package dplock
 
 import (
 	"context"
+	"sync"
+
 	"github.com/ONSdigital/dp-mongodb/v3/dplock"
 	lock "github.com/square/mongo-lock"
-	"sync"
 )
 
 // Ensure, that PurgerMock does implement Purger.
@@ -16,19 +17,19 @@ var _ dplock.Purger = &PurgerMock{}
 
 // PurgerMock is a mock implementation of Purger.
 //
-// 	func TestSomethingThatUsesPurger(t *testing.T) {
+//	func TestSomethingThatUsesPurger(t *testing.T) {
 //
-// 		// make and configure a mocked Purger
-// 		mockedPurger := &PurgerMock{
-// 			PurgeFunc: func(ctx context.Context) ([]lock.LockStatus, error) {
-// 				panic("mock out the Purge method")
-// 			},
-// 		}
+//		// make and configure a mocked Purger
+//		mockedPurger := &PurgerMock{
+//			PurgeFunc: func(ctx context.Context) ([]lock.LockStatus, error) {
+//				panic("mock out the Purge method")
+//			},
+//		}
 //
-// 		// use mockedPurger in code that requires Purger
-// 		// and then make assertions.
+//		// use mockedPurger in code that requires Purger
+//		// and then make assertions.
 //
-// 	}
+//	}
 type PurgerMock struct {
 	// PurgeFunc mocks the Purge method.
 	PurgeFunc func(ctx context.Context) ([]lock.LockStatus, error)
@@ -62,7 +63,8 @@ func (mock *PurgerMock) Purge(ctx context.Context) ([]lock.LockStatus, error) {
 
 // PurgeCalls gets all the calls that were made to Purge.
 // Check the length with:
-//     len(mockedPurger.PurgeCalls())
+//
+//	len(mockedPurger.PurgeCalls())
 func (mock *PurgerMock) PurgeCalls() []struct {
 	Ctx context.Context
 } {
