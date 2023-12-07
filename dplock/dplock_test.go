@@ -267,7 +267,7 @@ func TestLifecycleAndPurger(t *testing.T) {
 func TestNew(t *testing.T) {
 	Convey("Given a mongo connection", t, func() {
 		ctx = context.Background()
-		server, err := mim.Start(ctx, "5.0.2")
+		server, err := mim.Start(ctx, "5.0.23")
 		if err != nil {
 			t.Fatalf("failed to start mongo server: %v", err)
 		}
