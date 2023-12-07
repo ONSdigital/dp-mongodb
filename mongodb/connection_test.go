@@ -19,7 +19,7 @@ func TestConnectionSuite(t *testing.T) {
 	Convey("Given a connection to a real mongodb server", t, func() {
 		var (
 			ctx          = context.Background()
-			mongoVersion = "4.4.8"
+			mongoVersion = "5.0.2"
 			mongoServer  *mim.Server
 			mongoClient  *mongo.Client
 			database     = "test-db"
