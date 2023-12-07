@@ -1,6 +1,6 @@
 module github.com/ONSdigital/dp-mongodb/v3
 
-go 1.19
+go 1.21
 
 replace google.golang.org/grpc => google.golang.org/grpc v1.59.0
 
