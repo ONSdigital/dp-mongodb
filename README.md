@@ -1,25 +1,26 @@
-dp-mongodb
-================
+# dp-mongodb
 
 A mongodb library for DP.
 
-### Getting started
+## Getting started
 
-#### Setting up mongo
+### Setting up mongo
+
 Using brew, type brew install mongo or the latest binaries can be downloaded [here](https://docs.mongodb.com/manual/tutorial/install-mongodb-on-os-x/#install-mongodb-community-edition-with-homebrew)
 
-#### Running mongo
+### Running mongo
 
 Follow instructions from mongo db [manual](https://docs.mongodb.com/manual/tutorial/install-mongodb-on-os-x/#run-mongodb)
 
-### health package
+## health package
 
 The mongo checker function currently pings the mongo client, and checks that all collections given when the checker was created, actually exist.
 
 Read the [Health Check Specification](https://github.com/ONSdigital/dp/blob/master/standards/HEALTH_CHECK_SPECIFICATION.md) for details.
 
 Instantiate a mongo health checker
-```
+
+```go
 import mongoHealth "github.com/ONSdigital/dp-mongo/health"
 import mongoDriver "github.com/ONSdigital/dp-mongo/mongodb"
 
@@ -43,16 +44,16 @@ Calling mongo health checker: `healthClient.Checker(context.Context, *healthchec
 }
 ```
 
-### Configuration
+## Configuration
 
 Configuration of the health check takes place via arguments passed to the `NewClient() or NewClientWithCollections()` functions
 
-### Contributing
+## Contributing
 
 See [CONTRIBUTING](CONTRIBUTING.md) for details.
 
-### License
+## License
 
-Copyright © 2020, Office for National Statistics (https://www.ons.gov.uk)
+Copyright © 2024, Office for National Statistics (https://www.ons.gov.uk)
 
 Released under MIT license, see [LICENSE](LICENSE.md) for details.
