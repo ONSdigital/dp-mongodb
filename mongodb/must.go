@@ -71,6 +71,24 @@ func (m *Must) UpdateMany(ctx context.Context, selector interface{}, update inte
 	return result, nil
 }
 
+// ReplaceOne modifies a single document located by the provided selector.
+// The selector must be a document containing query operators and cannot be nil.
+// The newDocument cannot be nil or empty.
+// If the selector does not match any documents, an ErrNoDocumentFound is returned
+// If the selector matches multiple documents, one will be selected from the matched set, updated and a CollectionUpdateResult with a MatchedCount of 1 will be returned.
+func (m *Must) ReplaceOne(ctx context.Context, selector interface{}, newDocument interface{}) (*CollectionUpdateResult, error) {
+	result, err := m.collection.ReplaceOne(ctx, selector, newDocument)
+	if err != nil {
+		return nil, err
+	}
+
+	if result.MatchedCount == 0 {
+		return nil, ErrNoDocumentFound
+	}
+
+	return result, nil
+}
+
 // DeleteById deletes a single document located by the provided id selector. If no document is not found
 // an ErrNoDocumentFound error is returned
 // Deprecated: Use DeleteOne

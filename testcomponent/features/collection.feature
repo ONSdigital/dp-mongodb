@@ -7,12 +7,14 @@ Feature: Collection records
                 {
                     "id": 1,
                     "name": "TestName1",
-                    "age": "TestAge1"
+                    "age": "TestAge1",
+                    "height": 160
                 },
                 {
                     "id": 2,
                     "name": "TestName2",
-                    "age": "TestAge2"
+                    "age": "TestAge2",
+                    "height": 170
                 },
                 {
                     "id": 3,
@@ -38,12 +40,14 @@ Feature: Collection records
                 {
                     "id": 1,
                     "name": "UpsertName1",
-                    "age": "UpsertAge1"
+                    "age": "UpsertAge1",
+                    "height": 160
                 },
                 {
                     "id": 2,
                     "name": "TestName2",
-                    "age": "TestAge2"
+                    "age": "TestAge2",
+                    "height": 170
                 },
                 {
                     "id": 3,
@@ -69,12 +73,14 @@ Feature: Collection records
                 {
                     "id": 1,
                     "name": "TestName1",
-                    "age": "TestAge1"
+                    "age": "TestAge1",
+                    "height": 160
                 },
                 {
                     "id": 2,
                     "name": "TestName2",
-                    "age": "TestAge2"
+                    "age": "TestAge2",
+                    "height": 170
                 },
                 {
                     "id": 3,
@@ -105,12 +111,14 @@ Feature: Collection records
                 {
                     "id": 1,
                     "name": "UpsertByIdName1",
-                    "age": "UpsertByIdAge1"
+                    "age": "UpsertByIdAge1",
+                    "height": 160
                 },
                 {
                     "id": 2,
                     "name": "TestName2",
-                    "age": "TestAge2"
+                    "age": "TestAge2",
+                    "height": 170
                 },
                 {
                     "id": 3,
@@ -136,12 +144,14 @@ Feature: Collection records
                 {
                     "id": 1,
                     "name": "TestName1",
-                    "age": "TestAge1"
+                    "age": "TestAge1",
+                    "height": 160
                 },
                 {
                     "id": 2,
                     "name": "TestName2",
-                    "age": "TestAge2"
+                    "age": "TestAge2",
+                    "height": 170
                 },
                 {
                     "id": 3,
@@ -172,12 +182,14 @@ Feature: Collection records
                     {
                         "id": 1,
                         "name": "TestName1",
-                        "age": "TestAge1"
+                        "age": "TestAge1",
+                        "height": 160
                     },
                     {
                         "id": 2,
                         "name": "TestName2",
-                        "age": "TestAge2"
+                        "age": "TestAge2",
+                        "height": 170
                     },
                     {
                         "id": 3,
@@ -185,7 +197,7 @@ Feature: Collection records
                         "age": "UpdateAge3"
                     }
                 ]
-                """
+            """
 
   Scenario:
     When I update this record with id 4
@@ -203,12 +215,14 @@ Feature: Collection records
                     {
                         "id": 1,
                         "name": "TestName1",
-                        "age": "TestAge1"
+                        "age": "TestAge1",
+                        "height": 160
                     },
                     {
                         "id": 2,
                         "name": "TestName2",
-                        "age": "TestAge2"
+                        "age": "TestAge2",
+                        "height": 170
                     },
                     {
                         "id": 3,
@@ -216,7 +230,7 @@ Feature: Collection records
                         "age": "TestAge3"
                     }
                 ]
-                """
+            """
 
   Scenario:
     When I updateById this record with id 3
@@ -234,12 +248,14 @@ Feature: Collection records
                     {
                         "id": 1,
                         "name": "TestName1",
-                        "age": "TestAge1"
+                        "age": "TestAge1",
+                        "height": 160
                     },
                     {
                         "id": 2,
                         "name": "TestName2",
-                        "age": "TestAge2"
+                        "age": "TestAge2",
+                        "height": 170
                     },
                     {
                         "id": 3,
@@ -247,7 +263,7 @@ Feature: Collection records
                         "age": "UpdateWithIdAge3"
                     }
                 ]
-                """
+            """
 
   Scenario:
     When I updateById this record with id 4
@@ -265,12 +281,14 @@ Feature: Collection records
                     {
                         "id": 1,
                         "name": "TestName1",
-                        "age": "TestAge1"
+                        "age": "TestAge1",
+                        "height": 160
                     },
                     {
                         "id": 2,
                         "name": "TestName2",
-                        "age": "TestAge2"
+                        "age": "TestAge2",
+                        "height": 170
                     },
                     {
                         "id": 3,
@@ -278,7 +296,42 @@ Feature: Collection records
                         "age": "TestAge3"
                     }
                 ]
-                """
+            """
+
+  Scenario: Replace document
+    When I replace this record with id 2
+            """
+            {
+                "name": "Replaced name",
+                "age": "Older now",
+                "height": 178
+            } 
+            """
+    Then there are 1 matched, 1 modified, 0 upserted records
+    When I filter on all records
+    Then I should find these records
+            """
+            [
+                {
+                    "id": 1,
+                    "name": "TestName1",
+                    "age": "TestAge1",
+                    "height": 160
+                },
+                {
+                    "id": 2,
+                    "name": "Replaced name",
+                    "age": "Older now",
+                    "height": 178
+                },
+                {
+                    "id": 3,
+                    "name": "Test3",
+                    "age": "TestAge3"
+                }
+            ]
+            """
+
 
   Scenario:
     Given I deleteById a record with id 2
@@ -290,7 +343,8 @@ Feature: Collection records
                 {
                     "id": 1,
                     "name": "TestName1",
-                    "age": "TestAge1"
+                    "age": "TestAge1",
+                    "height": 160
                 },
                 {
                     "id": 3,
@@ -310,12 +364,14 @@ Feature: Collection records
                 {
                     "id": 1,
                     "name": "TestName1",
-                    "age": "TestAge1"
+                    "age": "TestAge1",
+                    "height": 160
                 },
                 {
                     "id": 2,
                     "name": "TestName2",
-                    "age": "TestAge2"
+                    "age": "TestAge2",
+                    "height": 170
                 },
                 {
                     "id": 3,
@@ -335,7 +391,8 @@ Feature: Collection records
                 {
                     "id": 2,
                     "name": "TestName2",
-                    "age": "TestAge2"
+                    "age": "TestAge2",
+                    "height": 170
                 },
                 {
                     "id": 3,
@@ -355,12 +412,14 @@ Feature: Collection records
                 {
                     "id": 1,
                     "name": "TestName1",
-                    "age": "TestAge1"
+                    "age": "TestAge1",
+                    "height": 160
                 },
                 {
                     "id": 2,
                     "name": "TestName2",
-                    "age": "TestAge2"
+                    "age": "TestAge2",
+                    "height": 170
                 },
                 {
                     "id": 3,
@@ -412,12 +471,14 @@ Feature: Collection records
                 {
                     "id": 1,
                     "name": "TestName1",
-                    "age": "TestAge1"
+                    "age": "TestAge1",
+                    "height": 160
                 },
                 {
                     "id": 2,
                     "name": "TestName2",
-                    "age": "TestAge2"
+                    "age": "TestAge2",
+                    "height": 170
                 },
                 {
                     "id": 3,

@@ -17,9 +17,10 @@ import (
 )
 
 type dataModel struct {
-	Id   int `bson:"_id,omitempty" json:"id,omitempty"`
-	Name string
-	Age  string
+	Id     int `bson:"_id,omitempty" json:"id,omitempty"`
+	Name   string
+	Age    string
+	Height int
 }
 
 type find struct {
@@ -62,6 +63,7 @@ func (m *MongoV2Component) RegisterSteps(ctx *godog.ScenarioContext) {
 	ctx.Step(`^I upsert this record with id (\d+)$`, m.upsertRecord)
 	ctx.Step(`^I updateById this record with id (\d+)$`, m.updateRecordById)
 	ctx.Step(`^I update this record with id (\d+)$`, m.updateRecord)
+	ctx.Step(`^I replace this record with id (\d+)$`, m.replaceRecord)
 	ctx.Step(`^I deleteById a record with id (\d+)$`, m.deleteRecordById)
 	ctx.Step(`^I delete a record with id (\d+)$`, m.deleteRecord)
 	ctx.Step(`^I delete a record with name like (\w+)$`, m.deleteRecordByName)
@@ -76,6 +78,7 @@ func (m *MongoV2Component) RegisterSteps(ctx *godog.ScenarioContext) {
 	ctx.Step(`^Must did not return an error$`, m.testMustDidNotReturnError)
 	ctx.Step(`^I Must update this record with id (\d+)$`, m.mustUpdateRecord)
 	ctx.Step(`^I Must updateById this record with id (\d+)$`, m.mustUpdateId)
+	ctx.Step(`^I Must replace this record with id (\d+)$`, m.mustReplaceRecord)
 	ctx.Step(`^I Must deleteById a record with id (\d+)$`, m.mustDeleteRecordById)
 	ctx.Step(`^I Must delete a record with id (\d+)$`, m.mustDeleteRecord)
 	ctx.Step(`^I Must delete records with name like (\w+)$`, m.mustDeleteRecordsByName)
@@ -269,51 +272,50 @@ func (m *MongoV2Component) findOneRecord(recordAsString *godog.DocString) error 
 }
 
 func (m *MongoV2Component) upsertRecordById(id int, recordAsString *godog.DocString) error {
-	record := new(dataModel)
+	idQuery := bson.D{{Key: "_id", Value: id}}
 
-	err := json.Unmarshal([]byte(recordAsString.Content), &record)
-	if err != nil {
-		return err
-	}
+	updateDoc, err := getUpdateDoc(recordAsString)
+	upsert := bson.D{{Key: "$set", Value: updateDoc}}
 
-	upsert := bson.D{{Key: "$set", Value: bson.D{{Key: "name", Value: record.Name}, {Key: "age", Value: record.Age}}}}
-
-	m.updateResult, err = m.testClient.Collection(m.collection).UpsertOne(context.Background(), bson.M{"_id": id}, upsert)
+	m.updateResult, err = m.testClient.Collection(m.collection).UpsertOne(context.Background(), idQuery, upsert)
 
 	return err
 }
 
 func (m *MongoV2Component) upsertRecord(id int, recordAsString *godog.DocString) error {
-	record := new(dataModel)
+	idQuery := bson.D{{Key: "_id", Value: id}}
 
-	err := json.Unmarshal([]byte(recordAsString.Content), &record)
-	if err != nil {
-		return err
-	}
+	updateDoc, err := getUpdateDoc(recordAsString)
+	upsert := bson.D{{Key: "$set", Value: updateDoc}}
 
-	upsert := bson.D{{Key: "$set", Value: bson.D{{Key: "name", Value: record.Name}, {Key: "age", Value: record.Age}}}}
-
-	m.updateResult, err = m.testClient.Collection(m.collection).UpsertOne(context.Background(), bson.M{"_id": id}, upsert)
+	m.updateResult, err = m.testClient.Collection(m.collection).UpsertOne(context.Background(), idQuery, upsert)
 
 	return err
 }
 
 func (m *MongoV2Component) updateRecordById(id int, recordAsString *godog.DocString) error {
-	record := new(dataModel)
+	idQuery := bson.D{{Key: "_id", Value: id}}
 
-	err := json.Unmarshal([]byte(recordAsString.Content), &record)
-	if err != nil {
-		return err
-	}
+	updateDoc, err := getUpdateDoc(recordAsString)
+	update := bson.D{{Key: "$set", Value: updateDoc}}
 
-	update := bson.D{{Key: "$set", Value: bson.D{{Key: "name", Value: record.Name}, {Key: "age", Value: record.Age}}}}
-
-	m.updateResult, err = m.testClient.Collection(m.collection).UpdateOne(context.Background(), bson.M{"_id": id}, update)
+	m.updateResult, err = m.testClient.Collection(m.collection).UpdateOne(context.Background(), idQuery, update)
 
 	return err
 }
 
 func (m *MongoV2Component) updateRecord(id int, recordAsString *godog.DocString) error {
+	idQuery := bson.D{{Key: "_id", Value: id}}
+
+	updateDoc, err := getUpdateDoc(recordAsString)
+	update := bson.D{{Key: "$set", Value: updateDoc}}
+
+	m.updateResult, err = m.testClient.Collection(m.collection).UpdateOne(context.Background(), idQuery, update)
+
+	return err
+}
+
+func (m *MongoV2Component) replaceRecord(id int, recordAsString *godog.DocString) error {
 	record := new(dataModel)
 
 	err := json.Unmarshal([]byte(recordAsString.Content), &record)
@@ -321,9 +323,7 @@ func (m *MongoV2Component) updateRecord(id int, recordAsString *godog.DocString)
 		return err
 	}
 
-	update := bson.D{{Key: "$set", Value: bson.D{{Key: "name", Value: record.Name}, {Key: "age", Value: record.Age}}}}
-
-	m.updateResult, err = m.testClient.Collection(m.collection).UpdateOne(context.Background(), bson.M{"_id": id}, update)
+	m.updateResult, err = m.testClient.Collection(m.collection).ReplaceOne(context.Background(), bson.M{"_id": id}, record)
 
 	return err
 }
@@ -475,6 +475,20 @@ func (m *MongoV2Component) mustUpdateRecord(id int, recordAsString *godog.DocStr
 	return nil
 }
 
+func (m *MongoV2Component) mustReplaceRecord(id int, recordAsString *godog.DocString) error {
+	record := new(dataModel)
+
+	err := json.Unmarshal([]byte(recordAsString.Content), &record)
+	if err != nil {
+		return err
+	}
+
+	idQuery := bson.M{"_id": id}
+	m.updateResult, m.mustErrorResult = m.testClient.Collection(m.collection).Must().ReplaceOne(context.Background(), idQuery, record)
+
+	return nil
+}
+
 func (m *MongoV2Component) testRecieveErrNoDocumentFoundError() error {
 	assert.True(&m.ErrorFeature, errors.Is(m.mustErrorResult, mongoDriver.ErrNoDocumentFound))
 
@@ -539,4 +553,29 @@ func (m *MongoV2Component) runTransaction(interference string) error {
 	}
 
 	return m.ErrorFeature.StepError()
+}
+
+// Builds the update doc based on the populated values of the record
+func getUpdateDoc(recordAsString *godog.DocString) (bson.D, error) {
+	record := new(dataModel)
+
+	err := json.Unmarshal([]byte(recordAsString.Content), &record)
+	if err != nil {
+		return nil, err
+	}
+
+	update := bson.D{}
+	if record.Name != "" {
+		update = append(update, bson.E{Key: "name", Value: record.Name})
+	}
+
+	if record.Age != "" {
+		update = append(update, bson.E{Key: "age", Value: record.Age})
+	}
+
+	if record.Height != 0 {
+		update = append(update, bson.E{Key: "height", Value: record.Height})
+	}
+
+	return update, nil
 }

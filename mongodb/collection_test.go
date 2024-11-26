@@ -506,6 +506,38 @@ func TestCollectionSuite(t *testing.T) {
 					So(err, ShouldBeNil)
 					So(res, ShouldResemble, []TestModel{{ID: 1, State: "first"}, {ID: 2, State: "first"}})
 				})
+
+				Convey("ReplaceOne should update the identified object as expected", func() {
+					newDoc := TestModel{
+						ID:     2,
+						State:  "replaced-state",
+						NewKey: 22,
+					}
+					selector := bson.M{"_id": 2}
+
+					updateResult, err := conn.Collection(collection).ReplaceOne(context.Background(), selector, newDoc)
+					So(err, ShouldBeNil)
+					So(updateResult.MatchedCount, ShouldEqual, 1)
+					So(updateResult.ModifiedCount, ShouldEqual, 1)
+
+					res := TestModel{}
+					err = queryMongo(conn, collection, selector, &res)
+					So(err, ShouldBeNil)
+					So(res, ShouldResemble, newDoc)
+				})
+
+				Convey("ReplaceOne updates no documents if none match", func() {
+					newDoc := TestModel{
+						State:  "replaced-state",
+						NewKey: 22,
+					}
+					selector := bson.M{"_id": 171}
+
+					updateResult, err := conn.Collection(collection).ReplaceOne(context.Background(), selector, newDoc)
+					So(err, ShouldBeNil)
+					So(updateResult.MatchedCount, ShouldEqual, 0)
+					So(updateResult.ModifiedCount, ShouldEqual, 0)
+				})
 			})
 
 			Convey("setup with data for testing Delete functionality", func() {
