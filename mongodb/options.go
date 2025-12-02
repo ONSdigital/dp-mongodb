@@ -15,17 +15,19 @@ var (
 			}
 		}
 	}
-	Projection = func(p interface{}) FindOption { return func(f *findOptions) { f.projection = p } }
+	Projection     = func(p interface{}) FindOption { return func(f *findOptions) { f.projection = p } }
+	ReturnDocument = func(when options.ReturnDocument) FindOption { return func(f *findOptions) { f.returnDocument = when } }
 
 	IgnoreZeroLimit = func() FindOption { return func(f *findOptions) { f.obeyZeroLimit = false } }
 )
 
 type findOptions struct {
-	limit         int64
-	skip          int64
-	sort          interface{}
-	projection    interface{}
-	obeyZeroLimit bool
+	limit          int64
+	returnDocument options.ReturnDocument
+	skip           int64
+	sort           interface{}
+	projection     interface{}
+	obeyZeroLimit  bool
 }
 
 func newFindOptions(opts ...FindOption) *findOptions {
@@ -43,6 +45,10 @@ func (fo findOptions) asDriverFindOption() *options.FindOptions {
 
 func (fo findOptions) asDriverFindOneOption() *options.FindOneOptions {
 	return options.FindOne().SetSort(fo.sort).SetSkip(fo.skip).SetProjection(fo.projection)
+}
+
+func (fo findOptions) asDriverFindOneAndUpdateOption() *options.FindOneAndUpdateOptions {
+	return options.FindOneAndUpdate().SetSort(fo.sort).SetReturnDocument(fo.returnDocument).SetProjection(fo.projection)
 }
 
 func (fo findOptions) asDriverCountOption() *options.CountOptions {
