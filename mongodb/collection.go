@@ -131,6 +131,23 @@ func (c *Collection) FindOne(ctx context.Context, filter interface{}, result int
 	return wrapMongoError(r.Decode(result))
 }
 
+// FindOneAndUpdate returns a single document in the collection that satisfies the given filter (restricted by the
+// given options), with the actual document provided in the result parameter (which must be a non nil pointer
+// to a document of the expected type)
+// It will also process the update found in the update parameter - this allows atomic read-modify-write operations
+// If no document could be found, an ErrNoDocumentFound error is returned
+func (c *Collection) FindOneAndUpdate(ctx context.Context, filter interface{}, update interface{}, result interface{}, opts ...FindOption) error {
+	span := getSpan(ctx, "collection.FindOneAndUpdate")
+	defer span.End()
+
+	r := c.collection.FindOneAndUpdate(ctx, filter, update, newFindOptions(opts...).asDriverFindOneAndUpdateOption())
+	if r.Err() != nil {
+		return wrapMongoError(r.Err())
+	}
+
+	return wrapMongoError(r.Decode(result))
+}
+
 // FindCursor returns a mongo cursor iterating over the collection
 // If no sort order option is provided a default sort order of 'ascending _id' is used (bson.M{"_id": 1})
 func (c *Collection) FindCursor(ctx context.Context, filter interface{}, opts ...FindOption) (Cursor, error) {

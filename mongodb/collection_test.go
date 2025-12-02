@@ -15,6 +15,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 
 	. "github.com/smartystreets/goconvey/convey"
 )
@@ -510,6 +511,34 @@ func TestCollectionSuite(t *testing.T) {
 					err = queryCursor(conn, collection, bson.M{}, &res)
 					So(err, ShouldBeNil)
 					So(res, ShouldResemble, []TestModel{{ID: 1, State: "first"}, {ID: 2, State: "first"}})
+				})
+
+				Convey("FindOneAndUpdate updates a single document as expected", func() {
+					res := TestModel{}
+					err := conn.
+						Collection(collection).
+						FindOneAndUpdate(context.Background(), bson.M{"state": "first"}, bson.M{"$set": bson.M{"new_key": 5555}}, &res, mongoDriver.ReturnDocument(options.After), mongoDriver.Sort(bson.M{"_id": 1}))
+					So(err, ShouldBeNil)
+					So(res, ShouldResemble, TestModel{ID: 1, State: "first", NewKey: 5555})
+
+					allRes := []TestModel{}
+					err = queryCursor(conn, collection, bson.M{}, &allRes)
+					So(err, ShouldBeNil)
+					So(allRes, ShouldResemble, []TestModel{{ID: res.ID, State: "first", NewKey: 5555}, {ID: 3 - res.ID, State: "first"}})
+				})
+
+				Convey("FindOneAndUpdate updates no documents if none match", func() {
+					res := TestModel{}
+
+					err := conn.
+						Collection(collection).
+						FindOneAndUpdate(context.Background(), bson.M{"state": "second"}, bson.M{"$set": bson.M{"new_key": 9999}}, &res)
+					So(err, ShouldResemble, mongoDriver.ErrNoDocumentFound)
+
+					allRes := []TestModel{}
+					err = queryCursor(conn, collection, bson.M{}, &allRes)
+					So(err, ShouldBeNil)
+					So(allRes, ShouldResemble, []TestModel{{ID: 1, State: "first"}, {ID: 2, State: "first"}})
 				})
 			})
 
