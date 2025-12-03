@@ -48,6 +48,14 @@ Calling mongo health checker: `healthClient.Checker(context.Context, *healthchec
 
 Configuration of the health check takes place via arguments passed to the `NewClient() or NewClientWithCollections()` functions
 
+## Tools
+
+To run some of our tests you will need additional tooling:
+
+### Audit
+
+We use `dis-vulncheck` to do auditing, which you will [need to install](https://github.com/ONSdigital/dis-vulncheck).
+
 ## Contributing
 
 See [CONTRIBUTING](CONTRIBUTING.md) for details.
