@@ -82,6 +82,7 @@ type MongoDriverConfig struct {
 	// Collections is a mapping from a collection's 'Well Known Name' to 'Actual Name'
 	Collections                   map[string]string `envconfig:"MONGODB_COLLECTIONS"`
 	ReplicaSet                    string            `envconfig:"MONGODB_REPLICA_SET"`
+	DirectConnection              bool              `envconfig:"MONGODB_DIRECT_CONNECTION"`
 	IsStrongReadConcernEnabled    bool              `envconfig:"MONGODB_ENABLE_READ_CONCERN"`
 	IsWriteConcernMajorityEnabled bool              `envconfig:"MONGODB_ENABLE_WRITE_CONCERN"`
 
@@ -117,6 +118,9 @@ func (m *MongoDriverConfig) GetConnectionURI() (string, error) {
 
 	if m.ReplicaSet != "" {
 		connectionString += fmt.Sprintf("?replicaSet=%s", m.ReplicaSet)
+		if m.DirectConnection {
+			connectionString += "&directConnection=true"
+		}
 	} else {
 		connectionString += "?directConnection=true"
 	}

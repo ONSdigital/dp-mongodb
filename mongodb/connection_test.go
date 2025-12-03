@@ -3,11 +3,12 @@ package mongodb_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
-	mim "github.com/ONSdigital/dp-mongodb-in-memory"
 	mongoDriver "github.com/ONSdigital/dp-mongodb/v3/mongodb"
+	testMongoContainer "github.com/testcontainers/testcontainers-go/modules/mongodb"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -20,7 +21,7 @@ func TestConnectionSuite(t *testing.T) {
 		var (
 			ctx          = context.Background()
 			mongoVersion = "5.0.2"
-			mongoServer  *mim.Server
+			mongoServer  *testMongoContainer.MongoDBContainer
 			mongoClient  *mongo.Client
 			database     = "test-db"
 			user         = "test-user"
@@ -28,11 +29,11 @@ func TestConnectionSuite(t *testing.T) {
 			err          error
 		)
 
-		mongoServer, err = mim.Start(ctx, mongoVersion)
+		mongoServer, err = testMongoContainer.Run(ctx, fmt.Sprintf("mongo:%s", mongoVersion))
 		if err != nil {
 			t.Fatalf("failed to start mongo server: %v", err)
 		}
-		defer mongoServer.Stop(ctx)
+		defer mongoServer.Terminate(ctx)
 		mongoClient = setupMongoConnectionTest(t, mongoServer, database, user, password)
 
 		Convey("with an associated mongodb connection", func() {

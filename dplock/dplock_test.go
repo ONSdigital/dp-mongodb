@@ -3,11 +3,13 @@ package dplock_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
 
-	mim "github.com/ONSdigital/dp-mongodb-in-memory"
+	testMongoContainer "github.com/testcontainers/testcontainers-go/modules/mongodb"
+
 	"github.com/ONSdigital/dp-mongodb/v3/dplock"
 	mock "github.com/ONSdigital/dp-mongodb/v3/dplock/mock"
 	mongoDriver "github.com/ONSdigital/dp-mongodb/v3/mongodb"
@@ -267,13 +269,18 @@ func TestLifecycleAndPurger(t *testing.T) {
 func TestNew(t *testing.T) {
 	Convey("Given a mongo connection", t, func() {
 		ctx = context.Background()
-		server, err := mim.Start(ctx, "5.0.2")
+		server, err := testMongoContainer.Run(ctx, "mongo:5.0.2")
 		if err != nil {
 			t.Fatalf("failed to start mongo server: %v", err)
 		}
-		defer server.Stop(ctx)
+		defer server.Terminate(ctx)
 
-		client, err := mongo.Connect(context.Background(), options.Client().ApplyURI(server.URI()))
+		connectionString, err := server.ConnectionString(context.Background())
+		if err != nil {
+			panic(fmt.Sprintf("failed to get mongo server connection string: %v", err))
+		}
+
+		client, err := mongo.Connect(context.Background(), options.Client().ApplyURI(connectionString))
 		if err != nil {
 			t.Fatalf("failed to connect to mongo server: %v", err)
 		}

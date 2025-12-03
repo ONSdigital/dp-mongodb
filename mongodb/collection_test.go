@@ -3,12 +3,14 @@ package mongodb_test
 import (
 	"context"
 	"errors"
+	"fmt"
+	"net/url"
 	"sort"
 	"testing"
 	"time"
 
-	mim "github.com/ONSdigital/dp-mongodb-in-memory"
 	mongoDriver "github.com/ONSdigital/dp-mongodb/v3/mongodb"
+	testMongoContainer "github.com/testcontainers/testcontainers-go/modules/mongodb"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -55,16 +57,19 @@ func TestCollectionSuite(t *testing.T) {
 		var (
 			ctx          = context.Background()
 			mongoVersion = "4.4.8"
-			mongoServer  *mim.Server
+			mongoServer  *testMongoContainer.MongoDBContainer
 			database     = "test-db"
 			user         = "test-user"
 			password     = "test-password"
 			err          error
 		)
 
-		mongoServer, err = mim.Start(ctx, mongoVersion)
-		So(err, ShouldBeNil)
-		defer mongoServer.Stop(ctx)
+		mongoServer, err = testMongoContainer.Run(ctx, fmt.Sprintf("mongo:%s", mongoVersion))
+		if err != nil {
+			t.Fatalf("failed to start mongo server: %v", err)
+		}
+		defer mongoServer.Terminate(ctx)
+
 		setupMongoConnectionTest(t, mongoServer, database, user, password)
 
 		conn, err := mongoDriver.Open(getMongoDriverConfig(mongoServer, database, nil))
@@ -669,11 +674,21 @@ func queryCursor(mongoConnection *mongoDriver.MongoConnection, collection string
 	return rawCursor.All(ctx, res)
 }
 
-func getMongoDriverConfig(mongoServer *mim.Server, database string, collections map[string]string) *mongoDriver.MongoDriverConfig {
+func getMongoDriverConfig(mongoServer *testMongoContainer.MongoDBContainer, database string, collections map[string]string) *mongoDriver.MongoDriverConfig {
+	connectionString, err := mongoServer.ConnectionString(context.Background())
+	if err != nil {
+		panic(fmt.Sprintf("failed to get mongo server connection string: %v", err))
+	}
+
+	connStringURL, err := url.Parse(connectionString)
+	if err != nil {
+		panic(fmt.Sprintf("failed to parse mongo server connection string: %v", err))
+	}
+
 	return &mongoDriver.MongoDriverConfig{
 		ConnectTimeout:  5 * time.Second,
 		QueryTimeout:    5 * time.Second,
-		ClusterEndpoint: mongoServer.URI(),
+		ClusterEndpoint: connStringURL.Host,
 		Database:        database,
 		Collections:     collections,
 	}

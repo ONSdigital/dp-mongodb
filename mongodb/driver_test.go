@@ -4,12 +4,13 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"net/url"
 	"os"
 	"testing"
 	"time"
 
-	mim "github.com/ONSdigital/dp-mongodb-in-memory"
 	mongoDriver "github.com/ONSdigital/dp-mongodb/v3/mongodb"
+	testMongoContainer "github.com/testcontainers/testcontainers-go/modules/mongodb"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -60,13 +61,25 @@ func TestOpenConnectionToMongoDB_NoSSL(t *testing.T) {
 		)
 
 		ctx := context.Background()
-		mongoServer, err := mim.Start(ctx, mongoVersion)
+		mongoServer, err := testMongoContainer.Run(ctx, fmt.Sprintf("mongo:%s", mongoVersion))
 		if err != nil {
 			t.Fatalf("failed to start mongo server: %v", err)
 		}
-		defer mongoServer.Stop(ctx)
+		defer mongoServer.Terminate(ctx)
 
 		setupMongoConnectionTest(t, mongoServer, db, user, password)
+
+		connectionString, err := mongoServer.ConnectionString(ctx)
+		if err != nil {
+			t.Fatalf("failed to get mongo server connection string: %v", err)
+		}
+
+		connectionStringURL, err := url.Parse(connectionString)
+		if err != nil {
+			t.Fatalf("failed to parse mongo server connection string: %v", err)
+		}
+
+		endpoint := connectionStringURL.Host
 
 		connectionConfig := &mongoDriver.MongoDriverConfig{
 			ConnectTimeout: 5 * time.Second,
@@ -74,7 +87,7 @@ func TestOpenConnectionToMongoDB_NoSSL(t *testing.T) {
 
 			Username:                      user,
 			Password:                      password,
-			ClusterEndpoint:               fmt.Sprintf("localhost:%d", mongoServer.Port()),
+			ClusterEndpoint:               endpoint,
 			Database:                      db,
 			IsStrongReadConcernEnabled:    true,
 			IsWriteConcernMajorityEnabled: true,
@@ -94,7 +107,7 @@ func TestOpenConnectionToMongoDB_NoSSL(t *testing.T) {
 		})
 
 		Convey("When a connection is attempted using the mongodb:// schema for the endpoint", func() {
-			connectionConfig.ClusterEndpoint = fmt.Sprintf("mongodb://localhost:%d", mongoServer.Port())
+			connectionConfig.ClusterEndpoint = fmt.Sprintf("mongodb://%s", endpoint)
 			conn, err := mongoDriver.Open(connectionConfig)
 
 			Convey("Then a valid connection should be made without error", func() {
@@ -109,7 +122,7 @@ func TestOpenConnectionToMongoDB_NoSSL(t *testing.T) {
 		})
 
 		Convey("When a connection is attempted using an invalid endpoint", func() {
-			connectionConfig.ClusterEndpoint = fmt.Sprintf("mysql://localhost:%d", mongoServer.Port())
+			connectionConfig.ClusterEndpoint = fmt.Sprintf("mysql://%s", endpoint)
 			_, err := mongoDriver.Open(connectionConfig)
 
 			Convey("Then an error is returned", func() {
@@ -259,12 +272,18 @@ func TestMongoConnectionConfig_GetConnectionURIWhen(t *testing.T) {
 	})
 }
 
-func setupMongoConnectionTest(t *testing.T, mongoServer *mim.Server, db, user, password string) *mongo.Client {
+func setupMongoConnectionTest(t *testing.T, mongoServer *testMongoContainer.MongoDBContainer, db, user, password string) *mongo.Client {
 	t.Helper()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	client, err := mongo.Connect(ctx, options.Client().ApplyURI(mongoServer.URI()))
+
+	endpoint, err := mongoServer.ConnectionString(ctx)
+	if err != nil {
+		t.Fatalf("failed to get mongo server connection string: %v", err)
+	}
+
+	client, err := mongo.Connect(context.Background(), options.Client().ApplyURI(endpoint))
 	if err != nil {
 		t.Fatalf("failed to connect to mongo server: %v", err)
 	}

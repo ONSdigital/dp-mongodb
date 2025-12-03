@@ -56,6 +56,10 @@ To run some of our tests you will need additional tooling:
 
 We use `dis-vulncheck` to do auditing, which you will [need to install](https://github.com/ONSdigital/dis-vulncheck).
 
+### Tests
+
+The tests (both unit and component) for this library use [testcontainers](https://golang.testcontainers.org/modules/mongodb/) to run a mongodb Docker container. To run them you will need to have a Docker daemon running (e.g. colima).
+
 ## Contributing
 
 See [CONTRIBUTING](CONTRIBUTING.md) for details.
