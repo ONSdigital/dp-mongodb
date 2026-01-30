@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/config"
+
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/mongo/readconcern"
@@ -21,10 +23,12 @@ import (
 )
 
 const (
-	connectionStringTemplate             = "mongodb://%s:%s@%s/%s"
-	connectionStringTemplateWithoutCreds = "mongodb://%s/%s"
-	int64Size                            = 64
-	endpointRegex                        = "^(mongodb://)?[^:/]+(:\\d+)?$"
+	connectionStringTemplate                  = "mongodb://%s:%s@%s/%s"
+	connectionStringTemplateWithAuthMechanism = "mongodb://%s:%s:%s@%s/%s"
+	connectionStringTemplateWithoutCreds      = "mongodb://%s/%s"
+	int64Size                                 = 64
+	endpointRegex                             = "^(mongodb://)?[^:/]+(:\\d+)?$"
+	iamAuthMechanism                          = "MONGODB-AWS"
 )
 
 // TLSConnectionConfig supplies the options for setting up a TLS based connection to the Mongo DB server
@@ -75,6 +79,7 @@ func (m TLSConnectionConfig) GetTLSConfig() (*tls.Config, error) {
 }
 
 type MongoDriverConfig struct {
+	IAMAuthEnabled  bool   `envconfig:"IAM_AUTH_ENABLED" json:"-"`
 	Username        string `envconfig:"MONGODB_USERNAME"    json:"-"`
 	Password        string `envconfig:"MONGODB_PASSWORD"    json:"-"`
 	ClusterEndpoint string `envconfig:"MONGODB_BIND_ADDR"   json:"-"`
@@ -110,10 +115,18 @@ func (m *MongoDriverConfig) GetConnectionURI() (string, error) {
 
 	endpoint = strings.TrimPrefix(endpoint, "mongodb://")
 
-	if len(m.Password) > 0 && len(m.Username) > 0 {
-		connectionString = fmt.Sprintf(connectionStringTemplate, m.Username, m.Password, endpoint, m.Database)
+	if m.IAMAuthEnabled {
+		username, password, err := GetIAMCredentials()
+		if err != nil {
+			return "", err
+		}
+		connectionString = fmt.Sprintf(connectionStringTemplateWithAuthMechanism, iamAuthMechanism, username, password, endpoint, m.Database)
 	} else {
-		connectionString = fmt.Sprintf(connectionStringTemplateWithoutCreds, endpoint, m.Database)
+		if len(m.Password) > 0 && len(m.Username) > 0 {
+			connectionString = fmt.Sprintf(connectionStringTemplate, m.Username, m.Password, endpoint, m.Database)
+		} else {
+			connectionString = fmt.Sprintf(connectionStringTemplateWithoutCreds, endpoint, m.Database)
+		}
 	}
 
 	if m.ReplicaSet != "" {
@@ -126,6 +139,22 @@ func (m *MongoDriverConfig) GetConnectionURI() (string, error) {
 	}
 
 	return connectionString, nil
+}
+
+func GetIAMCredentials() (username, password string, err error) {
+	ctx := context.TODO()
+	// Load the Shared AWS Configuration (~/.aws/config)
+	cfg, err := config.LoadDefaultConfig(ctx)
+	if err != nil {
+		return "", "", err
+	}
+
+	creds, err := cfg.Credentials.Retrieve(ctx)
+	if err != nil {
+		return "", "", err
+	}
+
+	return creds.AccessKeyID, creds.SecretAccessKey, err
 }
 
 func Open(m *MongoDriverConfig) (*MongoConnection, error) {
