@@ -101,7 +101,7 @@ func (m *MongoDriverConfig) ActualCollectionName(wellKnownName string) string {
 	return m.Collections[wellKnownName]
 }
 
-func (m *MongoDriverConfig) GetConnectionURI() (string, error) {
+func (m *MongoDriverConfig) GetConnectionURI(ctx context.Context) (string, error) {
 	var connectionString string
 	endpoint := m.ClusterEndpoint
 
@@ -116,7 +116,7 @@ func (m *MongoDriverConfig) GetConnectionURI() (string, error) {
 	endpoint = strings.TrimPrefix(endpoint, "mongodb://")
 
 	if m.IAMAuthEnabled {
-		username, password, err := GetIAMCredentials()
+		username, password, err := GetIAMCredentials(ctx)
 		if err != nil {
 			return "", err
 		}
@@ -141,8 +141,7 @@ func (m *MongoDriverConfig) GetConnectionURI() (string, error) {
 	return connectionString, nil
 }
 
-func GetIAMCredentials() (username, password string, err error) {
-	ctx := context.TODO()
+func GetIAMCredentials(ctx context.Context) (username, password string, err error) {
 	// Load the Shared AWS Configuration (~/.aws/config)
 	cfg, err := config.LoadDefaultConfig(ctx)
 	if err != nil {
@@ -161,15 +160,16 @@ func Open(m *MongoDriverConfig) (*MongoConnection, error) {
 	if strconv.IntSize < int64Size {
 		return nil, errors.New("cannot use dp-mongodb library when default int size is less than 64 bits")
 	}
+	ctx := context.Background()
 
 	tlsConfig, err := m.GetTLSConfig()
 	if err != nil {
 		errMessage := fmt.Sprintf("Failed getting TLS configuration: %v", err)
-		log.Error(context.Background(), errMessage, err)
+		log.Error(ctx, errMessage, err)
 		return nil, err
 	}
 
-	connectionUri, err := m.GetConnectionURI()
+	connectionUri, err := m.GetConnectionURI(ctx)
 	if err != nil {
 		return nil, err
 	}

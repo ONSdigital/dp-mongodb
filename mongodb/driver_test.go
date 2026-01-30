@@ -196,6 +196,7 @@ func TestMongoTLSConnectionConfig(t *testing.T) {
 }
 
 func TestMongoConnectionConfig_GetConnectionURIWhen(t *testing.T) {
+	ctx := context.Background()
 	Convey("Given a MongoDriverConfig", t, func() {
 		connectionConfig := &mongoDriver.MongoDriverConfig{
 			Database: "test-db",
@@ -209,7 +210,7 @@ func TestMongoConnectionConfig_GetConnectionURIWhen(t *testing.T) {
 				connectionConfig.Password = "test-pass"
 
 				Convey("The connection URI is created correctly", func() {
-					uri, err := connectionConfig.GetConnectionURI()
+					uri, err := connectionConfig.GetConnectionURI(ctx)
 					So(err, ShouldBeNil)
 					So(uri, ShouldEqual, "mongodb://test-user:test-pass@localhost:27017/test-db?directConnection=true")
 				})
@@ -220,7 +221,7 @@ func TestMongoConnectionConfig_GetConnectionURIWhen(t *testing.T) {
 				connectionConfig.Password = ""
 
 				Convey("The connection URI is created correctly", func() {
-					uri, err := connectionConfig.GetConnectionURI()
+					uri, err := connectionConfig.GetConnectionURI(ctx)
 					So(err, ShouldBeNil)
 					So(uri, ShouldEqual, "mongodb://localhost:27017/test-db?directConnection=true")
 				})
@@ -238,7 +239,7 @@ func TestMongoConnectionConfig_GetConnectionURIWhen(t *testing.T) {
 					connectionConfig.ReplicaSet = "repl0"
 
 					Convey("The connection URI is created correctly", func() {
-						uri, err := connectionConfig.GetConnectionURI()
+						uri, err := connectionConfig.GetConnectionURI(ctx)
 						So(err, ShouldBeNil)
 						So(uri, ShouldEqual, "mongodb://test-user:test-pass@localhost:27017/test-db?replicaSet=repl0")
 					})
@@ -252,7 +253,7 @@ func TestMongoConnectionConfig_GetConnectionURIWhen(t *testing.T) {
 				Convey("And a replica set is not set", func() {
 
 					Convey("The connection URI is created correctly", func() {
-						uri, err := connectionConfig.GetConnectionURI()
+						uri, err := connectionConfig.GetConnectionURI(ctx)
 						So(err, ShouldBeNil)
 						So(uri, ShouldEqual, "mongodb://localhost:27017/test-db?directConnection=true")
 					})
@@ -263,7 +264,7 @@ func TestMongoConnectionConfig_GetConnectionURIWhen(t *testing.T) {
 		Convey("When the endpoint uses an invalid scheme", func() {
 			connectionConfig.ClusterEndpoint = "mysql://localhost:27017"
 			Convey("The connection URI returns an error", func() {
-				_, err := connectionConfig.GetConnectionURI()
+				_, err := connectionConfig.GetConnectionURI(ctx)
 				So(err, ShouldNotBeNil)
 				So(err.Error(), ShouldEqual, "invalid mongodb address: mysql://localhost:27017")
 			})
