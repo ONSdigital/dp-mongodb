@@ -6,12 +6,11 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/aws/aws-sdk-go-v2/config"
 
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -20,15 +19,15 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/writeconcern"
 
 	"github.com/ONSdigital/log.go/v2/log"
+	"github.com/hahnicity/go-wget"
 )
 
 const (
-	connectionStringTemplate                  = "mongodb://%s:%s@%s/%s"
-	connectionStringTemplateWithAuthMechanism = "mongodb://%s:%s:%s@%s/%s"
-	connectionStringTemplateWithoutCreds      = "mongodb://%s/%s"
-	int64Size                                 = 64
-	endpointRegex                             = "^(mongodb://)?[^:/]+(:\\d+)?$"
-	iamAuthMechanism                          = "MONGODB-AWS"
+	connectionStringTemplateWithoutCreds = "mongodb://%s/%s"
+	connectionStringTemplateAWS          = "mongodb://%s:%s@%s/migrations?tls=true&replicaSet=rs0&readpreference=%s"
+	connectionStringTemplateStandard     = "mongodb://%s:%s@%s/%s"
+	int64Size                            = 64
+	endpointRegex                        = "^(mongodb://)?[^:/]+(:\\d+)?$"
 )
 
 // TLSConnectionConfig supplies the options for setting up a TLS based connection to the Mongo DB server
@@ -78,8 +77,26 @@ func (m TLSConnectionConfig) GetTLSConfig() (*tls.Config, error) {
 	return tlsConfig, nil
 }
 
+func getCustomTLSConfig(caFile string) (*tls.Config, error) {
+	tlsConfig := new(tls.Config)
+	certs, err := ioutil.ReadFile(caFile)
+
+	if err != nil {
+		return tlsConfig, err
+	}
+
+	tlsConfig.RootCAs = x509.NewCertPool()
+	ok := tlsConfig.RootCAs.AppendCertsFromPEM(certs)
+
+	if !ok {
+		return tlsConfig, errors.New("Failed parsing pem file")
+	}
+
+	return tlsConfig, nil
+}
+
 type MongoDriverConfig struct {
-	IAMAuthEnabled  bool   `envconfig:"IAM_AUTH_ENABLED" json:"-"`
+	ConnectEKS      bool   `envconfig:"CONNECT_EKS" json:"-"`
 	Username        string `envconfig:"MONGODB_USERNAME"    json:"-"`
 	Password        string `envconfig:"MONGODB_PASSWORD"    json:"-"`
 	ClusterEndpoint string `envconfig:"MONGODB_BIND_ADDR"   json:"-"`
@@ -101,124 +118,160 @@ func (m *MongoDriverConfig) ActualCollectionName(wellKnownName string) string {
 	return m.Collections[wellKnownName]
 }
 
-func (m *MongoDriverConfig) GetConnectionURI(ctx context.Context) (string, error) {
-	var connectionString string
-	endpoint := m.ClusterEndpoint
+//func getIAMCredentials(ctx context.Context) (username, password string, err error) {
+//	// Load the Shared AWS Configuration (~/.aws/config)
+//	cfg, err := config.LoadDefaultConfig(ctx)
+//	if err != nil {
+//		return "", "", err
+//	}
+//
+//	creds, err := cfg.Credentials.Retrieve(ctx)
+//	if err != nil {
+//		return "", "", err
+//	}
+//
+//	accessKeyID := creds.AccessKeyID
+//	secretAccessKey := creds.SecretAccessKey
+//	logLine := fmt.Sprintf("The value of username is %s and the password is %s", accessKeyID, secretAccessKey)
+//	log.Info(ctx, logLine)
+//	encodedSecretAccessKey := url.QueryEscape(creds.SecretAccessKey)
+//	logLine = fmt.Sprintf("The encoded password is %s", encodedSecretAccessKey)
+//	log.Info(ctx, logLine)
+//
+//	return creds.AccessKeyID, encodedSecretAccessKey, err
+//}
 
-	matches, err := regexp.MatchString(endpointRegex, endpoint)
-	if err != nil {
-		return "", err
-	}
-	if !matches {
-		return "", fmt.Errorf("invalid mongodb address: %s", endpoint)
-	}
-
-	endpoint = strings.TrimPrefix(endpoint, "mongodb://")
-
-	if m.IAMAuthEnabled {
-		username, password, err := GetIAMCredentials(ctx)
-		if err != nil {
-			return "", err
-		}
-		connectionString = fmt.Sprintf(connectionStringTemplateWithAuthMechanism, iamAuthMechanism, username, password, endpoint, m.Database)
-	} else {
-		if len(m.Password) > 0 && len(m.Username) > 0 {
-			connectionString = fmt.Sprintf(connectionStringTemplate, m.Username, m.Password, endpoint, m.Database)
-		} else {
-			connectionString = fmt.Sprintf(connectionStringTemplateWithoutCreds, endpoint, m.Database)
-		}
-	}
-
-	if m.ReplicaSet != "" {
-		connectionString += fmt.Sprintf("?replicaSet=%s", m.ReplicaSet)
-		if m.DirectConnection {
-			connectionString += "&directConnection=true"
-		}
-	} else {
-		connectionString += "?directConnection=true"
-	}
-
-	return connectionString, nil
-}
-
-func GetIAMCredentials(ctx context.Context) (username, password string, err error) {
-	// Load the Shared AWS Configuration (~/.aws/config)
-	cfg, err := config.LoadDefaultConfig(ctx)
-	if err != nil {
-		return "", "", err
-	}
-
-	creds, err := cfg.Credentials.Retrieve(ctx)
-	if err != nil {
-		return "", "", err
-	}
-
-	return creds.AccessKeyID, creds.SecretAccessKey, err
-}
-
-func Open(m *MongoDriverConfig) (*MongoConnection, error) {
+func Open(ctx context.Context, m *MongoDriverConfig) (*MongoConnection, error) {
 	if strconv.IntSize < int64Size {
 		return nil, errors.New("cannot use dp-mongodb library when default int size is less than 64 bits")
 	}
-	ctx := context.Background()
 
-	tlsConfig, err := m.GetTLSConfig()
-	if err != nil {
-		errMessage := fmt.Sprintf("Failed getting TLS configuration: %v", err)
-		log.Error(ctx, errMessage, err)
-		return nil, err
-	}
-
-	connectionUri, err := m.GetConnectionURI(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	mongoClientOptions := options.Client().
-		ApplyURI(connectionUri).
-		SetTLSConfig(tlsConfig).
-		SetRetryWrites(false)
-
-	if m.IsStrongReadConcernEnabled {
-		// For ensuring strong consistency
-		mongoClientOptions = mongoClientOptions.SetReadPreference(readpref.Primary())
-		// The following is needed for MongoDB but has no effect for DocumentDB
-		mongoClientOptions = mongoClientOptions.SetReadConcern(readconcern.Majority())
-	} else {
-		mongoClientOptions = mongoClientOptions.SetReadPreference(readpref.SecondaryPreferred())
-	}
-
-	if m.IsWriteConcernMajorityEnabled {
-		mongoClientOptions = mongoClientOptions.SetWriteConcern(writeconcern.New(writeconcern.WMajority()))
-	} else {
-		mongoClientOptions = mongoClientOptions.SetWriteConcern(writeconcern.New(writeconcern.W(1)))
-	}
-
+	var connectionString string
 	var client *mongo.Client
-	client, err = mongo.NewClient(mongoClientOptions)
-	if err != nil {
-		errMessage := fmt.Sprintf("Failed to create client: %v", err)
-		log.Error(context.Background(), errMessage, err)
-		return nil, errors.New(errMessage)
+
+	if !m.ConnectEKS {
+		endpoint := m.ClusterEndpoint
+
+		matches, err := regexp.MatchString(endpointRegex, endpoint)
+		if err != nil {
+			return nil, err
+		}
+		if !matches {
+			return nil, fmt.Errorf("invalid mongodb address: %s", endpoint)
+		}
+
+		endpoint = strings.TrimPrefix(endpoint, "mongodb://")
+
+		if len(m.Password) > 0 && len(m.Username) > 0 {
+			connectionString = fmt.Sprintf(connectionStringTemplateStandard, m.Username, m.Password, endpoint, m.Database)
+			logLine := fmt.Sprintf("The standard connection string is %s", connectionString)
+			log.Info(ctx, logLine)
+		} else {
+			connectionString = fmt.Sprintf(connectionStringTemplateWithoutCreds, endpoint, m.Database)
+			logLine := fmt.Sprintf("The connection string without credentials is %s", connectionString)
+			log.Info(ctx, logLine)
+		}
+
+		if m.ReplicaSet != "" {
+			connectionString += fmt.Sprintf("?replicaSet=%s", m.ReplicaSet)
+			if m.DirectConnection {
+				connectionString += "&directConnection=true"
+			}
+		} else {
+			connectionString += "?directConnection=true"
+		}
+
+		tlsConfig, err := m.GetTLSConfig()
+		if err != nil {
+			errMessage := fmt.Sprintf("Failed getting TLS configuration: %v", err)
+			log.Error(ctx, errMessage, err)
+			return nil, err
+		}
+
+		mongoClientOptions := options.Client().
+			ApplyURI(connectionString).
+			SetTLSConfig(tlsConfig).
+			SetRetryWrites(false)
+
+		if m.IsStrongReadConcernEnabled {
+			// For ensuring strong consistency
+			mongoClientOptions = mongoClientOptions.SetReadPreference(readpref.Primary())
+			// The following is needed for MongoDB but has no effect for DocumentDB
+			mongoClientOptions = mongoClientOptions.SetReadConcern(readconcern.Majority())
+		} else {
+			mongoClientOptions = mongoClientOptions.SetReadPreference(readpref.SecondaryPreferred())
+		}
+
+		if m.IsWriteConcernMajorityEnabled {
+			mongoClientOptions = mongoClientOptions.SetWriteConcern(writeconcern.New(writeconcern.WMajority()))
+		} else {
+			mongoClientOptions = mongoClientOptions.SetWriteConcern(writeconcern.New(writeconcern.W(1)))
+		}
+
+		client, err = mongo.NewClient(mongoClientOptions)
+		if err != nil {
+			errMessage := fmt.Sprintf("Failed to create client: %v", err)
+			log.Error(context.Background(), errMessage, err)
+			return nil, errors.New(errMessage)
+		}
+
+		connectionCtx, cancel := context.WithTimeout(context.Background(), m.ConnectTimeout)
+		defer cancel()
+
+		err = client.Connect(connectionCtx)
+		if err != nil {
+			errMessage := fmt.Sprintf("Failed to connect to cluster: %v", err)
+			log.Error(context.Background(), errMessage, err)
+			return nil, errors.New(errMessage)
+		}
+
+		// Force a connection to verify our connection string
+		err = client.Ping(connectionCtx, nil)
+		if err != nil {
+			errMessage := fmt.Sprintf("Failed to ping cluster: %v", err)
+			log.Error(context.Background(), errMessage, err)
+			return nil, errors.New(errMessage)
+		}
+		fmt.Println("Connected to DocumentDB using legacy settings!")
+	} else {
+		// Path to the AWS CA file
+		caFilePath := "global-bundle.pem"
+		wget.Wget("https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem", caFilePath)
+
+		// Timeout operations after N seconds
+		//connectTimeout := 5
+		readPreference := "secondaryPreferred"
+		connectionString := fmt.Sprintf(connectionStringTemplateAWS, m.Username, m.Password, m.ClusterEndpoint, readPreference)
+		logLine := fmt.Sprintf("The connection string from EKS is %s", connectionString)
+		log.Info(ctx, logLine)
+
+		tlsConfig, err := getCustomTLSConfig(caFilePath)
+		if err != nil {
+			log.Fatal(ctx, "failed getting TLS configuration", err)
+		}
+
+		client, err := mongo.NewClient(options.Client().ApplyURI(connectionString).SetTLSConfig(tlsConfig))
+		if err != nil {
+			log.Fatal(ctx, "failed to create client", err)
+		}
+
+		var timeout time.Duration
+		timeout = 5 * time.Second
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+
+		err = client.Connect(ctx)
+		if err != nil {
+			log.Fatal(ctx, "failed to connect to cluster", err)
+		}
+
+		// Force a connection to verify our connection string
+		err = client.Ping(ctx, nil)
+		if err != nil {
+			log.Fatal(ctx, "failed to ping cluster", err)
+		}
+
+		fmt.Println("Connected to DocumentDB using EKS settings!")
 	}
-
-	connectionCtx, cancel := context.WithTimeout(context.Background(), m.ConnectTimeout)
-	defer cancel()
-
-	err = client.Connect(connectionCtx)
-	if err != nil {
-		errMessage := fmt.Sprintf("Failed to connect to cluster: %v", err)
-		log.Error(context.Background(), errMessage, err)
-		return nil, errors.New(errMessage)
-	}
-
-	// Force a connection to verify our connection string
-	err = client.Ping(connectionCtx, nil)
-	if err != nil {
-		errMessage := fmt.Sprintf("Failed to ping cluster: %v", err)
-		log.Error(context.Background(), errMessage, err)
-		return nil, errors.New(errMessage)
-	}
-
 	return NewMongoConnection(client, m.Database), nil
 }
