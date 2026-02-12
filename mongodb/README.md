@@ -58,4 +58,4 @@ Then you can connect using the following code or similar:
 	log.Info(ctx, "Pong from mongo test!")
 ```
 
-There's an example of a mongo test like this in the dis-test-eks-app.
+There's an example of a mongo test like this in the [dis-test-eks-app](https://github.com/ONSdigital/dis-test-eks-app)
