@@ -12,6 +12,10 @@ Using brew, type brew install mongo or the latest binaries can be downloaded [he
 
 Follow instructions from mongo db [manual](https://docs.mongodb.com/manual/tutorial/install-mongodb-on-os-x/#run-mongodb)
 
+### Connecting to mongo
+
+Follow instructions here: [connect](https://github.com/ONSdigital/dp-mongodb/blob/main/mongodb/README.md/#how-to-connect-to-documentDB)
+
 ## health package
 
 The mongo checker function currently pings the mongo client, and checks that all collections given when the checker was created, actually exist.
