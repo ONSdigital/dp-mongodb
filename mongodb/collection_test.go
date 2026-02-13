@@ -676,6 +676,41 @@ func TestCollectionSuite(t *testing.T) {
 					So(res, ShouldResemble, []TestModel{{ID: 1, State: "first"}, {ID: 2, State: "second"}, {ID: 3, State: "second"}})
 				})
 			})
+
+			Convey("Setup with data for testing Collation functionality", func() {
+				testData := []TestModel{{ID: 1, State: "first"}, {ID: 2, State: "second"}, {ID: 3, State: "Third"}}
+
+				if err := setUpTestData(ctx, conn, collection, testData); err != nil {
+					t.Fatalf("failed to insert test data, skipping tests: %v", err)
+				}
+
+				Convey("check data in original state", func() {
+					res := []TestModel{}
+
+					err := queryCursor(conn, collection, bson.M{}, &res)
+					So(err, ShouldBeNil)
+					So(res, ShouldResemble, testData)
+				})
+
+				Convey("Check sort with no collation set is upper case then lower case", func() {
+					res := []TestModel{}
+
+					n, err := conn.Collection(collection).Find(context.Background(), bson.M{}, &res, mongoDriver.Sort(bson.M{"state": 1}))
+					So(err, ShouldBeNil)
+					So(n, ShouldEqual, 3)
+					So(res, ShouldResemble, []TestModel{{ID: 3, State: "Third"}, {ID: 1, State: "first"}, {ID: 2, State: "second"}})
+				})
+
+				Convey("Check sort with collation strength 2 is case insensitive", func() {
+					res := []TestModel{}
+
+					n, err := conn.Collection(collection).Find(context.Background(), bson.M{}, &res, mongoDriver.Sort(bson.M{"state": 1}), mongoDriver.Collation(&options.Collation{Locale: "en", Strength: 2}))
+					So(err, ShouldBeNil)
+					So(n, ShouldEqual, 3)
+					So(res, ShouldResemble, []TestModel{{ID: 1, State: "first"}, {ID: 2, State: "second"}, {ID: 3, State: "Third"}})
+
+				})
+			})
 		})
 	})
 }

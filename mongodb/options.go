@@ -17,6 +17,7 @@ var (
 	}
 	Projection     = func(p interface{}) FindOption { return func(f *findOptions) { f.projection = p } }
 	ReturnDocument = func(when options.ReturnDocument) FindOption { return func(f *findOptions) { f.returnDocument = when } }
+	Collation      = func(c *options.Collation) FindOption { return func(f *findOptions) { f.collation = c } }
 
 	IgnoreZeroLimit = func() FindOption { return func(f *findOptions) { f.obeyZeroLimit = false } }
 )
@@ -28,6 +29,7 @@ type findOptions struct {
 	sort           interface{}
 	projection     interface{}
 	obeyZeroLimit  bool
+	collation      *options.Collation
 }
 
 func newFindOptions(opts ...FindOption) *findOptions {
@@ -40,7 +42,7 @@ func newFindOptions(opts ...FindOption) *findOptions {
 }
 
 func (fo findOptions) asDriverFindOption() *options.FindOptions {
-	return options.Find().SetSort(fo.sort).SetSkip(fo.skip).SetLimit(fo.limit).SetProjection(fo.projection)
+	return options.Find().SetSort(fo.sort).SetSkip(fo.skip).SetLimit(fo.limit).SetProjection(fo.projection).SetCollation(fo.collation)
 }
 
 func (fo findOptions) asDriverFindOneOption() *options.FindOneOptions {
