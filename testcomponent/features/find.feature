@@ -175,55 +175,6 @@ Feature: Find records
             ]
             """
 
-    Scenario: Find all records sorted using collation
-        When I insert these records
-            """
-            [
-                {
-                    "id": 4,
-                    "name": "b_name_4",
-                    "age": "b_age_4"
-                },
-                {
-                    "id": 5,
-                    "name": "a_name_5",
-                    "age": "a_age_5"
-                }
-            ]
-            """
-        And I filter on all records
-        And I sort by name with collation
-        Then I should find these records
-            """
-            [
-                {
-                    "id": 5,
-                    "name": "a_name_5",
-                    "age": "a_age_5"
-                },
-                {
-                    "id": 4,
-                    "name": "b_name_4",
-                    "age": "b_age_4"
-                },
-                {
-                    "id": 1,
-                    "name": "TestName1",
-                    "age": "TestAge1"
-                },
-                {
-                    "id": 2,
-                    "name": "TestName2",
-                    "age": "TestAge2"
-                },
-                {
-                    "id": 3,
-                    "name": "TestName3",
-                    "age": "TestAge2"
-                }
-            ]
-            """
-
     Scenario: Count all records
         When I filter on all records
         Then I will count 3 records

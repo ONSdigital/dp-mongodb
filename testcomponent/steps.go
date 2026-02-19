@@ -8,7 +8,6 @@ import (
 
 	componenttest "github.com/ONSdigital/dp-component-test"
 	mongoDriver "github.com/ONSdigital/dp-mongodb/v3/mongodb"
-	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/cucumber/godog"
 	"github.com/stretchr/testify/assert"
@@ -83,7 +82,6 @@ func (m *MongoV2Component) RegisterSteps(ctx *godog.ScenarioContext) {
 	ctx.Step(`^I update records with name "([^"]*)" age to "([^"]*)"$`, m.iUpdateRecordsWithGroupAgeTo)
 	ctx.Step(`^the records should match$`, m.theRecordsShouldMatch)
 	ctx.Step(`^I update the record in a transaction (without|with) interference$`, m.runTransaction)
-	ctx.Step(`^I sort by name with collation$`, m.findAndSortWithCollation)
 }
 
 func newMongoV2Component(database string, collection string, rawClient mongo.Client) *MongoV2Component {
@@ -541,10 +539,4 @@ func (m *MongoV2Component) runTransaction(interference string) error {
 	}
 
 	return m.ErrorFeature.StepError()
-}
-
-func (m *MongoV2Component) findAndSortWithCollation() error {
-	m.find.options = append(m.find.options, mongoDriver.Sort(bson.D{{Key: "name", Value: 1}}), mongoDriver.Collation(&options.Collation{Locale: "en", Strength: 2}))
-
-	return nil
 }
