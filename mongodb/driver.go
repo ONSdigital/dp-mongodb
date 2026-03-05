@@ -38,7 +38,7 @@ const (
 type TLSConnectionConfig struct {
 	IsSSL              bool   `envconfig:"MONGODB_IS_SSL"`
 	VerifyCert         bool   `envconfig:"MONGODB_VERIFY_CERT"`
-	CACertChain        string `envconfig:"MONGODB_CERT_CHAIN"`
+	CACertChain        string `envconfig:"MONGODB_CERT_CHAIN" json:"-"`
 	RealHostnameForSSH string `envconfig:"MONGODB_REAL_HOSTNAME"`
 }
 
