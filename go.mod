@@ -2,6 +2,8 @@ module github.com/ONSdigital/dp-mongodb/v3
 
 go 1.24.0
 
+retract v3.12.0 // Retracted due to incompatibility with docdb version
+
 require (
 	github.com/ONSdigital/dp-component-test v1.2.3-alpha
 	github.com/ONSdigital/dp-healthcheck v1.6.4
